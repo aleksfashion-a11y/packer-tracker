@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Складской учёт</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Oswald:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #1B1F24; color: #EDEFF0; font-family: 'Inter', sans-serif; }
+  .stripe { height: 6px; background: repeating-linear-gradient(45deg, #F2A33B 0 10px, #1B1F24 10px 20px); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 24px 20px 60px; }
+  .display { font-family: 'Oswald', sans-serif; }
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+  header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
+  .title { font-size: 26px; font-weight: 700; letter-spacing: 0.02em; }
+  .subtitle { font-size: 12px; color: #8D97A0; margin-top: 2px; }
+  .badge { display: flex; align-items: center; gap: 8px; background: #262B31; border: 1px solid #3A424B; border-radius: 999px; padding: 6px 6px 6px 14px; }
+  .btn { cursor: pointer; border: 1px solid #3A424B; background: #262B31; color: #EDEFF0; border-radius: 8px; padding: 10px 14px; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; }
+  .btn:hover { background: #2C333B; border-color: #4B545E; }
+  .btn:active { transform: scale(0.98); }
+  .btn-accent { background: #F2A33B; border-color: #F2A33B; color: #241705; }
+  .btn-accent:hover { background: #F5B457; }
+  .btn-danger { background: transparent; border-color: #4B545E; color: #E2604F; }
+  .btn-danger:hover { background: rgba(226,96,79,0.12); }
+  .btn-sm { padding: 6px 10px; font-size: 12px; }
+  input, select { background: #1F2429; border: 1px solid #3A424B; color: #EDEFF0; border-radius: 8px; padding: 9px 11px; font-family: 'Inter', sans-serif; font-size: 14px; }
+  input:focus, select:focus { outline: none; border-color: #F2A33B; }
+  input::placeholder { color: #6C747C; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 9px 8px; font-size: 13px; }
+  th { color: #8D97A0; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; border-bottom: 1px solid #3A424B; }
+  td { border-bottom: 1px solid #262B31; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 22px; border-bottom: 1px solid #262B31; }
+  .tab { background: none; border: none; cursor: pointer; padding: 10px 4px; margin-right: 22px; font-size: 14px; font-weight: 500; color: #8D97A0; border-bottom: 2px solid transparent; }
+  .tab.active { color: #F2A33B; border-bottom: 2px solid #F2A33B; }
+  .section-label { font-size: 13px; color: #8D97A0; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+  .card { background: #262B31; border: 1px solid #3A424B; border-radius: 10px; padding: 14px; }
+  .grid-log { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
+  .grid-settings { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 760px) { .grid-log, .grid-settings { grid-template-columns: 1fr; } }
+  .prod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 28px; }
+  .prod-card { background: #262B31; border: 1px solid #3A424B; border-radius: 10px; padding: 14px; }
+  .row-between { display: flex; justify-content: space-between; align-items: baseline; }
+  .qty-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+  .qty-input { width: 50px; text-align: center; }
+  .manifest { background: #20252A; border: 1px solid #3A424B; border-radius: 10px; overflow: hidden; }
+  .perf { height: 8px; background: repeating-linear-gradient(90deg, #3A424B 0 6px, transparent 6px 12px); }
+  .manifest-body { padding: 16px 18px; }
+  .entry-list { max-height: 280px; overflow-y: auto; margin-bottom: 12px; }
+  .entry-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 6px 0; border-bottom: 1px dashed #2C333B; }
+  .totals { border-top: 1px dashed #3A424B; padding-top: 10px; }
+  .total-row { display: flex; justify-content: space-between; font-size: 13px; color: #8D97A0; margin-bottom: 4px; }
+  .grand-total { display: flex; justify-content: space-between; align-items: baseline; font-size: 22px; font-weight: 700; color: #F2A33B; }
+  .emp-picker { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 24px; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #F2A33B; color: #241705; padding: 10px 18px; border-radius: 8px; font-weight: 600; font-size: 14px; box-shadow: 0 4px 16px rgba(0,0,0,0.3); display: none; }
+  .settings-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid #2C333B; }
+  .muted { color: #6C747C; font-size: 13px; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: #3A424B; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="stripe"></div>
+<div class="wrap" id="app">Загрузка...</div>
+<div class="toast" id="toast"></div>
+
+<script>
+let state = { employees: [], products: [], entries: [], settings: { currency: "₽" } };
+let currentId = null;
+let tab = "log";
+let managerView = false;
+let qtyMap = {};
+let editEmpId = null, editProdId = null;
+
+async function api(url, opts) {
+  const res = await fetch(url, opts);
+  return res.json();
+}
+async function refresh() {
+  state = await api("/api/state");
+  render();
+}
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function fmtDate(d) {
+  const dt = new Date(d + "T00:00:00");
+  return dt.toLocaleDateString("ru-RU", { day: "2-digit", month: "short" });
+}
+function money(n) {
+  return Math.round(n).toLocaleString("ru-RU") + " " + (state.settings.currency || "₽");
+}
+function entryAmount(e) {
+  return e.type === "piece" ? e.qty * e.unitPrice : e.hours * e.rate;
+}
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.display = "block";
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => (t.style.display = "none"), 2200);
+}
+
+async function addPieceEntry(product) {
+  if (!currentId) return;
+  const qty = qtyMap[product.id] || 1;
+  await api("/api/entries", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "piece", employeeId: currentId, productId: product.id, productName: product.name, unitPrice: product.price, qty, date: todayStr() })
+  });
+  showToast("+" + qty + " × " + product.name);
+  await refresh();
+}
+async function addHourEntry() {
+  const emp = state.employees.find((e) => e.id === currentId);
+  const hInput = document.getElementById("hoursInput");
+  const dInput = document.getElementById("hoursDate");
+  const h = parseFloat((hInput.value || "").replace(",", "."));
+  if (!emp || !h || h <= 0) return;
+  await api("/api/entries", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "hour", employeeId: currentId, rate: emp.hourlyRate, hours: h, date: dInput.value || todayStr() })
+  });
+  hInput.value = "";
+  showToast("Смена " + h + " ч добавлена");
+  await refresh();
+}
+async function deleteEntry(id) {
+  await api("/api/entries/" + id, { method: "DELETE" });
+  await refresh();
+}
+async function addEmployee() {
+  const name = document.getElementById("newEmpName").value.trim();
+  const rate = parseFloat((document.getElementById("newEmpRate").value || "0").replace(",", "."));
+  if (!name) return;
+  await api("/api/employees", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, hourlyRate: rate || 0 }) });
+  await refresh();
+}
+async function removeEmployee(id) {
+  await api("/api/employees/" + id, { method: "DELETE" });
+  if (currentId === id) currentId = null;
+  await refresh();
+}
+async function saveEditEmp(id) {
+  const name = document.getElementById("editEmpName_" + id).value;
+  const rate = parseFloat((document.getElementById("editEmpRate_" + id).value || "0").replace(",", "."));
+  await api("/api/employees/" + id, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, hourlyRate: rate || 0 }) });
+  editEmpId = null;
+  await refresh();
+}
+async function addProduct() {
+  const name = document.getElementById("newProdName").value.trim();
+  const price = parseFloat((document.getElementById("newProdPrice").value || "0").replace(",", "."));
+  if (!name) return;
+  await api("/api/products", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, price: price || 0 }) });
+  await refresh();
+}
+async function removeProduct(id) {
+  await api("/api/products/" + id, { method: "DELETE" });
+  await refresh();
+}
+async function saveEditProd(id) {
+  const name = document.getElementById("editProdName_" + id).value;
+  const price = parseFloat((document.getElementById("editProdPrice_" + id).value || "0").replace(",", "."));
+  await api("/api/products/" + id, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, price: price || 0 }) });
+  editProdId = null;
+  await refresh();
+}
+async function saveCurrency(val) {
+  await api("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ currency: val }) });
+  await refresh();
+}
+
+function settingsBlockHTML() {
+  return '<div class="grid-settings">' +
+    '<div><div class="section-label">Сотрудники</div><div class="card">' +
+      state.employees.map((e) => {
+        if (editEmpId === e.id) {
+          return '<div class="settings-row"><input id="editEmpName_' + e.id + '" value="' + e.name + '" style="flex:1"/>' +
+            '<input class="mono" id="editEmpRate_' + e.id + '" value="' + e.hourlyRate + '" style="width:80px"/>' +
+            '<button class="btn btn-accent btn-sm" onclick="saveEditEmp(\\'' + e.id + '\\')">OK</button></div>';
+        }
+        return '<div class="settings-row"><span style="flex:1;font-size:14px">' + e.name + '</span>' +
+          '<span class="mono muted">' + e.hourlyRate + '/ч</span>' +
+          '<button class="btn btn-sm" onclick="editEmpId=\\'' + e.id + '\\';render()">Изм.</button>' +
+          '<button class="btn btn-danger btn-sm" onclick="removeEmployee(\\'' + e.id + '\\')">✕</button></div>';
+      }).join("") +
+      '<div style="display:flex;gap:8px;margin-top:12px">' +
+        '<input id="newEmpName" placeholder="Имя" style="flex:1"/>' +
+        '<input id="newEmpRate" placeholder="Ставка/ч" style="width:90px"/>' +
+        '<button class="btn btn-accent" onclick="addEmployee()">+</button></div>' +
+    '</div></div>' +
+    '<div><div class="row-between" style="margin-bottom:10px"><div class="section-label" style="margin-bottom:0">Товары</div>' +
+      '<div style="display:flex;align-items:center;gap:6px"><span class="muted">Валюта</span>' +
+      '<input value="' + (state.settings.currency || "₽") + '" style="width:48px;padding:4px 6px;text-align:center" onchange="saveCurrency(this.value)"/></div></div>' +
+      '<div class="card">' +
+      state.products.map((p) => {
+        if (editProdId === p.id) {
+          return '<div class="settings-row"><input id="editProdName_' + p.id + '" value="' + p.name + '" style="flex:1"/>' +
+            '<input class="mono" id="editProdPrice_' + p.id + '" value="' + p.price + '" style="width:80px"/>' +
+            '<button class="btn btn-accent btn-sm" onclick="saveEditProd(\\'' + p.id + '\\')">OK</button></div>';
+        }
+        return '<div class="settings-row"><span style="flex:1;font-size:14px">' + p.name + '</span>' +
+          '<span class="mono muted">' + p.price + ' ' + (state.settings.currency || "₽") + '</span>' +
+          '<button class="btn btn-sm" onclick="editProdId=\\'' + p.id + '\\';render()">Изм.</button>' +
+          '<button class="btn btn-danger btn-sm" onclick="removeProduct(\\'' + p.id + '\\')">✕</button></div>';
+      }).join("") +
+      '<div style="display:flex;gap:8px;margin-top:12px">' +
+        '<input id="newProdName" placeholder="Название" style="flex:1"/>' +
+        '<input id="newProdPrice" placeholder="Цена" style="width:90px"/>' +
+        '<button class="btn btn-accent" onclick="addProduct()">+</button></div>' +
+    '</div></div></div>';
+}
+
+function render() {
+  const app = document.getElementById("app");
+  const emp = state.employees.find((e) => e.id === currentId);
+  const dateStr = new Date().toLocaleDateString("ru-RU", { weekday: "long", day: "2-digit", month: "long" });
+
+  let headerHTML = '<header><div><div class="title display">СКЛАДСКОЙ УЧЁТ</div><div class="subtitle mono">' + dateStr + '</div></div>';
+  if (emp) {
+    headerHTML += '<div class="badge"><span style="font-size:13px;color:#8D97A0">Сотрудник:</span><span style="font-weight:600;font-size:14px">' + emp.name + '</span>' +
+      '<button class="btn" style="padding:6px 10px;border-radius:999px;font-size:12px" onclick="currentId=null;render()">Сменить</button></div>';
+  }
+  headerHTML += '</header>';
+
+  if (!emp) {
+    let picker = '<div class="muted" style="margin-bottom:14px">Выберите своё имя, чтобы начать вести учёт:</div><div class="emp-picker">';
+    picker += state.employees.map((e) => '<button class="btn" style="padding:16px 22px;font-size:16px" onclick="currentId=\\'' + e.id + '\\';tab=\\'log\\';render()">' + e.name + '</button>').join("");
+    if (state.employees.length === 0) picker += '<div class="muted">Сотрудников пока нет. Добавьте в настройках ниже.</div>';
+    picker += '</div>';
+    app.innerHTML = headerHTML + picker + settingsBlockHTML();
+    return;
+  }
+
+  const todaysEntries = state.entries.filter((e) => e.employeeId === currentId && e.date === todayStr()).sort((a, b) => b.timestamp - a.timestamp);
+  const piece = todaysEntries.filter((e) => e.type === "piece").reduce((s, e) => s + entryAmount(e), 0);
+  const hour = todaysEntries.filter((e) => e.type === "hour").reduce((s, e) => s + entryAmount(e), 0);
+
+  let tabsHTML = '<div class="tabs">' +
+    ['log', 'history', 'settings'].map((k) => {
+      const label = k === "log" ? "Учёт" : k === "history" ? "История" : "Настройки";
+      return '<button class="tab' + (tab === k ? ' active' : '') + '" onclick="tab=\\'' + k + '\\';render()">' + label + '</button>';
+    }).join("") + '</div>';
+
+  let body = "";
+  if (tab === "log") {
+    let prodCards = state.products.map((p) => {
+      const qty = qtyMap[p.id] || 1;
+      return '<div class="prod-card"><div class="row-between" style="margin-bottom:10px"><div style="font-weight:600;font-size:15px">' + p.name + '</div>' +
+        '<div class="mono" style="color:#F2A33B;font-size:13px">' + money(p.price) + '</div></div>' +
+        '<div class="qty-row"><button class="btn" style="padding:6px 12px" onclick="qtyMap[\\'' + p.id + '\\']=Math.max(1,(qtyMap[\\'' + p.id + '\\']||1)-1);render()">-</button>' +
+        '<input class="mono qty-input" value="' + qty + '" onchange="qtyMap[\\'' + p.id + '\\']=Math.max(1,parseInt(this.value)||1);render()"/>' +
+        '<button class="btn" style="padding:6px 12px" onclick="qtyMap[\\'' + p.id + '\\']=(qtyMap[\\'' + p.id + '\\']||1)+1;render()">+</button>' +
+        '<button class="btn btn-accent" style="margin-left:auto;padding:8px 14px" onclick="addPieceEntry(' + JSON.stringify(p).replace(/"/g, "&quot;") + ')">Добавить</button></div></div>';
+    }).join("");
+    if (state.products.length === 0) prodCards = '<div class="muted">Товаров пока нет — добавьте во вкладке Настройки.</div>';
+
+    const manifestRows = todaysEntries.map((e) =>
+      '<div class="entry-row"><span style="color:#C7CDD3">' + (e.type === "piece" ? e.qty + '× ' + e.productName : "Смена " + e.hours + "ч") + '</span>' +
+      '<span style="display:flex;align-items:center;gap:8px"><span>' + money(entryAmount(e)) + '</span>' +
+      '<button onclick="deleteEntry(\\'' + e.id + '\\')" style="background:none;border:none;color:#6C747C;cursor:pointer;font-size:15px;line-height:1" title="Удалить">×</button></span></div>'
+    ).join("") || '<div class="muted" style="padding:8px 0">Пока ничего не добавлено.</div>';
+
+    body = '<div class="grid-log"><div>' +
+      '<div class="section-label">Упаковано</div><div class="prod-grid">' + prodCards + '</div>' +
+      '<div class="section-label">Отработанные часы</div>' +
+      '<div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+      '<input type="date" id="hoursDate" value="' + todayStr() + '"/>' +
+      '<input id="hoursInput" placeholder="Часы, напр. 8" style="width:130px"/>' +
+      '<span class="mono muted">× ' + money(emp.hourlyRate) + '/ч</span>' +
+      '<button class="btn btn-accent" style="margin-left:auto" onclick="addHourEntry()">Добавить смену</button></div>' +
+      '</div>' +
+      '<div><div class="section-label">Сводка за сегодня</div><div class="manifest"><div class="perf"></div>' +
+      '<div class="manifest-body"><div class="mono" style="font-size:12px;color:#6C747C;margin-bottom:10px">' + emp.name.toUpperCase() + '</div>' +
+      '<div class="entry-list">' + manifestRows + '</div>' +
+      '<div class="totals"><div class="total-row"><span>Сдельная</span><span>' + money(piece) + '</span></div>' +
+      '<div class="total-row" style="margin-bottom:10px"><span>Почасовая</span><span>' + money(hour) + '</span></div>' +
+      '<div class="grand-total"><span style="font-size:14px;font-family:Inter">ИТОГО</span><span class="mono">' + money(piece + hour) + '</span></div>' +
+      '</div></div><div class="perf"></div></div></div></div>';
+  } else if (tab === "history") {
+    let toggle = '<label style="display:flex;align-items:center;gap:8px;margin-bottom:16px;font-size:13px;color:#8D97A0">' +
+      '<input type="checkbox" ' + (managerView ? "checked" : "") + ' onchange="managerView=this.checked;render()" style="width:16px;height:16px;padding:0"/>' +
+      'Показать всех сотрудников (вид менеджера)</label>';
+    if (managerView) {
+      const rows = state.employees.map((e) => {
+        const own = state.entries.filter((x) => x.employeeId === e.id);
+        const p = own.filter((x) => x.type === "piece").reduce((s, x) => s + entryAmount(x), 0);
+        const h = own.filter((x) => x.type === "hour").reduce((s, x) => s + entryAmount(x), 0);
+        const totalHours = own.filter((x) => x.type === "hour").reduce((s, x) => s + x.hours, 0);
+        const totalPieces = own.filter((x) => x.type === "piece").reduce((s, x) => s + x.qty, 0);
+        return '<tr><td style="font-weight:500">' + e.name + '</td><td class="mono">' + totalPieces + '</td><td class="mono">' + money(p) + '</td>' +
+          '<td class="mono">' + totalHours + '</td><td class="mono">' + money(h) + '</td>' +
+          '<td class="mono" style="color:#F2A33B;font-weight:600">' + money(p + h) + '</td></tr>';
+      }).join("");
+      body = toggle + '<div style="overflow-x:auto"><table><thead><tr><th>Сотрудник</th><th>Штук</th><th>Сдельная</th><th>Часы</th><th>Почасовая</th><th>Итого</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    } else {
+      const mine = state.entries.filter((e) => e.employeeId === currentId).sort((a, b) => b.timestamp - a.timestamp);
+      const rows = mine.map((e) =>
+        '<tr><td class="mono">' + fmtDate(e.date) + '</td><td>' + (e.type === "piece" ? e.productName : "Смена (часы)") + '</td>' +
+        '<td class="mono">' + (e.type === "piece" ? e.qty : e.hours + " ч") + '</td><td class="mono">' + money(entryAmount(e)) + '</td>' +
+        '<td><button class="btn btn-danger btn-sm" onclick="deleteEntry(\\'' + e.id + '\\')">Удалить</button></td></tr>'
+      ).join("") || '<tr><td colspan="5" class="muted">Записей пока нет.</td></tr>';
+      body = toggle + '<div style="overflow-x:auto"><table><thead><tr><th>Дата</th><th>Запись</th><th>Кол-во</th><th>Сумма</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    }
+  } else if (tab === "settings") {
+    body = settingsBlockHTML();
+  }
+
+  app.innerHTML = headerHTML + tabsHTML + body;
+}
+
+refresh();
+</script>
+</body>
+</html>
