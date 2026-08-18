@@ -1,120 +1,60 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
-const os = require("os");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DATA_DIR = process.env.DATA_DIR || path.join(os.tmpdir(), "packer-tracker-data");
-const DATA_FILE = path.join(DATA_DIR, "data.json");
+const DATA_DIR = process.env.DATA_DIR || path.join(require("os").tmpdir(), "packer-tracker-data");
+const STORE_FILE = path.join(DATA_DIR, "store.json");
 
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-}
-
-function loadData() {
-  if (!fs.existsSync(DATA_FILE)) {
-    const initial = {
-      employees: [{ id: uid(), name: "Иван", hourlyRate: 250 }],
-      products: [
-        { id: uid(), name: "Коробка S", price: 15 },
-        { id: uid(), name: "Коробка M", price: 25 },
-        { id: uid(), name: "Коробка L", price: 40 },
-      ],
-      entries: [],
-      settings: { currency: "₽" },
-    };
-    fs.writeFileSync(DATA_FILE, JSON.stringify(initial, null, 2));
-    return initial;
-  }
+function loadStore() {
+  if (!fs.existsSync(STORE_FILE)) return {};
   try {
-    return JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
+    return JSON.parse(fs.readFileSync(STORE_FILE, "utf-8"));
   } catch (e) {
-    return { employees: [], products: [], entries: [], settings: { currency: "₽" } };
+    return {};
   }
 }
-
-function saveData(data) {
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+function saveStore(store) {
+  fs.writeFileSync(STORE_FILE, JSON.stringify(store));
 }
 
-app.use(express.json());
+app.use(express.json({ limit: "15mb" }));
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/api/state", (req, res) => {
-  res.json(loadData());
+// GET /api/kv?prefix=xxx  -> list keys
+// GET /api/kv/:key        -> get one value
+app.get("/api/kv", (req, res) => {
+  const store = loadStore();
+  const prefix = req.query.prefix || "";
+  const keys = Object.keys(store).filter((k) => k.startsWith(prefix));
+  res.json({ keys, prefix, shared: true });
 });
 
-app.post("/api/employees", (req, res) => {
-  const data = loadData();
-  const emp = { id: uid(), name: req.body.name, hourlyRate: Number(req.body.hourlyRate) || 0 };
-  data.employees.push(emp);
-  saveData(data);
-  res.json(data);
+app.get("/api/kv/:key", (req, res) => {
+  const store = loadStore();
+  const key = req.params.key;
+  if (!(key in store)) return res.status(404).json({ error: "not found" });
+  res.json({ key, value: store[key], shared: true });
 });
 
-app.put("/api/employees/:id", (req, res) => {
-  const data = loadData();
-  data.employees = data.employees.map((e) =>
-    e.id === req.params.id ? { ...e, name: req.body.name, hourlyRate: Number(req.body.hourlyRate) || 0 } : e
-  );
-  saveData(data);
-  res.json(data);
+app.put("/api/kv/:key", (req, res) => {
+  const store = loadStore();
+  const key = req.params.key;
+  store[key] = req.body.value;
+  saveStore(store);
+  res.json({ key, value: store[key], shared: true });
 });
 
-app.delete("/api/employees/:id", (req, res) => {
-  const data = loadData();
-  data.employees = data.employees.filter((e) => e.id !== req.params.id);
-  saveData(data);
-  res.json(data);
-});
-
-app.post("/api/products", (req, res) => {
-  const data = loadData();
-  const prod = { id: uid(), name: req.body.name, price: Number(req.body.price) || 0 };
-  data.products.push(prod);
-  saveData(data);
-  res.json(data);
-});
-
-app.put("/api/products/:id", (req, res) => {
-  const data = loadData();
-  data.products = data.products.map((p) =>
-    p.id === req.params.id ? { ...p, name: req.body.name, price: Number(req.body.price) || 0 } : p
-  );
-  saveData(data);
-  res.json(data);
-});
-
-app.delete("/api/products/:id", (req, res) => {
-  const data = loadData();
-  data.products = data.products.filter((p) => p.id !== req.params.id);
-  saveData(data);
-  res.json(data);
-});
-
-app.post("/api/entries", (req, res) => {
-  const data = loadData();
-  const entry = { id: uid(), timestamp: Date.now(), ...req.body };
-  data.entries.push(entry);
-  saveData(data);
-  res.json(data);
-});
-
-app.delete("/api/entries/:id", (req, res) => {
-  const data = loadData();
-  data.entries = data.entries.filter((e) => e.id !== req.params.id);
-  saveData(data);
-  res.json(data);
-});
-
-app.put("/api/settings", (req, res) => {
-  const data = loadData();
-  data.settings = { ...data.settings, ...req.body };
-  saveData(data);
-  res.json(data);
+app.delete("/api/kv/:key", (req, res) => {
+  const store = loadStore();
+  const key = req.params.key;
+  const existed = key in store;
+  delete store[key];
+  saveStore(store);
+  res.json({ key, deleted: existed, shared: true });
 });
 
 app.get("*", (req, res) => {
@@ -122,5 +62,5 @@ app.get("*", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Сервер запущен на порту ${PORT}`);
+  console.log(`Сервер запущен на порту ${PORT}, данные в ${STORE_FILE}`);
 });

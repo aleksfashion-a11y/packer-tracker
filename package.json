@@ -1,7 +1,7 @@
 {
-  "name": "packer-tracker",
-  "version": "1.0.0",
-  "description": "Учёт упаковки и зарплаты для упаковщиков",
+  "name": "packer-tracker-server",
+  "version": "2.0.0",
+  "description": "Складской учёт — сервер (Node.js/Express) с key-value хранилищем",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
@@ -10,6 +10,6 @@
     "node": ">=18"
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.22.2"
   }
 }
