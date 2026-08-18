@@ -1,13 +1,33 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DATA_DIR = process.env.DATA_DIR || path.join(require("os").tmpdir(), "packer-tracker-data");
-const STORE_FILE = path.join(DATA_DIR, "store.json");
 
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+function resolveDataDir() {
+  const candidates = [];
+  if (process.env.DATA_DIR) candidates.push(process.env.DATA_DIR);
+  candidates.push(path.join(os.tmpdir(), "packer-tracker-data"));
+  for (const dir of candidates) {
+    try {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.accessSync(dir, fs.constants.W_OK);
+      return dir;
+    } catch (e) {
+      // try next candidate
+    }
+  }
+  // last resort: a folder next to the server file
+  const fallback = path.join(__dirname, ".data");
+  if (!fs.existsSync(fallback)) fs.mkdirSync(fallback, { recursive: true });
+  return fallback;
+}
+
+const DATA_DIR = resolveDataDir();
+const STORE_FILE = path.join(DATA_DIR, "store.json");
+console.log("Данные хранятся в:", STORE_FILE);
 
 function loadStore() {
   if (!fs.existsSync(STORE_FILE)) return {};
