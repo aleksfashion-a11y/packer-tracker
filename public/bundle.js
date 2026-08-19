@@ -80642,8 +80642,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
             authError && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { color: "var(--danger)", fontSize: 13 }, children: authError }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", onClick: doRegister, children: t("register") })
           ] })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { textAlign: "center", marginTop: 12 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: resetAllTestData, style: { background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "var(--muted-2)", textDecoration: "underline" }, children: "\u041D\u0435 \u043C\u043E\u0433\u0443 \u0432\u043E\u0439\u0442\u0438 \u2014 \u0441\u0431\u0440\u043E\u0441\u0438\u0442\u044C \u0442\u0435\u0441\u0442\u043E\u0432\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 \u043C\u043E\u043A\u0430\u043F\u0430" }) })
+        ] })
       ] });
     }
     const isAdmin = currentUser.role === "admin";
