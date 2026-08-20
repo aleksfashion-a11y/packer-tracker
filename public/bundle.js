@@ -79108,6 +79108,11 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       const chatMsgs = await safeGet("chatMessages", true, []);
       const settings = await safeGet("settings", true, { currency: "\u20BD", showEmployeeTotals: true });
       setUsers(u);
+      setCurrentUser((prev) => {
+        if (!prev) return prev;
+        const fresh = u.find((x2) => x2.id === prev.id);
+        return fresh || prev;
+      });
       setPackagingOptions(po);
       setEntries(ent);
       setTimerSessions(ts);
@@ -81854,22 +81859,28 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                     opts.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                       PieceOptionRow,
                       {
-                        qty: qtyMap[`none-${p.sku}`] || 1,
+                        qty: qtyMap[`none-${p.sku}`] ?? 1,
                         onQtyChange: (v) => setQtyMap((m) => ({ ...m, [`none-${p.sku}`]: v })),
                         priceLabel: "\u0446\u0435\u043D\u0430 \u043D\u0435 \u0437\u0430\u0434\u0430\u043D\u0430",
                         priceColor: "var(--muted-2)",
-                        onAdd: () => addPieceEntry(p, qtyMap[`none-${p.sku}`] || 1, { price: 0, label: "", id: null })
+                        onAdd: () => {
+                          const q = Math.max(1, parseInt(qtyMap[`none-${p.sku}`]) || 1);
+                          askConfirm(`\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C ${q} \xD7 ${p.name}?`, () => addPieceEntry(p, q, { price: 0, label: "", id: null }));
+                        }
                       },
                       "none"
                     ) : opts.map((opt) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                       PieceOptionRow,
                       {
                         label: opt.label,
-                        qty: qtyMap[opt.id] || 1,
+                        qty: qtyMap[opt.id] ?? 1,
                         onQtyChange: (v) => setQtyMap((m) => ({ ...m, [opt.id]: v })),
                         priceLabel: money(opt.price),
                         priceColor: "var(--accent)",
-                        onAdd: () => addPieceEntry(p, qtyMap[opt.id] || 1, opt)
+                        onAdd: () => {
+                          const q = Math.max(1, parseInt(qtyMap[opt.id]) || 1);
+                          askConfirm(`\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C ${q} \xD7 ${p.name}${opt.label ? " (" + opt.label + ")" : ""}?`, () => addPieceEntry(p, q, opt));
+                        }
                       },
                       opt.id
                     )),
@@ -81885,7 +81896,14 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                     money(currentUser.hourlyRate || 0),
                     "/\u0447"
                   ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { marginLeft: "auto" }, onClick: addHourEntry, children: "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0441\u043C\u0435\u043D\u0443" })
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { marginLeft: "auto" }, onClick: () => {
+                    const h = parseFloat(hoursInput.replace(",", "."));
+                    if (!h || h <= 0) {
+                      setToast("\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u0447\u0430\u0441\u043E\u0432");
+                      return;
+                    }
+                    askConfirm(`\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0441\u043C\u0435\u043D\u0443 ${h} \u0447?`, addHourEntry);
+                  }, children: "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0441\u043C\u0435\u043D\u0443" })
                 ] }),
                 hoursDate !== todayStr() && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11, color: "var(--accent)", marginTop: 8 }, children: [
                   "\u26A0 \u0421\u043C\u0435\u043D\u0430 \u0431\u0443\u0434\u0435\u0442 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0430 \u0434\u0430\u0442\u043E\u0439 ",
@@ -82404,9 +82422,27 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "6px 0", borderTop: "1px dashed var(--border)" }, children: [
       label && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mono", style: { fontSize: 11, color: "var(--muted-2)", minWidth: 70 }, children: label }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mono", style: { color: priceColor, fontSize: 13 }, children: priceLabel }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 12px", marginLeft: "auto" }, onClick: () => onQtyChange(Math.max(1, qty - 1)), children: "-" }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { className: "mono", style: { width: 50, textAlign: "center" }, value: qty, onChange: (ev) => onQtyChange(Math.max(1, parseInt(ev.target.value) || 1)) }),
-      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 12px" }, onClick: () => onQtyChange(qty + 1), children: "+" }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 12px", marginLeft: "auto" }, onClick: () => onQtyChange(Math.max(1, (parseInt(qty) || 0) - 1)), children: "-" }),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+        "input",
+        {
+          className: "mono",
+          style: { width: 50, textAlign: "center" },
+          value: qty,
+          onChange: (ev) => {
+            const v = ev.target.value;
+            if (v === "") {
+              onQtyChange("");
+              return;
+            }
+            if (/^\d+$/.test(v)) onQtyChange(parseInt(v, 10));
+          },
+          onBlur: () => {
+            if (qty === "" || Number(qty) < 1) onQtyChange(1);
+          }
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 12px" }, onClick: () => onQtyChange((parseInt(qty) || 0) + 1), children: "+" }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "8px 14px" }, onClick: onAdd, children: "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C" })
     ] });
   }
