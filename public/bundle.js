@@ -78955,6 +78955,10 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
   }
   function App() {
     const [loading, setLoading] = (0, import_react54.useState)(true);
+    const [pullDistance, setPullDistance] = (0, import_react54.useState)(0);
+    const [refreshing, setRefreshing] = (0, import_react54.useState)(false);
+    const pullStartYRef = (0, import_react54.useRef)(null);
+    const pullingRef = (0, import_react54.useRef)(false);
     const [theme, setTheme] = (0, import_react54.useState)("dark");
     const [soundEnabled, setSoundEnabled] = (0, import_react54.useState)(true);
     const [lang, setLang] = (0, import_react54.useState)("ru");
@@ -79030,6 +79034,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
     const chatRecordChunksRef = (0, import_react54.useRef)([]);
     const chatRecordTimerRef = (0, import_react54.useRef)(null);
     const [hoursDate, setHoursDate] = (0, import_react54.useState)(todayStr());
+    const [packDate, setPackDate] = (0, import_react54.useState)(todayStr());
     const [toast, setToast] = (0, import_react54.useState)(null);
     const [priceEditOptionId, setPriceEditOptionId] = (0, import_react54.useState)(null);
     const [priceEditVal, setPriceEditVal] = (0, import_react54.useState)("");
@@ -79080,56 +79085,91 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
     const [msgText, setMsgText] = (0, import_react54.useState)("");
     const [msgTarget, setMsgTarget] = (0, import_react54.useState)("all");
     const searchInputRef = (0, import_react54.useRef)(null);
+    const loadSharedData = async () => {
+      const u = await safeGet("users", true, []);
+      let cat = await safeGet("catalog", true, null);
+      if (cat === null) {
+        cat = SEED_CATALOG;
+        await safeSet("catalog", cat, true);
+      }
+      setCatalog(cat);
+      let po = await safeGet("packagingOptions", true, null);
+      if (po === null) {
+        po = DEFAULT_PACKAGING_OPTIONS;
+        await safeSet("packagingOptions", po, true);
+      }
+      const ent = await safeGet("entries", true, []);
+      const ts = await safeGet("timerSessions", true, []);
+      const ph = await safeGet("priceHistory", true, []);
+      const cb = await safeGet("customBarcodes", true, []);
+      const pi3 = await safeGet("productImages", true, {});
+      const ll = await safeGet("loginLog", true, []);
+      const msgs = await safeGet("messages", true, []);
+      const chatMsgs = await safeGet("chatMessages", true, []);
+      const settings = await safeGet("settings", true, { currency: "\u20BD", showEmployeeTotals: true });
+      setUsers(u);
+      setPackagingOptions(po);
+      setEntries(ent);
+      setTimerSessions(ts);
+      setCustomBarcodes(cb);
+      setProductImages(pi3);
+      setLoginLog(ll);
+      setMessages(msgs);
+      setChatMessages(chatMsgs);
+      setPriceHistory(ph);
+      setCurrency(settings.currency || "\u20BD");
+      setShowEmployeeTotals(settings.showEmployeeTotals !== false);
+      setShowTimerTab(settings.showTimerTab !== false);
+      setEnabledAdminTabs({ ...DEFAULT_ADMIN_TABS, ...settings.enabledAdminTabs || {} });
+      setAdminQuickReplies(settings.adminQuickReplies || DEFAULT_ADMIN_QUICK_REPLIES);
+      setEmployeeQuickReplies(settings.employeeQuickReplies || DEFAULT_EMPLOYEE_QUICK_REPLIES);
+      setShowChatReadReceipts(settings.showChatReadReceipts !== false);
+      setShowChartDaily(settings.showChartDaily !== false);
+      setShowChartEmployees(settings.showChartEmployees !== false);
+      setShowChartTopProducts(settings.showChartTopProducts !== false);
+      setShowChartComparison(settings.showChartComparison !== false);
+      setShowChartHeatmap(settings.showChartHeatmap !== false);
+      setPackDate(todayStr());
+      setHoursDate(todayStr());
+      return u;
+    };
+    const PULL_THRESHOLD = 60;
+    const handlePullTouchStart = (e) => {
+      if (refreshing) return;
+      const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+      if (scrollTop <= 0) {
+        pullStartYRef.current = e.touches[0].clientY;
+        pullingRef.current = true;
+      } else {
+        pullingRef.current = false;
+      }
+    };
+    const handlePullTouchMove = (e) => {
+      if (!pullingRef.current || pullStartYRef.current == null) return;
+      const delta = e.touches[0].clientY - pullStartYRef.current;
+      if (delta > 0) setPullDistance(Math.min(delta * 0.5, 90));
+    };
+    const handlePullTouchEnd = async () => {
+      if (!pullingRef.current) return;
+      pullingRef.current = false;
+      pullStartYRef.current = null;
+      if (pullDistance > PULL_THRESHOLD) {
+        setRefreshing(true);
+        setPullDistance(56);
+        await loadSharedData();
+        setRefreshing(false);
+        setToast("\u041E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E");
+      }
+      setPullDistance(0);
+    };
     (0, import_react54.useEffect)(() => {
       (async () => {
-        const u = await safeGet("users", true, []);
-        let cat = await safeGet("catalog", true, null);
-        if (cat === null) {
-          cat = SEED_CATALOG;
-          await safeSet("catalog", cat, true);
-        }
-        setCatalog(cat);
-        let po = await safeGet("packagingOptions", true, null);
-        if (po === null) {
-          po = DEFAULT_PACKAGING_OPTIONS;
-          await safeSet("packagingOptions", po, true);
-        }
-        const ent = await safeGet("entries", true, []);
-        const ts = await safeGet("timerSessions", true, []);
-        const ph = await safeGet("priceHistory", true, []);
-        const cb = await safeGet("customBarcodes", true, []);
-        const pi3 = await safeGet("productImages", true, {});
-        const ll = await safeGet("loginLog", true, []);
-        const msgs = await safeGet("messages", true, []);
-        const chatMsgs = await safeGet("chatMessages", true, []);
-        const settings = await safeGet("settings", true, { currency: "\u20BD", showEmployeeTotals: true });
-        setUsers(u);
+        const u = await loadSharedData();
         const sessionUserId = await safeGet("session", false, null);
         if (sessionUserId) {
           const su = u.find((x2) => x2.id === sessionUserId);
           if (su) setCurrentUser(su);
         }
-        setPackagingOptions(po);
-        setEntries(ent);
-        setTimerSessions(ts);
-        setCustomBarcodes(cb);
-        setProductImages(pi3);
-        setLoginLog(ll);
-        setMessages(msgs);
-        setChatMessages(chatMsgs);
-        setPriceHistory(ph);
-        setCurrency(settings.currency || "\u20BD");
-        setShowEmployeeTotals(settings.showEmployeeTotals !== false);
-        setShowTimerTab(settings.showTimerTab !== false);
-        setEnabledAdminTabs({ ...DEFAULT_ADMIN_TABS, ...settings.enabledAdminTabs || {} });
-        setAdminQuickReplies(settings.adminQuickReplies || DEFAULT_ADMIN_QUICK_REPLIES);
-        setEmployeeQuickReplies(settings.employeeQuickReplies || DEFAULT_EMPLOYEE_QUICK_REPLIES);
-        setShowChatReadReceipts(settings.showChatReadReceipts !== false);
-        setShowChartDaily(settings.showChartDaily !== false);
-        setShowChartEmployees(settings.showChartEmployees !== false);
-        setShowChartTopProducts(settings.showChartTopProducts !== false);
-        setShowChartComparison(settings.showChartComparison !== false);
-        setShowChartHeatmap(settings.showChartHeatmap !== false);
         const savedTheme = await safeGet("theme", false, "dark");
         setTheme(savedTheme === "light" ? "light" : "dark");
         const savedSound = await safeGet("soundEnabled", false, true);
@@ -79140,6 +79180,12 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
           const snapKey = `snapshot:${todayStr()}`;
           const existing = await safeGet(snapKey, true, null);
           if (existing === null) {
+            const settings = await safeGet("settings", true, {});
+            const ent = await safeGet("entries", true, []);
+            const po = await safeGet("packagingOptions", true, []);
+            const ts = await safeGet("timerSessions", true, []);
+            const ph = await safeGet("priceHistory", true, []);
+            const cb = await safeGet("customBarcodes", true, []);
             const snapshot = {
               exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
               users: u,
@@ -79920,7 +79966,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
         optionId: opt.id,
         optionLabel: opt.label || "",
         qty,
-        date: todayStr(),
+        date: packDate || todayStr(),
         timestamp: Date.now()
       };
       if (soundEnabled) playBeep();
@@ -80555,11 +80601,22 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
       .grid-log { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
       .grid-emp { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+      .chat-layout { display: flex; gap: 16px; height: 560px; max-width: 900px; }
+      .chat-threads { width: 220px; flex-shrink: 0; }
+      .chat-panel { flex: 1; min-width: 0; }
+      .chat-input-row { padding: 12px; border-top: 1px solid var(--surface-2); display: flex; gap: 8px; align-items: center; }
+      .chat-icon-btn { padding: 8px 10px; font-size: 12px; flex-shrink: 0; }
       @media (max-width: 760px) {
         .grid-log, .grid-emp { grid-template-columns: 1fr; gap: 20px; }
         .btn, select, input[type="date"] { min-height: 44px; }
         table { font-size: 12px; }
         th, td { padding: 8px 6px; }
+        .chat-layout { flex-direction: column; height: 78vh; max-width: 100%; }
+        .chat-threads { width: 100%; max-height: 130px; }
+        .chat-panel { min-height: 0; }
+        .chat-icon-btn { padding: 8px 8px; font-size: 15px; min-height: 0; }
+        .chat-input-row { padding: 8px; gap: 6px; }
+        .chat-input-row input[type="text"], .chat-input-row input:not([type]) { min-width: 0; }
       }
       @media (max-width: 400px) {
         .display { font-size: 22px !important; }
@@ -80646,9 +80703,10 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       ] });
     }
     const isAdmin = currentUser.role === "admin";
-    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { "data-theme": theme, style: styles.page, children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { "data-theme": theme, style: styles.page, onTouchStart: handlePullTouchStart, onTouchMove: handlePullTouchMove, onTouchEnd: handlePullTouchEnd, children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FontLinks, {}),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(GlobalStyle, {}),
+      (pullDistance > 0 || refreshing) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "fixed", top: 0, left: 0, right: 0, display: "flex", justifyContent: "center", alignItems: "center", height: refreshing ? 56 : pullDistance, overflow: "hidden", transition: refreshing ? "height 0.15s" : "none", zIndex: 50, background: "var(--bg)", borderBottom: pullDistance > 10 || refreshing ? "1px solid var(--border)" : "none" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mono", style: { fontSize: 12, color: pullDistance > PULL_THRESHOLD || refreshing ? "var(--accent)" : "var(--muted-2)", transform: refreshing ? "none" : `rotate(${Math.min(pullDistance * 3, 200)}deg)`, display: "inline-block", transition: refreshing ? "none" : "transform 0.05s" }, children: refreshing ? "\u27F3 \u041E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435..." : pullDistance > PULL_THRESHOLD ? "\u2193 \u041E\u0442\u043F\u0443\u0441\u0442\u0438\u0442\u0435 \u0434\u043B\u044F \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F" : "\u2193" }) }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { height: 6, background: "repeating-linear-gradient(45deg, var(--accent) 0 10px, var(--bg) 10px 20px)" } }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { maxWidth: 1080, margin: "0 auto", padding: "calc(24px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) calc(60px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left))" }, children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 28 }, children: [
@@ -80707,6 +80765,22 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
             ] })
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 999, padding: "6px 6px 6px 14px" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+              "button",
+              {
+                className: "btn",
+                style: { padding: "6px 10px", borderRadius: 999, fontSize: 12 },
+                onClick: async () => {
+                  setRefreshing(true);
+                  await loadSharedData();
+                  setRefreshing(false);
+                  setToast("\u041E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E");
+                },
+                disabled: refreshing,
+                title: "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u0434\u0430\u043D\u043D\u044B\u0435",
+                children: refreshing ? "\u27F3" : "\u21BB"
+              }
+            ),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px", borderRadius: 999, fontSize: 11 }, onClick: toggleLang, title: "\u0422\u0438\u043B / \u042F\u0437\u044B\u043A", children: lang === "ru" ? "UZ" : "RU" }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px", borderRadius: 999, fontSize: 12 }, onClick: toggleTheme, title: theme === "dark" ? "\u0421\u0432\u0435\u0442\u043B\u0430\u044F \u0442\u0435\u043C\u0430" : "\u0422\u0451\u043C\u043D\u0430\u044F \u0442\u0435\u043C\u0430", children: theme === "dark" ? "\u2600\uFE0F" : "\u{1F319}" }),
             isAdmin && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mono", style: { fontSize: 10, color: "var(--accent)", border: "1px solid var(--accent)", borderRadius: 4, padding: "1px 5px" }, children: t("admin") }),
@@ -81426,8 +81500,8 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
               ] }, m.id);
             }) })
           ] }),
-          adminTab === "chat" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 16, height: 560, maxWidth: 900 }, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { width: 220, flexShrink: 0, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, overflowY: "auto" }, children: [
+          adminTab === "chat" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "chat-layout", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "chat-threads", style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, overflowY: "auto" }, children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
                 "button",
                 {
@@ -81459,7 +81533,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
               )),
               employees.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { padding: 14, fontSize: 12, color: "var(--muted-2)" }, children: "\u041F\u043E\u043A\u0430 \u043D\u0435\u0442 \u0441\u043E\u0442\u0440\u0443\u0434\u043D\u0438\u043A\u043E\u0432." })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, display: "flex", flexDirection: "column", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "chat-panel", style: { display: "flex", flexDirection: "column", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }, children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { padding: "12px 16px", borderBottom: "1px solid var(--surface-2)", fontWeight: 600, fontSize: 14 }, children: chatActiveThread === "all" ? "\u041E\u0431\u0449\u0438\u0439 \u0447\u0430\u0442 (\u0432\u0438\u0434\u044F\u0442 \u0432\u0441\u0435 \u0441\u043E\u0442\u0440\u0443\u0434\u043D\u0438\u043A\u0438)" : chatUserName(chatActiveThread) }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }, children: [
                 chatMessagesInActiveThread.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13, color: "var(--muted-2)" }, children: "\u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442." }),
@@ -81480,17 +81554,17 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 })
               ] }),
               adminQuickReplies.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { padding: "8px 12px 0", display: "flex", gap: 6, flexWrap: "wrap" }, children: adminQuickReplies.map((qr, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 11 }, onClick: () => sendChatMessage(chatActiveThread, qr), children: qr }, i)) }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: 12, borderTop: "1px solid var(--surface-2)", display: "flex", gap: 8 }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "8px 10px", fontSize: 12 }, onClick: () => setChatAttachOpen(true), title: "\u041F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u0442\u043E\u0432\u0430\u0440", children: "\u{1F4CE}" }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "8px 10px", fontSize: 12 }, onClick: () => setChatMediaOpen(true), title: "\u0424\u043E\u0442\u043E \u0438\u043B\u0438 \u0432\u0438\u0434\u0435\u043E \u043F\u043E \u0441\u0441\u044B\u043B\u043A\u0435", children: "\u{1F5BC}\uFE0F" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "chat-input-row", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn chat-icon-btn", onClick: () => setChatAttachOpen(true), title: "\u041F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u0442\u043E\u0432\u0430\u0440", children: "\u{1F4CE}" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn chat-icon-btn", onClick: () => setChatMediaOpen(true), title: "\u0424\u043E\u0442\u043E \u0438\u043B\u0438 \u0432\u0438\u0434\u0435\u043E \u043F\u043E \u0441\u0441\u044B\u043B\u043A\u0435", children: "\u{1F5BC}\uFE0F" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                   "button",
                   {
-                    className: "btn",
-                    style: { padding: "8px 10px", fontSize: 12, borderColor: chatRecording ? "var(--danger)" : void 0, color: chatRecording ? "var(--danger)" : void 0 },
+                    className: "btn chat-icon-btn",
+                    style: { borderColor: chatRecording ? "var(--danger)" : void 0, color: chatRecording ? "var(--danger)" : void 0 },
                     onClick: () => chatRecording ? stopVoiceRecording() : startVoiceRecording(),
                     title: "\u0413\u043E\u043B\u043E\u0441\u043E\u0432\u043E\u0435 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435",
-                    children: chatRecording ? `\u23F9 ${chatRecordSeconds}\u0441` : "\u{1F3A4}"
+                    children: chatRecording ? `\u23F9${chatRecordSeconds}\u0441` : "\u{1F3A4}"
                   }
                 ),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
@@ -81505,10 +81579,10 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                       }
                     },
                     placeholder: "\u041D\u0430\u043F\u0438\u0441\u0430\u0442\u044C \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435...",
-                    style: { flex: 1 }
+                    style: { flex: 1, minWidth: 0 }
                   }
                 ),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", onClick: () => {
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { flexShrink: 0 }, onClick: () => {
                   if (chatInput.trim()) {
                     sendChatMessage(chatActiveThread, chatInput);
                     setChatInput("");
@@ -81685,7 +81759,11 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }, children: "\u041F\u043E\u0438\u0441\u043A \u0442\u043E\u0432\u0430\u0440\u0430" }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 14, flexWrap: "wrap" }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: packDate !== todayStr() ? "var(--accent)" : "var(--muted)" }, children: [
+                      "\u0414\u0430\u0442\u0430 \u0443\u043F\u0430\u043A\u043E\u0432\u043A\u0438:",
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "date", value: packDate, onChange: (e) => setPackDate(e.target.value || todayStr()), style: { padding: "4px 8px", fontSize: 12 } })
+                    ] }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: soundEnabled ? "var(--accent)" : "var(--muted)" }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "checkbox", checked: soundEnabled, onChange: (e) => toggleSound(), style: { width: 15, height: 15, padding: 0 } }),
                       "\u0417\u0432\u0443\u043A"
@@ -81695,6 +81773,11 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                       "\u0420\u0435\u0436\u0438\u043C \u0441\u043A\u0430\u043D\u0435\u0440\u0430"
                     ] })
                   ] })
+                ] }),
+                packDate !== todayStr() && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11, color: "var(--accent)", marginBottom: 10 }, children: [
+                  "\u26A0 \u0417\u0430\u043F\u0438\u0441\u0438 \u0431\u0443\u0434\u0443\u0442 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u044B \u0434\u0430\u0442\u043E\u0439 ",
+                  fmtDate(packDate),
+                  ", \u0430 \u043D\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F\u0448\u043D\u0438\u043C \u0447\u0438\u0441\u043B\u043E\u043C."
                 ] }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { ref: searchInputRef, autoFocus: true, value: search, onChange: (e) => setSearch(e.target.value), placeholder: t("searchProduct"), style: { width: "100%", padding: "12px 14px", fontSize: 15, marginBottom: 8 } }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginBottom: scanMode ? 4 : 14 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SearchModeToggle, { mode: searchMode, onChange: setSearchMode }) }),
@@ -81795,7 +81878,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 }) }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }, children: "\u041E\u0442\u0440\u0430\u0431\u043E\u0442\u0430\u043D\u043D\u044B\u0435 \u0447\u0430\u0441\u044B" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "date", value: hoursDate, onChange: (e) => setHoursDate(e.target.value) }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "date", value: hoursDate, onChange: (e) => setHoursDate(e.target.value || todayStr()), style: { borderColor: hoursDate !== todayStr() ? "var(--accent)" : void 0, color: hoursDate !== todayStr() ? "var(--accent)" : void 0 } }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "\u0427\u0430\u0441\u044B, \u043D\u0430\u043F\u0440. 8", value: hoursInput, onChange: (e) => setHoursInput(e.target.value), style: { width: 130 } }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "mono", style: { color: "var(--muted)", fontSize: 13 }, children: [
                     "\xD7 ",
@@ -81803,6 +81886,11 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                     "/\u0447"
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { marginLeft: "auto" }, onClick: addHourEntry, children: "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0441\u043C\u0435\u043D\u0443" })
+                ] }),
+                hoursDate !== todayStr() && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11, color: "var(--accent)", marginTop: 8 }, children: [
+                  "\u26A0 \u0421\u043C\u0435\u043D\u0430 \u0431\u0443\u0434\u0435\u0442 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0430 \u0434\u0430\u0442\u043E\u0439 ",
+                  fmtDate(hoursDate),
+                  ", \u0430 \u043D\u0435 \u0441\u0435\u0433\u043E\u0434\u043D\u044F\u0448\u043D\u0438\u043C \u0447\u0438\u0441\u043B\u043E\u043C."
                 ] }),
                 (currentUser.hourlyRate || 0) === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--muted-2)", marginTop: 8 }, children: "\u0421\u0442\u0430\u0432\u043A\u0430 \u0437\u0430 \u0447\u0430\u0441 \u0435\u0449\u0451 \u043D\u0435 \u043D\u0430\u0437\u043D\u0430\u0447\u0435\u043D\u0430 \u2014 \u043E\u0431\u0440\u0430\u0442\u0438\u0442\u0435\u0441\u044C \u043A \u0430\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0443." })
               ] }),
@@ -81907,8 +81995,8 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
               ] })
             ] }) })
           ] }),
-          tab === "chat" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", height: 560, maxWidth: 600 }, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6, marginBottom: 12 }, children: [
+          tab === "chat" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "chat-layout", style: { flexDirection: "column", maxWidth: 600 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }, children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
                 "button",
                 {
@@ -81940,7 +82028,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 }
               )
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, display: "flex", flexDirection: "column", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "chat-panel", style: { display: "flex", flexDirection: "column", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }, children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }, children: [
                 chatMessagesInActiveThread.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13, color: "var(--muted-2)" }, children: "\u0421\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442." }),
                 chatMessagesInActiveThread.map((m) => {
@@ -81960,17 +82048,17 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 })
               ] }),
               employeeQuickReplies.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { padding: "8px 12px 0", display: "flex", gap: 6, flexWrap: "wrap" }, children: employeeQuickReplies.map((qr, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 11 }, onClick: () => sendChatMessage(chatActiveThread, qr), children: qr }, i)) }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: 12, borderTop: "1px solid var(--surface-2)", display: "flex", gap: 8 }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "8px 10px", fontSize: 12 }, onClick: () => setChatAttachOpen(true), title: "\u041F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u0442\u043E\u0432\u0430\u0440", children: "\u{1F4CE}" }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "8px 10px", fontSize: 12 }, onClick: () => setChatMediaOpen(true), title: "\u0424\u043E\u0442\u043E \u0438\u043B\u0438 \u0432\u0438\u0434\u0435\u043E \u043F\u043E \u0441\u0441\u044B\u043B\u043A\u0435", children: "\u{1F5BC}\uFE0F" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "chat-input-row", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn chat-icon-btn", onClick: () => setChatAttachOpen(true), title: "\u041F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u0442\u043E\u0432\u0430\u0440", children: "\u{1F4CE}" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn chat-icon-btn", onClick: () => setChatMediaOpen(true), title: "\u0424\u043E\u0442\u043E \u0438\u043B\u0438 \u0432\u0438\u0434\u0435\u043E \u043F\u043E \u0441\u0441\u044B\u043B\u043A\u0435", children: "\u{1F5BC}\uFE0F" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
                   "button",
                   {
-                    className: "btn",
-                    style: { padding: "8px 10px", fontSize: 12, borderColor: chatRecording ? "var(--danger)" : void 0, color: chatRecording ? "var(--danger)" : void 0 },
+                    className: "btn chat-icon-btn",
+                    style: { borderColor: chatRecording ? "var(--danger)" : void 0, color: chatRecording ? "var(--danger)" : void 0 },
                     onClick: () => chatRecording ? stopVoiceRecording() : startVoiceRecording(),
                     title: "\u0413\u043E\u043B\u043E\u0441\u043E\u0432\u043E\u0435 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435",
-                    children: chatRecording ? `\u23F9 ${chatRecordSeconds}\u0441` : "\u{1F3A4}"
+                    children: chatRecording ? `\u23F9${chatRecordSeconds}\u0441` : "\u{1F3A4}"
                   }
                 ),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
@@ -81985,10 +82073,10 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                       }
                     },
                     placeholder: "\u041D\u0430\u043F\u0438\u0441\u0430\u0442\u044C \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435...",
-                    style: { flex: 1 }
+                    style: { flex: 1, minWidth: 0 }
                   }
                 ),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", onClick: () => {
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { flexShrink: 0 }, onClick: () => {
                   if (chatInput.trim()) {
                     sendChatMessage(chatActiveThread, chatInput);
                     setChatInput("");
