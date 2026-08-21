@@ -79157,6 +79157,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       return u;
     };
     const PULL_THRESHOLD = 60;
+    const PULL_DEADZONE = 12;
     const handlePullTouchStart = (e) => {
       if (refreshing) return;
       const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
@@ -79169,8 +79170,9 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
     };
     const handlePullTouchMove = (e) => {
       if (!pullingRef.current || pullStartYRef.current == null) return;
-      const delta = e.touches[0].clientY - pullStartYRef.current;
-      if (delta > 0) setPullDistance(Math.min(delta * 0.5, 90));
+      const rawDelta = e.touches[0].clientY - pullStartYRef.current;
+      const eased = Math.max(0, rawDelta - PULL_DEADZONE);
+      setPullDistance((prev) => eased === 0 && prev === 0 ? prev : Math.min(eased * 0.5, 90));
     };
     const handlePullTouchEnd = async () => {
       if (!pullingRef.current) return;
@@ -79759,11 +79761,19 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
     };
     (0, import_react54.useEffect)(() => {
       setPendingSyncCount(loadOfflineQueue().length);
+      let offlineTimer = null;
       const handleOnline = () => {
+        if (offlineTimer) {
+          clearTimeout(offlineTimer);
+          offlineTimer = null;
+        }
         setIsOnline(true);
         syncOfflineQueue();
       };
-      const handleOffline = () => setIsOnline(false);
+      const handleOffline = () => {
+        if (offlineTimer) clearTimeout(offlineTimer);
+        offlineTimer = setTimeout(() => setIsOnline(false), 2e3);
+      };
       window.addEventListener("online", handleOnline);
       window.addEventListener("offline", handleOffline);
       const interval = setInterval(() => {
@@ -79773,6 +79783,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       return () => {
         window.removeEventListener("online", handleOnline);
         window.removeEventListener("offline", handleOffline);
+        if (offlineTimer) clearTimeout(offlineTimer);
         clearInterval(interval);
       };
     }, []);
