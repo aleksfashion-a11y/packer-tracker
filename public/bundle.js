@@ -80156,6 +80156,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       const interval = setInterval(async () => {
         const next = await safeGet("chatMessages", true, []);
         setChatMessages((prev) => {
+          if (next.length === prev.length && JSON.stringify(next) === JSON.stringify(prev)) return prev;
           if (next.length <= prev.length) return next;
           const prevIds = new Set(prev.map((m) => m.id));
           const arrived = next.filter((m) => !prevIds.has(m.id) && m.from !== currentUser.id);
