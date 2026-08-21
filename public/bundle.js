@@ -78955,6 +78955,84 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
     } catch (e) {
     }
   }
+  function GlobalStyle() {
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("style", { children: `
+      :root {
+        --bg: #1B1F24; --bg-alt: #20252A; --surface: #262B31; --surface-2: #2C333B;
+        --border: #3A424B; --border-strong: #4B545E; --text: #EDEFF0; --text-secondary: #C7CDD3;
+        --muted: #8D97A0; --muted-2: #6C747C; --input-bg: #1F2429;
+        --accent: #F2A33B; --accent-hover: #F5B457; --accent-ink: #241705;
+        --teal: #49B5A6; --danger: #E2604F;
+      }
+      [data-theme="light"] {
+        --bg: #F3F4F6; --bg-alt: #FFFFFF; --surface: #FFFFFF; --surface-2: #EEF0F2;
+        --border: #DADEE3; --border-strong: #C2C8CE; --text: #1B1F24; --text-secondary: #33393F;
+        --muted: #5B6470; --muted-2: #7A828C; --input-bg: #FFFFFF;
+        --accent: #DB8A2A; --accent-hover: #C97B22; --accent-ink: #FFFFFF;
+        --teal: #2E8F82; --danger: #C6462F;
+      }
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      html, body { height: 100%; overscroll-behavior-y: none; }
+      .btn { cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 10px 14px; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; transition: background .15s, border-color .15s; }
+      .btn:hover { background: var(--surface-2); border-color: var(--border-strong); }
+      .btn:active { transform: scale(0.98); }
+      .btn-accent { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+      .btn-accent:hover { background: var(--accent-hover); }
+      .btn-danger { background: transparent; border-color: var(--border-strong); color: var(--danger); }
+      .btn-danger:hover { background: rgba(226,96,79,0.12); }
+      input, select, textarea { background: var(--input-bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 9px 11px; font-family: 'Inter', sans-serif; font-size: 16px; }
+      input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+      input::placeholder, textarea::placeholder { color: var(--muted-2); }
+      .mono { font-family: 'IBM Plex Mono', monospace; }
+      .display { font-family: 'Oswald', sans-serif; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { text-align: left; padding: 9px 8px; font-size: 13px; }
+      th { color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; border-bottom: 1px solid var(--border); }
+      td { border-bottom: 1px solid var(--surface-2); }
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+      .grid-log { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
+      .grid-emp { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+      .chat-layout { display: flex; gap: 16px; height: 560px; max-width: 900px; }
+      .chat-threads { width: 220px; flex-shrink: 0; }
+      .chat-panel { flex: 1; min-width: 0; }
+      .chat-input-row { padding: 12px; border-top: 1px solid var(--surface-2); display: flex; gap: 8px; align-items: center; }
+      .chat-icon-btn { padding: 8px 10px; font-size: 12px; flex-shrink: 0; }
+      @media (max-width: 760px) {
+        .grid-log, .grid-emp { grid-template-columns: 1fr; gap: 20px; }
+        .btn, select, input[type="date"] { min-height: 44px; }
+        table { font-size: 12px; }
+        th, td { padding: 8px 6px; }
+        .chat-layout { flex-direction: column; height: 78vh; max-width: 100%; }
+        .chat-threads { width: 100%; max-height: 130px; }
+        .chat-panel { min-height: 0; }
+        .chat-icon-btn { padding: 8px 8px; font-size: 15px; min-height: 0; }
+        .chat-input-row { padding: 8px; gap: 6px; }
+        .chat-input-row input[type="text"], .chat-input-row input:not([type]) { min-width: 0; }
+      }
+      @media (max-width: 480px) {
+        .header-btn-label { display: none; }
+      }
+      @media (max-width: 400px) {
+        .display { font-size: 22px !important; }
+      }
+      .row-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .header-search-item:hover { background: var(--surface-2); }
+      #print-payslip { display: none; }
+      @media print {
+        body * { visibility: hidden; }
+        #print-payslip, #print-payslip * { visibility: visible; }
+        #print-payslip { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 20px; color: #000; background: #fff; }
+        #print-payslip table { border-collapse: collapse; width: 100%; }
+        #print-payslip th, #print-payslip td { border: 1px solid #999; padding: 6px 8px; font-size: 12px; text-align: left; }
+        #print-payslip h1 { font-size: 18px; margin: 0 0 4px; }
+        #print-payslip .print-sub { font-size: 12px; color: #444; margin-bottom: 16px; }
+      }
+    ` });
+  }
+  function FontLinks() {
+    return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("link", { href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Oswald:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap", rel: "stylesheet" });
+  }
   function App() {
     const [loading, setLoading] = (0, import_react54.useState)(true);
     const [isOnline, setIsOnline] = (0, import_react54.useState)(typeof navigator !== "undefined" ? navigator.onLine : true);
@@ -79158,6 +79236,8 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
     };
     const PULL_THRESHOLD = 60;
     const PULL_DEADZONE = 12;
+    const pullRafRef = (0, import_react54.useRef)(null);
+    const pullLatestYRef = (0, import_react54.useRef)(null);
     const handlePullTouchStart = (e) => {
       if (refreshing) return;
       const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
@@ -79170,14 +79250,25 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
     };
     const handlePullTouchMove = (e) => {
       if (!pullingRef.current || pullStartYRef.current == null) return;
-      const rawDelta = e.touches[0].clientY - pullStartYRef.current;
-      const eased = Math.max(0, rawDelta - PULL_DEADZONE);
-      setPullDistance((prev) => eased === 0 && prev === 0 ? prev : Math.min(eased * 0.5, 90));
+      pullLatestYRef.current = e.touches[0].clientY;
+      if (pullRafRef.current == null) {
+        pullRafRef.current = requestAnimationFrame(() => {
+          pullRafRef.current = null;
+          if (!pullingRef.current || pullStartYRef.current == null || pullLatestYRef.current == null) return;
+          const rawDelta = pullLatestYRef.current - pullStartYRef.current;
+          const eased = Math.max(0, rawDelta - PULL_DEADZONE);
+          setPullDistance((prev) => eased === 0 && prev === 0 ? prev : Math.min(eased * 0.5, 90));
+        });
+      }
     };
     const handlePullTouchEnd = async () => {
       if (!pullingRef.current) return;
       pullingRef.current = false;
       pullStartYRef.current = null;
+      if (pullRafRef.current != null) {
+        cancelAnimationFrame(pullRafRef.current);
+        pullRafRef.current = null;
+      }
       if (pullDistance > PULL_THRESHOLD) {
         setRefreshing(true);
         setPullDistance(56);
@@ -80746,80 +80837,6 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       setToast("\u0414\u0443\u0431\u043B\u0438 \u043E\u0431\u044A\u0435\u0434\u0438\u043D\u0435\u043D\u044B");
     };
     const styles = { page: { minHeight: "100dvh", background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter', sans-serif", overflowX: "hidden" } };
-    const GlobalStyle = () => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("style", { children: `
-      :root {
-        --bg: #1B1F24; --bg-alt: #20252A; --surface: #262B31; --surface-2: #2C333B;
-        --border: #3A424B; --border-strong: #4B545E; --text: #EDEFF0; --text-secondary: #C7CDD3;
-        --muted: #8D97A0; --muted-2: #6C747C; --input-bg: #1F2429;
-        --accent: #F2A33B; --accent-hover: #F5B457; --accent-ink: #241705;
-        --teal: #49B5A6; --danger: #E2604F;
-      }
-      [data-theme="light"] {
-        --bg: #F3F4F6; --bg-alt: #FFFFFF; --surface: #FFFFFF; --surface-2: #EEF0F2;
-        --border: #DADEE3; --border-strong: #C2C8CE; --text: #1B1F24; --text-secondary: #33393F;
-        --muted: #5B6470; --muted-2: #7A828C; --input-bg: #FFFFFF;
-        --accent: #DB8A2A; --accent-hover: #C97B22; --accent-ink: #FFFFFF;
-        --teal: #2E8F82; --danger: #C6462F;
-      }
-      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-      html, body { height: 100%; overscroll-behavior-y: none; }
-      .btn { cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 10px 14px; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; transition: background .15s, border-color .15s; }
-      .btn:hover { background: var(--surface-2); border-color: var(--border-strong); }
-      .btn:active { transform: scale(0.98); }
-      .btn-accent { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-      .btn-accent:hover { background: var(--accent-hover); }
-      .btn-danger { background: transparent; border-color: var(--border-strong); color: var(--danger); }
-      .btn-danger:hover { background: rgba(226,96,79,0.12); }
-      input, select, textarea { background: var(--input-bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 9px 11px; font-family: 'Inter', sans-serif; font-size: 16px; }
-      input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
-      input::placeholder, textarea::placeholder { color: var(--muted-2); }
-      .mono { font-family: 'IBM Plex Mono', monospace; }
-      .display { font-family: 'Oswald', sans-serif; }
-      table { border-collapse: collapse; width: 100%; }
-      th, td { text-align: left; padding: 9px 8px; font-size: 13px; }
-      th { color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; border-bottom: 1px solid var(--border); }
-      td { border-bottom: 1px solid var(--surface-2); }
-      ::-webkit-scrollbar { width: 8px; height: 8px; }
-      ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-      .grid-log { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
-      .grid-emp { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-      .chat-layout { display: flex; gap: 16px; height: 560px; max-width: 900px; }
-      .chat-threads { width: 220px; flex-shrink: 0; }
-      .chat-panel { flex: 1; min-width: 0; }
-      .chat-input-row { padding: 12px; border-top: 1px solid var(--surface-2); display: flex; gap: 8px; align-items: center; }
-      .chat-icon-btn { padding: 8px 10px; font-size: 12px; flex-shrink: 0; }
-      @media (max-width: 760px) {
-        .grid-log, .grid-emp { grid-template-columns: 1fr; gap: 20px; }
-        .btn, select, input[type="date"] { min-height: 44px; }
-        table { font-size: 12px; }
-        th, td { padding: 8px 6px; }
-        .chat-layout { flex-direction: column; height: 78vh; max-width: 100%; }
-        .chat-threads { width: 100%; max-height: 130px; }
-        .chat-panel { min-height: 0; }
-        .chat-icon-btn { padding: 8px 8px; font-size: 15px; min-height: 0; }
-        .chat-input-row { padding: 8px; gap: 6px; }
-        .chat-input-row input[type="text"], .chat-input-row input:not([type]) { min-width: 0; }
-      }
-      @media (max-width: 480px) {
-        .header-btn-label { display: none; }
-      }
-      @media (max-width: 400px) {
-        .display { font-size: 22px !important; }
-      }
-      .row-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-      .header-search-item:hover { background: var(--surface-2); }
-      #print-payslip { display: none; }
-      @media print {
-        body * { visibility: hidden; }
-        #print-payslip, #print-payslip * { visibility: visible; }
-        #print-payslip { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 20px; color: #000; background: #fff; }
-        #print-payslip table { border-collapse: collapse; width: 100%; }
-        #print-payslip th, #print-payslip td { border: 1px solid #999; padding: 6px 8px; font-size: 12px; text-align: left; }
-        #print-payslip h1 { font-size: 18px; margin: 0 0 4px; }
-        #print-payslip .print-sub { font-size: 12px; color: #444; margin-bottom: 16px; }
-      }
-    ` });
-    const FontLinks = () => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("link", { href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Oswald:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap", rel: "stylesheet" });
     if (loading) {
       return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { "data-theme": theme, style: { ...styles.page, display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }, children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FontLinks, {}),
@@ -80933,7 +80950,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { "data-theme": theme, style: styles.page, onTouchStart: handlePullTouchStart, onTouchMove: handlePullTouchMove, onTouchEnd: handlePullTouchEnd, children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FontLinks, {}),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(GlobalStyle, {}),
-      (pullDistance > 0 || refreshing) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "fixed", top: 0, left: 0, right: 0, display: "flex", justifyContent: "center", alignItems: "center", height: refreshing ? 56 : pullDistance, overflow: "hidden", transition: refreshing ? "height 0.15s" : "none", zIndex: 50, background: "var(--bg)", borderBottom: pullDistance > 10 || refreshing ? "1px solid var(--border)" : "none" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mono", style: { fontSize: 12, color: pullDistance > PULL_THRESHOLD || refreshing ? "var(--accent)" : "var(--muted-2)", transform: refreshing ? "none" : `rotate(${Math.min(pullDistance * 3, 200)}deg)`, display: "inline-block", transition: refreshing ? "none" : "transform 0.05s" }, children: refreshing ? "\u27F3 \u041E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435..." : pullDistance > PULL_THRESHOLD ? "\u2193 \u041E\u0442\u043F\u0443\u0441\u0442\u0438\u0442\u0435 \u0434\u043B\u044F \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F" : "\u2193" }) }),
+      (pullDistance > 0 || refreshing) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "fixed", top: 0, left: 0, right: 0, display: "flex", justifyContent: "center", alignItems: "center", height: refreshing ? 56 : pullDistance, overflow: "hidden", transition: refreshing ? "height 0.15s" : "none", zIndex: 50, background: "var(--bg)", borderBottom: pullDistance > 10 || refreshing ? "1px solid var(--border)" : "none", willChange: "height" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mono", style: { fontSize: 12, color: pullDistance > PULL_THRESHOLD || refreshing ? "var(--accent)" : "var(--muted-2)", transform: refreshing ? "none" : `rotate(${Math.min(pullDistance * 3, 200)}deg)`, display: "inline-block", transition: refreshing ? "none" : "transform 0.05s" }, children: refreshing ? "\u27F3 \u041E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435..." : pullDistance > PULL_THRESHOLD ? "\u2193 \u041E\u0442\u043F\u0443\u0441\u0442\u0438\u0442\u0435 \u0434\u043B\u044F \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F" : "\u2193" }) }),
       (!isOnline || pendingSyncCount > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { textAlign: "center", padding: "6px 10px", fontSize: 12, background: !isOnline ? "var(--danger)" : "var(--accent)", color: "#1a1a1a", fontWeight: 500 }, children: !isOnline ? pendingSyncCount > 0 ? `\u{1F4F4} \u041D\u0435\u0442 \u0441\u0432\u044F\u0437\u0438 \u2014 \u0436\u0434\u0443\u0442 \u043E\u0442\u043F\u0440\u0430\u0432\u043A\u0438: ${pendingSyncCount}` : "\u{1F4F4} \u041D\u0435\u0442 \u0441\u0432\u044F\u0437\u0438 \u2014 \u0434\u0430\u043D\u043D\u044B\u0435 \u043C\u043E\u0433\u0443\u0442 \u0431\u044B\u0442\u044C \u043D\u0435\u0430\u043A\u0442\u0443\u0430\u043B\u044C\u043D\u044B" : `\u23F3 \u041E\u0442\u043F\u0440\u0430\u0432\u043A\u0430 \u043D\u0430\u043A\u043E\u043F\u043B\u0435\u043D\u043D\u044B\u0445 \u0437\u0430\u043F\u0438\u0441\u0435\u0439: ${pendingSyncCount}...` }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { height: 6, background: "repeating-linear-gradient(45deg, var(--accent) 0 10px, var(--bg) 10px 20px)" } }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { maxWidth: 1080, margin: "0 auto", padding: "calc(24px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) calc(60px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left))" }, children: [
