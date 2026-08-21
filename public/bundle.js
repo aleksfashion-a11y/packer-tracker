@@ -80733,7 +80733,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       await persistPackagingOptions(next);
       setToast("\u0414\u0443\u0431\u043B\u0438 \u043E\u0431\u044A\u0435\u0434\u0438\u043D\u0435\u043D\u044B");
     };
-    const styles = { page: { minHeight: "100dvh", background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter', sans-serif" } };
+    const styles = { page: { minHeight: "100dvh", background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter', sans-serif", overflowX: "hidden" } };
     const GlobalStyle = () => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("style", { children: `
       :root {
         --bg: #1B1F24; --bg-alt: #20252A; --surface: #262B31; --surface-2: #2C333B;
@@ -80787,6 +80787,9 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
         .chat-icon-btn { padding: 8px 8px; font-size: 15px; min-height: 0; }
         .chat-input-row { padding: 8px; gap: 6px; }
         .chat-input-row input[type="text"], .chat-input-row input:not([type]) { min-width: 0; }
+      }
+      @media (max-width: 480px) {
+        .header-btn-label { display: none; }
       }
       @media (max-width: 400px) {
         .display { font-size: 22px !important; }
@@ -80977,7 +80980,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
               ] })
             ] })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 999, padding: "6px 6px 6px 14px" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, padding: "6px 6px 6px 14px", maxWidth: "100%" }, children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
               "button",
               {
@@ -81049,7 +81052,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 title: currentUser.secretWordHash ? "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E" : "\u0417\u0430\u0434\u0430\u0442\u044C \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E \u2014 \u043F\u043E\u043D\u0430\u0434\u043E\u0431\u0438\u0442\u0441\u044F, \u0435\u0441\u043B\u0438 \u0437\u0430\u0431\u0443\u0434\u0435\u0442\u0435 \u043F\u0430\u0440\u043E\u043B\u044C",
                 children: [
                   "\u{1F511}",
-                  !currentUser.secretWordHash && " \u0417\u0430\u0434\u0430\u0442\u044C \u0441\u043B\u043E\u0432\u043E"
+                  !currentUser.secretWordHash && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "header-btn-label", children: " \u0417\u0430\u0434\u0430\u0442\u044C \u0441\u043B\u043E\u0432\u043E" })
                 ]
               }
             ),
