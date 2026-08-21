@@ -78924,8 +78924,10 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
   async function safeSet(key, value, shared) {
     try {
       await window.storage.set(key, JSON.stringify(value), shared);
+      return true;
     } catch (e) {
       console.error("storage set failed", key, e);
+      return false;
     }
   }
   var sharedAudioCtx = null;
@@ -78955,10 +78957,13 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
   }
   function App() {
     const [loading, setLoading] = (0, import_react54.useState)(true);
+    const [isOnline, setIsOnline] = (0, import_react54.useState)(typeof navigator !== "undefined" ? navigator.onLine : true);
+    const [pendingSyncCount, setPendingSyncCount] = (0, import_react54.useState)(0);
     const [pullDistance, setPullDistance] = (0, import_react54.useState)(0);
     const [refreshing, setRefreshing] = (0, import_react54.useState)(false);
     const pullStartYRef = (0, import_react54.useRef)(null);
     const pullingRef = (0, import_react54.useRef)(false);
+    const lightboxTouchRef = (0, import_react54.useRef)(null);
     const [theme, setTheme] = (0, import_react54.useState)("dark");
     const [soundEnabled, setSoundEnabled] = (0, import_react54.useState)(true);
     const [lang, setLang] = (0, import_react54.useState)("ru");
@@ -78992,10 +78997,19 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
     const [loginPassword, setLoginPassword] = (0, import_react54.useState)("");
     const [authError, setAuthError] = (0, import_react54.useState)("");
     const [qrInput, setQrInput] = (0, import_react54.useState)("");
+    const [recoverStep, setRecoverStep] = (0, import_react54.useState)("scan");
+    const [recoverMethod, setRecoverMethod] = (0, import_react54.useState)("qr");
+    const [recoverQrInput, setRecoverQrInput] = (0, import_react54.useState)("");
+    const [recoverUsername, setRecoverUsername] = (0, import_react54.useState)("");
+    const [recoverSecretWord, setRecoverSecretWord] = (0, import_react54.useState)("");
+    const [recoverUserId, setRecoverUserId] = (0, import_react54.useState)(null);
+    const [recoverPassword, setRecoverPassword] = (0, import_react54.useState)("");
+    const [recoverPassword2, setRecoverPassword2] = (0, import_react54.useState)("");
     const [regUsername, setRegUsername] = (0, import_react54.useState)("");
     const [regPassword, setRegPassword] = (0, import_react54.useState)("");
     const [regPassword2, setRegPassword2] = (0, import_react54.useState)("");
     const [regName, setRegName] = (0, import_react54.useState)("");
+    const [regSecretWord, setRegSecretWord] = (0, import_react54.useState)("");
     const [setupUsername, setSetupUsername] = (0, import_react54.useState)("");
     const [setupPassword, setSetupPassword] = (0, import_react54.useState)("");
     const [setupName, setSetupName] = (0, import_react54.useState)("");
@@ -79049,6 +79063,10 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
     const [editRateVal, setEditRateVal] = (0, import_react54.useState)("");
     const [resetPwId, setResetPwId] = (0, import_react54.useState)(null);
     const [resetPwVal, setResetPwVal] = (0, import_react54.useState)("");
+    const [resetSecretId, setResetSecretId] = (0, import_react54.useState)(null);
+    const [resetSecretVal, setResetSecretVal] = (0, import_react54.useState)("");
+    const [showMySecretWord, setShowMySecretWord] = (0, import_react54.useState)(false);
+    const [mySecretWordVal, setMySecretWordVal] = (0, import_react54.useState)("");
     const [newAdminUsername, setNewAdminUsername] = (0, import_react54.useState)("");
     const [newAdminPassword, setNewAdminPassword] = (0, import_react54.useState)("");
     const [newAdminName, setNewAdminName] = (0, import_react54.useState)("");
@@ -79653,7 +79671,9 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
     const startVoiceRecording = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const recorder = new MediaRecorder(stream);
+        const preferredTypes = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/aac", "audio/ogg"];
+        const supportedType = preferredTypes.find((t2) => typeof MediaRecorder.isTypeSupported === "function" && MediaRecorder.isTypeSupported(t2));
+        const recorder = supportedType ? new MediaRecorder(stream, { mimeType: supportedType }) : new MediaRecorder(stream);
         chatRecordChunksRef.current = [];
         recorder.ondataavailable = (e) => {
           if (e.data.size > 0) chatRecordChunksRef.current.push(e.data);
@@ -79661,7 +79681,8 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
         recorder.onstop = async () => {
           stream.getTracks().forEach((t2) => t2.stop());
           clearInterval(chatRecordTimerRef.current);
-          const blob = new Blob(chatRecordChunksRef.current, { type: "audio/webm" });
+          const actualType = recorder.mimeType || supportedType || "audio/webm";
+          const blob = new Blob(chatRecordChunksRef.current, { type: actualType });
           const reader = new FileReader();
           reader.onload = () => {
             const dataUrl = reader.result;
@@ -79693,10 +79714,68 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       }
       setChatRecording(false);
     };
-    const persistEntries = async (next) => {
-      setEntries(next);
-      await safeSet("entries", next, true);
+    const OFFLINE_QUEUE_KEY = "offlinePendingEntries";
+    const loadOfflineQueue = () => {
+      try {
+        return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]");
+      } catch (e) {
+        return [];
+      }
     };
+    const saveOfflineQueue = (q) => {
+      try {
+        localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(q));
+      } catch (e) {
+      }
+    };
+    const persistEntries = async (next, opts = {}) => {
+      setEntries(next);
+      const ok = await safeSet("entries", next, true);
+      if (!ok && opts.newEntry) {
+        const queue = loadOfflineQueue();
+        queue.push(opts.newEntry);
+        saveOfflineQueue(queue);
+        setPendingSyncCount(queue.length);
+      }
+    };
+    const syncOfflineQueue = async () => {
+      const queue = loadOfflineQueue();
+      if (queue.length === 0 || !navigator.onLine) return;
+      try {
+        const serverEntries = await safeGet("entries", true, null);
+        if (serverEntries === null) return;
+        const existingIds = new Set(serverEntries.map((e) => e.id));
+        const toAdd = queue.filter((e) => !existingIds.has(e.id));
+        const merged = [...serverEntries, ...toAdd];
+        const ok = await safeSet("entries", merged, true);
+        if (ok) {
+          setEntries(merged);
+          saveOfflineQueue([]);
+          setPendingSyncCount(0);
+          if (queue.length > 0) setToast(`\u041E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u043E \u043E\u0444\u043B\u0430\u0439\u043D-\u0437\u0430\u043F\u0438\u0441\u0435\u0439: ${queue.length}`);
+        }
+      } catch (e) {
+      }
+    };
+    (0, import_react54.useEffect)(() => {
+      setPendingSyncCount(loadOfflineQueue().length);
+      const handleOnline = () => {
+        setIsOnline(true);
+        syncOfflineQueue();
+      };
+      const handleOffline = () => setIsOnline(false);
+      window.addEventListener("online", handleOnline);
+      window.addEventListener("offline", handleOffline);
+      const interval = setInterval(() => {
+        if (navigator.onLine) syncOfflineQueue();
+      }, 2e4);
+      syncOfflineQueue();
+      return () => {
+        window.removeEventListener("online", handleOnline);
+        window.removeEventListener("offline", handleOffline);
+        clearInterval(interval);
+      };
+    }, []);
     const persistTimerSessions = async (next) => {
       setTimerSessions(next);
       await safeSet("timerSessions", next, true);
@@ -79815,10 +79894,72 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       setAdminTab("overview");
       setQrInput("");
     };
+    const doRecoverScan = () => {
+      setAuthError("");
+      const code = recoverQrInput.trim();
+      if (!code) return;
+      const user = users.find((u) => u.qrToken === code);
+      if (!user) {
+        setAuthError("QR-\u043A\u043E\u0434 \u043D\u0435 \u0440\u0430\u0441\u043F\u043E\u0437\u043D\u0430\u043D");
+        setRecoverQrInput("");
+        return;
+      }
+      setRecoverUserId(user.id);
+      setRecoverStep("newpass");
+    };
+    const doRecoverBySecret = async () => {
+      setAuthError("");
+      const uname = recoverUsername.trim().toLowerCase();
+      const word = recoverSecretWord.trim().toLowerCase();
+      if (!uname || !word) return;
+      const user = users.find((u) => u.username === uname);
+      if (!user) {
+        setAuthError("\u0422\u0430\u043A\u043E\u0439 \u043B\u043E\u0433\u0438\u043D \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D");
+        return;
+      }
+      if (!user.secretWordHash) {
+        setAuthError("\u0423 \u044D\u0442\u043E\u0433\u043E \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u0430 \u043D\u0435 \u0437\u0430\u0434\u0430\u043D\u043E \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E \u2014 \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0439\u0442\u0435 QR-\u043A\u043E\u0434 \u0438\u043B\u0438 \u043E\u0431\u0440\u0430\u0442\u0438\u0442\u0435\u0441\u044C \u043A \u0430\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0443");
+        return;
+      }
+      const hash = await hashPassword(word);
+      if (hash !== user.secretWordHash) {
+        setAuthError("\u0421\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E \u043D\u0435 \u043F\u043E\u0434\u043E\u0448\u043B\u043E");
+        return;
+      }
+      setRecoverUserId(user.id);
+      setRecoverStep("newpass");
+    };
+    const doRecoverSubmit = async () => {
+      setAuthError("");
+      if (!recoverPassword || recoverPassword.length < 4) {
+        setAuthError("\u041F\u0430\u0440\u043E\u043B\u044C \u0434\u043E\u043B\u0436\u0435\u043D \u0431\u044B\u0442\u044C \u043D\u0435 \u043A\u043E\u0440\u043E\u0447\u0435 4 \u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432");
+        return;
+      }
+      if (recoverPassword !== recoverPassword2) {
+        setAuthError("\u041F\u0430\u0440\u043E\u043B\u0438 \u043D\u0435 \u0441\u043E\u0432\u043F\u0430\u0434\u0430\u044E\u0442");
+        return;
+      }
+      const hash = await hashPassword(recoverPassword);
+      const next = users.map((u) => u.id === recoverUserId ? { ...u, passwordHash: hash } : u);
+      await persistUsers(next);
+      const user = next.find((u) => u.id === recoverUserId);
+      setCurrentUser(user);
+      await safeSet("session", user.id, false);
+      await logLogin(user, "\u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435 \u043F\u0430\u0440\u043E\u043B\u044F \u043F\u043E QR");
+      setTab("log");
+      setAdminTab("overview");
+      setAuthMode("login");
+      setRecoverStep("scan");
+      setRecoverQrInput("");
+      setRecoverUserId(null);
+      setRecoverPassword("");
+      setRecoverPassword2("");
+      setToast("\u041F\u0430\u0440\u043E\u043B\u044C \u0438\u0437\u043C\u0435\u043D\u0451\u043D, \u0432\u044B \u0432\u043E\u0448\u043B\u0438 \u0432 \u0441\u0438\u0441\u0442\u0435\u043C\u0443");
+    };
     const doRegister = async () => {
       setAuthError("");
-      if (!regUsername.trim() || !regPassword || !regName.trim()) {
-        setAuthError("\u0417\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u0432\u0441\u0435 \u043F\u043E\u043B\u044F");
+      if (!regUsername.trim() || !regPassword || !regName.trim() || !regSecretWord.trim()) {
+        setAuthError("\u0417\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u0432\u0441\u0435 \u043F\u043E\u043B\u044F, \u0432\u043A\u043B\u044E\u0447\u0430\u044F \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E");
         return;
       }
       if (regPassword !== regPassword2) {
@@ -79831,7 +79972,8 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
         return;
       }
       const hash = await hashPassword(regPassword);
-      const newUser = { id: uid(), username: uname, passwordHash: hash, role: "employee", name: regName.trim(), hourlyRate: 0, timerEnabled: false, barcodeAddEnabled: false, qrToken: uid() + uid() };
+      const secretHash = await hashPassword(regSecretWord.trim().toLowerCase());
+      const newUser = { id: uid(), username: uname, passwordHash: hash, secretWordHash: secretHash, role: "employee", name: regName.trim(), hourlyRate: 0, timerEnabled: false, barcodeAddEnabled: false, qrToken: uid() + uid() };
       const next = [...users, newUser];
       await persistUsers(next);
       setCurrentUser(newUser);
@@ -79842,6 +79984,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       setRegPassword("");
       setRegPassword2("");
       setRegName("");
+      setRegSecretWord("");
     };
     const logout = () => {
       setCurrentUser(null);
@@ -79976,7 +80119,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       };
       if (soundEnabled) playBeep();
       playVibrate(40);
-      await persistEntries([...entries, entry]);
+      await persistEntries([...entries, entry], { newEntry: entry });
       setToast(`+${qty} \xD7 ${product.name}${opt.label ? " (" + opt.label + ")" : ""}`);
     };
     (0, import_react54.useEffect)(() => {
@@ -80073,7 +80216,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       };
       if (soundEnabled) playBeep(660, 130);
       playVibrate([30, 40, 30]);
-      await persistEntries([...entries, entry]);
+      await persistEntries([...entries, entry], { newEntry: entry });
       setHoursInput("");
       setToast(`\u0421\u043C\u0435\u043D\u0430 ${h} \u0447 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0430, \u0436\u0434\u0451\u0442 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0438\u044F`);
     };
@@ -80497,6 +80640,25 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       setResetPwVal("");
       setToast("\u041F\u0430\u0440\u043E\u043B\u044C \u043E\u0431\u043D\u043E\u0432\u043B\u0451\u043D");
     };
+    const saveSecretWordReset = async (id) => {
+      if (!resetSecretVal.trim()) return;
+      const hash = await hashPassword(resetSecretVal.trim().toLowerCase());
+      const next = users.map((u) => u.id === id ? { ...u, secretWordHash: hash } : u);
+      await persistUsers(next);
+      setResetSecretId(null);
+      setResetSecretVal("");
+      setToast("\u0421\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E");
+    };
+    const setMySecretWord = async () => {
+      if (!currentUser || !mySecretWordVal.trim()) return;
+      const hash = await hashPassword(mySecretWordVal.trim().toLowerCase());
+      const next = users.map((u) => u.id === currentUser.id ? { ...u, secretWordHash: hash } : u);
+      await persistUsers(next);
+      setCurrentUser((cu) => ({ ...cu, secretWordHash: hash }));
+      setShowMySecretWord(false);
+      setMySecretWordVal("");
+      setToast("\u0421\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u043E");
+    };
     const addAdmin = async () => {
       if (!newAdminUsername.trim() || !newAdminPassword || !newAdminName.trim()) return;
       const uname = newAdminUsername.trim().toLowerCase();
@@ -80686,7 +80848,12 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => {
               setAuthMode("register");
               setAuthError("");
-            }, style: { flex: 1, background: "none", border: "none", cursor: "pointer", padding: "8px 0", fontSize: 14, fontWeight: 500, color: authMode === "register" ? "var(--accent)" : "var(--muted)", borderBottom: authMode === "register" ? "2px solid var(--accent)" : "2px solid transparent" }, children: t("tabRegister") })
+            }, style: { flex: 1, background: "none", border: "none", cursor: "pointer", padding: "8px 0", fontSize: 14, fontWeight: 500, color: authMode === "register" ? "var(--accent)" : "var(--muted)", borderBottom: authMode === "register" ? "2px solid var(--accent)" : "2px solid transparent" }, children: t("tabRegister") }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { onClick: () => {
+              setAuthMode("recover");
+              setAuthError("");
+              setRecoverStep("scan");
+            }, style: { flex: 1, background: "none", border: "none", cursor: "pointer", padding: "8px 0", fontSize: 12, fontWeight: 500, color: authMode === "recover" ? "var(--accent)" : "var(--muted)", borderBottom: authMode === "recover" ? "2px solid var(--accent)" : "2px solid transparent" }, children: "\u0417\u0430\u0431\u044B\u043B\u0438 \u043F\u0430\u0440\u043E\u043B\u044C?" })
           ] }),
           authMode === "login" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10 }, children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: t("login"), value: loginUsername, onChange: (e) => setLoginUsername(e.target.value), onKeyDown: (e) => e.key === "Enter" && doLogin() }),
@@ -80698,15 +80865,52 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { autoFocus: true, placeholder: "\u041E\u0442\u0441\u043A\u0430\u043D\u0438\u0440\u0443\u0439\u0442\u0435 QR...", value: qrInput, onChange: (e) => setQrInput(e.target.value), onKeyDown: (e) => e.key === "Enter" && doQrLogin(qrInput) }),
             authError && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { color: "var(--danger)", fontSize: 13 }, children: authError }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", onClick: () => doQrLogin(qrInput), children: t("signInQr") })
-          ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10 }, children: [
+          ] }) : authMode === "register" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 10 }, children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--muted-2)", marginBottom: 2 }, children: "\u0420\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u044F \u0434\u043B\u044F \u0443\u043F\u0430\u043A\u043E\u0432\u0449\u0438\u043A\u043E\u0432. \u0421\u0442\u0430\u0432\u043A\u0443 \u0432\u0430\u043C \u043D\u0430\u0437\u043D\u0430\u0447\u0438\u0442 \u0430\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440 \u043F\u043E\u0441\u043B\u0435 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438." }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: t("yourName"), value: regName, onChange: (e) => setRegName(e.target.value) }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: t("login"), value: regUsername, onChange: (e) => setRegUsername(e.target.value) }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "password", placeholder: t("password"), value: regPassword, onChange: (e) => setRegPassword(e.target.value) }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "password", placeholder: t("confirmPassword"), value: regPassword2, onChange: (e) => setRegPassword2(e.target.value) }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "\u0421\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E (\u0434\u043B\u044F \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F \u043F\u0430\u0440\u043E\u043B\u044F)", value: regSecretWord, onChange: (e) => setRegSecretWord(e.target.value) }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, color: "var(--muted-2)", marginTop: -6 }, children: "\u041F\u0440\u0438\u0434\u0443\u043C\u0430\u0439\u0442\u0435 \u0441\u043B\u043E\u0432\u043E, \u043A\u043E\u0442\u043E\u0440\u043E\u0435 \u043B\u0435\u0433\u043A\u043E \u0437\u0430\u043F\u043E\u043C\u043D\u0438\u0442\u0435 \u2014 \u043E\u043D\u043E \u043F\u043E\u043D\u0430\u0434\u043E\u0431\u0438\u0442\u0441\u044F, \u0435\u0441\u043B\u0438 \u0437\u0430\u0431\u0443\u0434\u0435\u0442\u0435 \u043F\u0430\u0440\u043E\u043B\u044C \u0438 \u043D\u0435 \u0431\u0443\u0434\u0435\u0442 \u043F\u043E\u0434 \u0440\u0443\u043A\u043E\u0439 QR-\u043A\u043E\u0434\u0430." }),
             authError && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { color: "var(--danger)", fontSize: 13 }, children: authError }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", onClick: doRegister, children: t("register") })
-          ] })
+          ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: 10 }, children: recoverStep === "scan" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--muted-2)", marginBottom: 2 }, children: "\u0427\u0442\u043E\u0431\u044B \u0437\u0430\u0434\u0430\u0442\u044C \u043D\u043E\u0432\u044B\u0439 \u043F\u0430\u0440\u043E\u043B\u044C \u0431\u0435\u0437 \u0443\u0447\u0430\u0441\u0442\u0438\u044F \u0430\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0430, \u0441\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u0435, \u0447\u0442\u043E \u044D\u0442\u043E \u0432\u044B." }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { flex: 1, padding: "6px 10px", fontSize: 12, background: recoverMethod === "qr" ? "var(--accent)" : "var(--surface)", color: recoverMethod === "qr" ? "#1a1a1a" : "var(--text)" }, onClick: () => {
+                setRecoverMethod("qr");
+                setAuthError("");
+              }, children: "\u041F\u043E QR-\u043A\u043E\u0434\u0443" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { flex: 1, padding: "6px 10px", fontSize: 12, background: recoverMethod === "secret" ? "var(--accent)" : "var(--surface)", color: recoverMethod === "secret" ? "#1a1a1a" : "var(--text)" }, onClick: () => {
+                setRecoverMethod("secret");
+                setAuthError("");
+              }, children: "\u041F\u043E \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u043C\u0443 \u0441\u043B\u043E\u0432\u0443" })
+            ] }),
+            recoverMethod === "qr" ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--muted-2)" }, children: "\u041E\u0442\u0441\u043A\u0430\u043D\u0438\u0440\u0443\u0439\u0442\u0435 (\u0438\u043B\u0438 \u0432\u0441\u0442\u0430\u0432\u044C\u0442\u0435) \u0441\u0432\u043E\u0439 \u043B\u0438\u0447\u043D\u044B\u0439 QR-\u043A\u043E\u0434 \u2014 \u0442\u043E\u0442 \u0436\u0435, \u0447\u0442\u043E \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0435\u0442\u0435 \u0434\u043B\u044F \u0432\u0445\u043E\u0434\u0430." }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { autoFocus: true, placeholder: "\u041E\u0442\u0441\u043A\u0430\u043D\u0438\u0440\u0443\u0439\u0442\u0435 QR...", value: recoverQrInput, onChange: (e) => setRecoverQrInput(e.target.value), onKeyDown: (e) => e.key === "Enter" && doRecoverScan() }),
+              authError && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { color: "var(--danger)", fontSize: 13 }, children: authError }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", onClick: doRecoverScan, children: "\u041F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044C QR-\u043A\u043E\u0434\u043E\u043C" })
+            ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--muted-2)" }, children: "\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0441\u0432\u043E\u0439 \u043B\u043E\u0433\u0438\u043D \u0438 \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E, \u043A\u043E\u0442\u043E\u0440\u043E\u0435 \u0443\u043A\u0430\u0437\u044B\u0432\u0430\u043B\u0438 \u043F\u0440\u0438 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438." }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { autoFocus: true, placeholder: t("login"), value: recoverUsername, onChange: (e) => setRecoverUsername(e.target.value) }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "\u0421\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E", value: recoverSecretWord, onChange: (e) => setRecoverSecretWord(e.target.value), onKeyDown: (e) => e.key === "Enter" && doRecoverBySecret() }),
+              authError && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { color: "var(--danger)", fontSize: 13 }, children: authError }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", onClick: doRecoverBySecret, children: "\u041F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044C \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u044B\u043C \u0441\u043B\u043E\u0432\u043E\u043C" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, color: "var(--muted-2)" }, children: "\u041D\u0438 QR, \u043D\u0438 \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0433\u043E \u0441\u043B\u043E\u0432\u0430 \u043D\u0435\u0442 \u043F\u043E\u0434 \u0440\u0443\u043A\u043E\u0439? \u041E\u0431\u0440\u0430\u0442\u0438\u0442\u0435\u0441\u044C \u043A \u0430\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0443 \u2014 \u043E\u043D \u0441\u043C\u043E\u0436\u0435\u0442 \u0441\u0431\u0440\u043E\u0441\u0438\u0442\u044C \u043F\u0430\u0440\u043E\u043B\u044C \u0432\u0440\u0443\u0447\u043D\u0443\u044E." })
+          ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 13, color: "var(--text)" }, children: [
+              "\u041B\u0438\u0447\u043D\u043E\u0441\u0442\u044C \u043F\u043E\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043D\u0430 \u2014 ",
+              users.find((u) => u.id === recoverUserId)?.name,
+              ". \u0417\u0430\u0434\u0430\u0439\u0442\u0435 \u043D\u043E\u0432\u044B\u0439 \u043F\u0430\u0440\u043E\u043B\u044C:"
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "password", autoFocus: true, placeholder: t("password"), value: recoverPassword, onChange: (e) => setRecoverPassword(e.target.value), onKeyDown: (e) => e.key === "Enter" && doRecoverSubmit() }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "password", placeholder: t("confirmPassword"), value: recoverPassword2, onChange: (e) => setRecoverPassword2(e.target.value), onKeyDown: (e) => e.key === "Enter" && doRecoverSubmit() }),
+            authError && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { color: "var(--danger)", fontSize: 13 }, children: authError }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", onClick: doRecoverSubmit, children: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043D\u043E\u0432\u044B\u0439 \u043F\u0430\u0440\u043E\u043B\u044C \u0438 \u0432\u043E\u0439\u0442\u0438" })
+          ] }) })
         ] })
       ] });
     }
@@ -80715,6 +80919,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(FontLinks, {}),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)(GlobalStyle, {}),
       (pullDistance > 0 || refreshing) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "fixed", top: 0, left: 0, right: 0, display: "flex", justifyContent: "center", alignItems: "center", height: refreshing ? 56 : pullDistance, overflow: "hidden", transition: refreshing ? "height 0.15s" : "none", zIndex: 50, background: "var(--bg)", borderBottom: pullDistance > 10 || refreshing ? "1px solid var(--border)" : "none" }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mono", style: { fontSize: 12, color: pullDistance > PULL_THRESHOLD || refreshing ? "var(--accent)" : "var(--muted-2)", transform: refreshing ? "none" : `rotate(${Math.min(pullDistance * 3, 200)}deg)`, display: "inline-block", transition: refreshing ? "none" : "transform 0.05s" }, children: refreshing ? "\u27F3 \u041E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435..." : pullDistance > PULL_THRESHOLD ? "\u2193 \u041E\u0442\u043F\u0443\u0441\u0442\u0438\u0442\u0435 \u0434\u043B\u044F \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F" : "\u2193" }) }),
+      (!isOnline || pendingSyncCount > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { textAlign: "center", padding: "6px 10px", fontSize: 12, background: !isOnline ? "var(--danger)" : "var(--accent)", color: "#1a1a1a", fontWeight: 500 }, children: !isOnline ? pendingSyncCount > 0 ? `\u{1F4F4} \u041D\u0435\u0442 \u0441\u0432\u044F\u0437\u0438 \u2014 \u0436\u0434\u0443\u0442 \u043E\u0442\u043F\u0440\u0430\u0432\u043A\u0438: ${pendingSyncCount}` : "\u{1F4F4} \u041D\u0435\u0442 \u0441\u0432\u044F\u0437\u0438 \u2014 \u0434\u0430\u043D\u043D\u044B\u0435 \u043C\u043E\u0433\u0443\u0442 \u0431\u044B\u0442\u044C \u043D\u0435\u0430\u043A\u0442\u0443\u0430\u043B\u044C\u043D\u044B" : `\u23F3 \u041E\u0442\u043F\u0440\u0430\u0432\u043A\u0430 \u043D\u0430\u043A\u043E\u043F\u043B\u0435\u043D\u043D\u044B\u0445 \u0437\u0430\u043F\u0438\u0441\u0435\u0439: ${pendingSyncCount}...` }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { height: 6, background: "repeating-linear-gradient(45deg, var(--accent) 0 10px, var(--bg) 10px 20px)" } }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { maxWidth: 1080, margin: "0 auto", padding: "calc(24px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) calc(60px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left))" }, children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 28 }, children: [
@@ -80832,6 +81037,22 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
               }
             ),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontWeight: 600, fontSize: 14 }, children: currentUser.name }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+              "button",
+              {
+                className: "btn",
+                style: { padding: "6px 10px", borderRadius: 999, fontSize: 12, borderColor: currentUser.secretWordHash ? void 0 : "var(--accent)", color: currentUser.secretWordHash ? void 0 : "var(--accent)" },
+                onClick: () => {
+                  setShowMySecretWord(true);
+                  setMySecretWordVal("");
+                },
+                title: currentUser.secretWordHash ? "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E" : "\u0417\u0430\u0434\u0430\u0442\u044C \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E \u2014 \u043F\u043E\u043D\u0430\u0434\u043E\u0431\u0438\u0442\u0441\u044F, \u0435\u0441\u043B\u0438 \u0437\u0430\u0431\u0443\u0434\u0435\u0442\u0435 \u043F\u0430\u0440\u043E\u043B\u044C",
+                children: [
+                  "\u{1F511}",
+                  !currentUser.secretWordHash && " \u0417\u0430\u0434\u0430\u0442\u044C \u0441\u043B\u043E\u0432\u043E"
+                ]
+              }
+            ),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px", borderRadius: 999, fontSize: 12 }, onClick: logout, children: t("logout") })
           ] })
         ] }),
@@ -81162,11 +81383,19 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "text", placeholder: "\u041D\u043E\u0432\u044B\u0439 \u043F\u0430\u0440\u043E\u043B\u044C", value: resetPwVal, onChange: (ev) => setResetPwVal(ev.target.value), style: { flex: 1 } }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 10px" }, onClick: () => savePwReset(e.id), children: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px" }, onClick: () => setResetPwId(null), children: "\u041E\u0442\u043C\u0435\u043D\u0430" })
+                  ] }) : resetSecretId === e.id ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "text", placeholder: "\u041D\u043E\u0432\u043E\u0435 \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E", value: resetSecretVal, onChange: (ev) => setResetSecretVal(ev.target.value), style: { flex: 1 } }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 10px" }, onClick: () => saveSecretWordReset(e.id), children: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px" }, onClick: () => setResetSecretId(null), children: "\u041E\u0442\u043C\u0435\u043D\u0430" })
                   ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }, children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 12 }, onClick: () => {
                       setResetPwId(e.id);
                       setResetPwVal("");
                     }, children: "\u0421\u0431\u0440\u043E\u0441\u0438\u0442\u044C \u043F\u0430\u0440\u043E\u043B\u044C" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 12 }, onClick: () => {
+                      setResetSecretId(e.id);
+                      setResetSecretVal("");
+                    }, children: e.secretWordHash ? "\u0421\u043C\u0435\u043D\u0438\u0442\u044C \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E" : "\u0417\u0430\u0434\u0430\u0442\u044C \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 12 }, onClick: () => setShowQrForId(e.id), children: "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C QR" }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: e.timerEnabled ? "var(--accent)" : "var(--muted)", cursor: "pointer" }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "checkbox", checked: !!e.timerEnabled, onChange: (ev) => toggleTimerForUser(e.id, ev.target.checked), style: { width: 15, height: 15, padding: 0 } }),
@@ -81868,7 +82097,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                         priceColor: "var(--muted-2)",
                         onAdd: () => {
                           const q = Math.max(1, parseInt(qtyMap[`none-${p.sku}`]) || 1);
-                          askConfirm(`\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C ${q} \xD7 ${p.name}?`, () => addPieceEntry(p, q, { price: 0, label: "", id: null }));
+                          askConfirm(`\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C ${q} \xD7 ${p.name}? \u0414\u0430\u0442\u0430: ${fmtDate(packDate)}`, () => addPieceEntry(p, q, { price: 0, label: "", id: null }));
                         }
                       },
                       "none"
@@ -81882,7 +82111,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                         priceColor: "var(--accent)",
                         onAdd: () => {
                           const q = Math.max(1, parseInt(qtyMap[opt.id]) || 1);
-                          askConfirm(`\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C ${q} \xD7 ${p.name}${opt.label ? " (" + opt.label + ")" : ""}?`, () => addPieceEntry(p, q, opt));
+                          askConfirm(`\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C ${q} \xD7 ${p.name}${opt.label ? " (" + opt.label + ")" : ""}? \u0414\u0430\u0442\u0430: ${fmtDate(packDate)}`, () => addPieceEntry(p, q, opt));
                         }
                       },
                       opt.id
@@ -81905,7 +82134,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                       setToast("\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u0447\u0430\u0441\u043E\u0432");
                       return;
                     }
-                    askConfirm(`\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0441\u043C\u0435\u043D\u0443 ${h} \u0447?`, addHourEntry);
+                    askConfirm(`\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0441\u043C\u0435\u043D\u0443 ${h} \u0447? \u0414\u0430\u0442\u0430: ${fmtDate(hoursDate)}`, addHourEntry);
                   }, children: "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0441\u043C\u0435\u043D\u0443" })
                 ] }),
                 hoursDate !== todayStr() && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11, color: "var(--accent)", marginTop: 8 }, children: [
@@ -82109,21 +82338,44 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
         ] })
       ] }),
       toast && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "var(--accent)", color: "var(--accent-ink)", padding: "10px 18px", borderRadius: 8, fontWeight: 600, fontSize: 14, boxShadow: "0 4px 16px rgba(0,0,0,0.3)" }, children: toast }),
-      lightbox && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, flexDirection: "column", padding: 20 }, onClick: () => setLightbox(null), children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 14, color: "#fff", marginBottom: 12, textAlign: "center" }, children: [
-          lightbox.name,
-          " \xB7 ",
-          lightbox.index + 1,
-          "/",
-          lightbox.images.length
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LightboxImage, { src: lightbox.images[lightbox.index], onStop: (e) => e.stopPropagation() }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 10, marginTop: 16 }, onClick: (e) => e.stopPropagation(), children: [
-          lightbox.images.length > 1 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", onClick: () => setLightbox((l) => ({ ...l, index: (l.index - 1 + l.images.length) % l.images.length })), children: "\u2190 \u041D\u0430\u0437\u0430\u0434" }),
-          lightbox.images.length > 1 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", onClick: () => setLightbox((l) => ({ ...l, index: (l.index + 1) % l.images.length })), children: "\u0412\u043F\u0435\u0440\u0451\u0434 \u2192" }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", onClick: () => setLightbox(null), children: "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" })
-        ] })
-      ] }),
+      lightbox && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+        "div",
+        {
+          style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, flexDirection: "column", padding: 20 },
+          onClick: () => setLightbox(null),
+          onTouchStart: (e) => {
+            lightboxTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          },
+          onTouchEnd: (e) => {
+            const start = lightboxTouchRef.current;
+            if (!start) return;
+            const dx = e.changedTouches[0].clientX - start.x;
+            const dy = e.changedTouches[0].clientY - start.y;
+            lightboxTouchRef.current = null;
+            if (Math.abs(dx) < 40 && Math.abs(dy) < 40) return;
+            if (Math.abs(dy) > Math.abs(dx)) {
+              setLightbox(null);
+            } else if (lightbox.images.length > 1) {
+              setLightbox((l) => ({ ...l, index: dx < 0 ? (l.index + 1) % l.images.length : (l.index - 1 + l.images.length) % l.images.length }));
+            }
+          },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 14, color: "#fff", marginBottom: 12, textAlign: "center" }, children: [
+              lightbox.name,
+              " \xB7 ",
+              lightbox.index + 1,
+              "/",
+              lightbox.images.length
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)(LightboxImage, { src: lightbox.images[lightbox.index], onStop: (e) => e.stopPropagation() }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 10, marginTop: 16 }, onClick: (e) => e.stopPropagation(), children: [
+              lightbox.images.length > 1 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", onClick: () => setLightbox((l) => ({ ...l, index: (l.index - 1 + l.images.length) % l.images.length })), children: "\u2190 \u041D\u0430\u0437\u0430\u0434" }),
+              lightbox.images.length > 1 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", onClick: () => setLightbox((l) => ({ ...l, index: (l.index + 1) % l.images.length })), children: "\u0412\u043F\u0435\u0440\u0451\u0434 \u2192" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", onClick: () => setLightbox(null), children: "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" })
+            ] })
+          ]
+        }
+      ),
       chatAttachOpen && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 20 }, onClick: () => {
         setChatAttachOpen(false);
         setChatAttachQuery("");
@@ -82222,6 +82474,15 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
             fn();
           }, children: "\u041F\u043E\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044C" }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", onClick: () => setConfirmDialog(null), children: "\u041E\u0442\u043C\u0435\u043D\u0430" })
+        ] })
+      ] }) }),
+      showMySecretWord && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }, onClick: () => setShowMySecretWord(false), children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 360 }, onClick: (e) => e.stopPropagation(), children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 600, marginBottom: 8 }, children: currentUser.secretWordHash ? "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E" : "\u0417\u0430\u0434\u0430\u0442\u044C \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--muted-2)", marginBottom: 12 }, children: "\u041F\u0440\u0438\u0433\u043E\u0434\u0438\u0442\u0441\u044F, \u0435\u0441\u043B\u0438 \u0437\u0430\u0431\u0443\u0434\u0435\u0442\u0435 \u043F\u0430\u0440\u043E\u043B\u044C \u2014 \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u0432\u0445\u043E\u0434\u0430 \u0441\u043C\u043E\u0436\u0435\u0442\u0435 \u0441\u0431\u0440\u043E\u0441\u0438\u0442\u044C \u0435\u0433\u043E \u0441\u0430\u043C\u0438, \u0432\u0432\u0435\u0434\u044F \u043B\u043E\u0433\u0438\u043D \u0438 \u044D\u0442\u043E \u0441\u043B\u043E\u0432\u043E (\u0431\u0435\u0437 \u0443\u0447\u0430\u0441\u0442\u0438\u044F \u0430\u0434\u043C\u0438\u043D\u0438\u0441\u0442\u0440\u0430\u0442\u043E\u0440\u0430)." }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { autoFocus: true, placeholder: "\u0421\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E", value: mySecretWordVal, onChange: (e) => setMySecretWordVal(e.target.value), onKeyDown: (e) => e.key === "Enter" && setMySecretWord(), style: { width: "100%", marginBottom: 10 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", onClick: setMySecretWord, children: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", onClick: () => setShowMySecretWord(false), children: "\u041E\u0442\u043C\u0435\u043D\u0430" })
         ] })
       ] }) }),
       showQrForId && (() => {
@@ -82549,6 +82810,10 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
   // src/entry.jsx
   var import_jsx_runtime2 = __toESM(require_jsx_runtime());
   var LOCAL_PREFIX = "packer-kv:";
+  var MIRROR_PREFIX = "packer-kv-mirror:";
+  function isNetworkError(err) {
+    return !err || typeof err.status !== "number";
+  }
   async function apiFetch(path2, options) {
     const res = await fetch(path2, options);
     if (!res.ok) {
@@ -82565,25 +82830,45 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
         if (raw === null) throw new Error("not found");
         return { key, value: raw, shared: false };
       }
-      return apiFetch(`/api/kv/${encodeURIComponent(key)}`);
+      try {
+        const result = await apiFetch(`/api/kv/${encodeURIComponent(key)}`);
+        try {
+          localStorage.setItem(MIRROR_PREFIX + key, JSON.stringify(result));
+        } catch (e) {
+        }
+        return result;
+      } catch (err) {
+        if (isNetworkError(err)) {
+          const mirrored = localStorage.getItem(MIRROR_PREFIX + key);
+          if (mirrored !== null) return JSON.parse(mirrored);
+        }
+        throw err;
+      }
     },
     async set(key, value, shared) {
       if (!shared) {
         localStorage.setItem(LOCAL_PREFIX + key, value);
         return { key, value, shared: false };
       }
-      return apiFetch(`/api/kv/${encodeURIComponent(key)}`, {
+      const result = await apiFetch(`/api/kv/${encodeURIComponent(key)}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ value })
       });
+      try {
+        localStorage.setItem(MIRROR_PREFIX + key, JSON.stringify({ key, value, shared: true }));
+      } catch (e) {
+      }
+      return result;
     },
     async delete(key, shared) {
       if (!shared) {
         localStorage.removeItem(LOCAL_PREFIX + key);
         return { key, deleted: true, shared: false };
       }
-      return apiFetch(`/api/kv/${encodeURIComponent(key)}`, { method: "DELETE" });
+      const result = await apiFetch(`/api/kv/${encodeURIComponent(key)}`, { method: "DELETE" });
+      localStorage.removeItem(MIRROR_PREFIX + key);
+      return result;
     },
     async list(prefix2, shared) {
       if (!shared) {
@@ -82601,6 +82886,12 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       return apiFetch(`/api/kv${qs}`);
     }
   };
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js").catch(() => {
+      });
+    });
+  }
   var root = (0, import_client.createRoot)(document.getElementById("root"));
   root.render(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(App, {}));
 })();
