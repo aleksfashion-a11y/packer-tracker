@@ -4,14 +4,20 @@
 // (см. entry.jsx и App.jsx), сервис-воркер отвечает только за то, чтобы код вообще
 // смог загрузиться и запуститься без сети.
 //
-// Стратегия: СНАЧАЛА СЕТЬ (с таймаутом), кэш — только как подстраховка, если сети
-// нет или она не ответила вовремя. Раньше было наоборот ("сначала кэш"), из-за чего
-// при обновлении bundle.js без изменения самого sw.js кэш не обновлялся, и телефон
-// мог показывать старую/неполную версию — отсюда зависания при загрузке на iPhone.
+// Стратегия: СНАЧАЛА СЕТЬ, кэш — только запасной вариант, если сети совсем нет
+// (или она не ответила за отведённое время). Так каждое обновление bundle.js сразу
+// видно сотрудникам — не нужно просить их вручную перезакрывать приложение после
+// каждого деплоя.
 //
-// !!! При каждом обновлении bundle.js/index.html меняйте номер версии ниже (v2, v3...) —
+// Почему это не медленно: сервер (Express) сам умеет отвечать "файл не изменился"
+// (заголовки ETag/Last-Modified) — если bundle.js такой же, как в прошлый раз,
+// браузер получает короткий быстрый ответ вместо повторной закачки всех 3.5 МБ.
+// Заметно дольше будет только сразу после того, как вы выкатили новую версию — тогда
+// её действительно нужно скачать, это ожидаемо и оправдано.
+//
+// !!! При каждом обновлении bundle.js/index.html меняйте номер версии ниже (v4, v5...) —
 // это заставит браузер полностью пересоздать кэш, а не мучиться с частично устаревшим.
-const CACHE_NAME = "packer-tracker-shell-v2";
+const CACHE_NAME = "packer-tracker-shell-v4";
 const SHELL_FILES = [
   "/",
   "/index.html",
@@ -22,7 +28,7 @@ const SHELL_FILES = [
   "/icons/icon-512.png",
   "/icons/apple-touch-icon.png",
 ];
-const NETWORK_TIMEOUT_MS = 4000;
+const NETWORK_TIMEOUT_MS = 6000;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -48,9 +54,13 @@ self.addEventListener("activate", (event) => {
 });
 
 function fetchWithTimeout(req, ms) {
+  // cache: "no-cache" — не "не кэшировать вообще", а "всегда сверяться с сервером,
+  // прежде чем использовать закэшированное" (браузер сам решит — 304 быстро или
+  // качать заново, если правда что-то изменилось)
+  const revalidatingReq = new Request(req, { cache: "no-cache" });
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("timeout")), ms);
-    fetch(req).then(
+    fetch(revalidatingReq).then(
       (res) => { clearTimeout(timer); resolve(res); },
       (err) => { clearTimeout(timer); reject(err); }
     );
@@ -78,6 +88,8 @@ self.addEventListener("fetch", (event) => {
         return res;
       })
       .catch(() =>
+        // Сети совсем нет (или не ответила вовремя) — показываем последнюю
+        // сохранённую версию вместо пустого экрана
         caches.match(req).then((cached) => cached || caches.match("/index.html"))
       )
   );
