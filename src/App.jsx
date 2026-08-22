@@ -83,8 +83,10 @@ async function safeGet(key, shared, fallback) {
 async function safeSet(key, value, shared) {
   try {
     await window.storage.set(key, JSON.stringify(value), shared);
+    return true;
   } catch (e) {
     console.error("storage set failed", key, e);
+    return false;
   }
 }
 
@@ -112,8 +114,105 @@ function playVibrate(pattern = 40) {
   } catch (e) { /* not supported */ }
 }
 
+// GlobalStyle и FontLinks вынесены сюда, ЗА пределы компонента App — раньше они были
+// объявлены прямо внутри App() и из-за этого пересоздавались заново при КАЖДОЙ его
+// перерисовке (то есть буквально на любое изменение состояния — переключение вкладки,
+// новое сообщение в чате и т.п.). React считал их "новым" компонентом на каждый такой
+// рендер и полностью пересоздавал <style> (сотни строк CSS) и <link> с шрифтами —
+// Safari/WebKit на iPhone заметно тормозит и "дёргается" на такой частой пересборке
+// стилей, в отличие от Chrome на Android. Вынесенные наружу, они создаются один раз.
+function GlobalStyle() {
+  return (
+    <style>{`
+      :root {
+        --bg: #1B1F24; --bg-alt: #20252A; --surface: #262B31; --surface-2: #2C333B;
+        --border: #3A424B; --border-strong: #4B545E; --text: #EDEFF0; --text-secondary: #C7CDD3;
+        --muted: #8D97A0; --muted-2: #6C747C; --input-bg: #1F2429;
+        --accent: #F2A33B; --accent-hover: #F5B457; --accent-ink: #241705;
+        --teal: #49B5A6; --danger: #E2604F;
+      }
+      [data-theme="light"] {
+        --bg: #F3F4F6; --bg-alt: #FFFFFF; --surface: #FFFFFF; --surface-2: #EEF0F2;
+        --border: #DADEE3; --border-strong: #C2C8CE; --text: #1B1F24; --text-secondary: #33393F;
+        --muted: #5B6470; --muted-2: #7A828C; --input-bg: #FFFFFF;
+        --accent: #DB8A2A; --accent-hover: #C97B22; --accent-ink: #FFFFFF;
+        --teal: #2E8F82; --danger: #C6462F;
+      }
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      html, body { height: 100%; overscroll-behavior-y: none; }
+      .btn { cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 10px 14px; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; transition: background .15s, border-color .15s; }
+      .btn:hover { background: var(--surface-2); border-color: var(--border-strong); }
+      .btn:active { transform: scale(0.98); }
+      .btn-accent { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+      .btn-accent:hover { background: var(--accent-hover); }
+      .btn-danger { background: transparent; border-color: var(--border-strong); color: var(--danger); }
+      .btn-danger:hover { background: rgba(226,96,79,0.12); }
+      input, select, textarea { background: var(--input-bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 9px 11px; font-family: 'Inter', sans-serif; font-size: 16px; }
+      input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+      input::placeholder, textarea::placeholder { color: var(--muted-2); }
+      .mono { font-family: 'IBM Plex Mono', monospace; }
+      .display { font-family: 'Oswald', sans-serif; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { text-align: left; padding: 9px 8px; font-size: 13px; }
+      th { color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; border-bottom: 1px solid var(--border); }
+      td { border-bottom: 1px solid var(--surface-2); }
+      ::-webkit-scrollbar { width: 8px; height: 8px; }
+      ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+      .grid-log { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
+      .grid-emp { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+      .chat-layout { display: flex; gap: 16px; height: 560px; max-width: 900px; }
+      .chat-threads { width: 220px; flex-shrink: 0; }
+      .chat-panel { flex: 1; min-width: 0; }
+      .chat-input-row { padding: 12px; border-top: 1px solid var(--surface-2); display: flex; gap: 8px; align-items: center; }
+      .chat-icon-btn { padding: 8px 10px; font-size: 12px; flex-shrink: 0; }
+      @media (max-width: 760px) {
+        .grid-log, .grid-emp { grid-template-columns: 1fr; gap: 20px; }
+        .btn, select, input[type="date"] { min-height: 44px; }
+        table { font-size: 12px; }
+        th, td { padding: 8px 6px; }
+        .chat-layout { flex-direction: column; height: 78vh; max-width: 100%; }
+        .chat-threads { width: 100%; max-height: 130px; }
+        .chat-panel { min-height: 0; }
+        .chat-icon-btn { padding: 8px 8px; font-size: 15px; min-height: 0; }
+        .chat-input-row { padding: 8px; gap: 6px; }
+        .chat-input-row input[type="text"], .chat-input-row input:not([type]) { min-width: 0; }
+      }
+      @media (max-width: 480px) {
+        .header-btn-label { display: none; }
+      }
+      @media (max-width: 400px) {
+        .display { font-size: 22px !important; }
+      }
+      .row-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .header-search-item:hover { background: var(--surface-2); }
+      #print-payslip { display: none; }
+      @media print {
+        body * { visibility: hidden; }
+        #print-payslip, #print-payslip * { visibility: visible; }
+        #print-payslip { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 20px; color: #000; background: #fff; }
+        #print-payslip table { border-collapse: collapse; width: 100%; }
+        #print-payslip th, #print-payslip td { border: 1px solid #999; padding: 6px 8px; font-size: 12px; text-align: left; }
+        #print-payslip h1 { font-size: 18px; margin: 0 0 4px; }
+        #print-payslip .print-sub { font-size: 12px; color: #444; margin-bottom: 16px; }
+      }
+    `}</style>
+  );
+}
+function FontLinks() {
+  return (
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Oswald:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  );
+}
+
 export default function App() {
   const [loading, setLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const pullStartYRef = useRef(null);
+  const pullingRef = useRef(false);
+  const lightboxTouchRef = useRef(null);
   const [theme, setTheme] = useState("dark");
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [lang, setLang] = useState("ru");
@@ -148,11 +247,20 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [qrInput, setQrInput] = useState("");
+  const [recoverStep, setRecoverStep] = useState("scan"); // "scan" | "newpass"
+  const [recoverMethod, setRecoverMethod] = useState("qr"); // "qr" | "secret"
+  const [recoverQrInput, setRecoverQrInput] = useState("");
+  const [recoverUsername, setRecoverUsername] = useState("");
+  const [recoverSecretWord, setRecoverSecretWord] = useState("");
+  const [recoverUserId, setRecoverUserId] = useState(null);
+  const [recoverPassword, setRecoverPassword] = useState("");
+  const [recoverPassword2, setRecoverPassword2] = useState("");
 
   const [regUsername, setRegUsername] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regPassword2, setRegPassword2] = useState("");
   const [regName, setRegName] = useState("");
+  const [regSecretWord, setRegSecretWord] = useState("");
 
   const [setupUsername, setSetupUsername] = useState("");
   const [setupPassword, setSetupPassword] = useState("");
@@ -193,6 +301,7 @@ export default function App() {
   const chatRecordChunksRef = useRef([]);
   const chatRecordTimerRef = useRef(null);
   const [hoursDate, setHoursDate] = useState(todayStr());
+  const [packDate, setPackDate] = useState(todayStr());
   const [toast, setToast] = useState(null);
 
   const [priceEditOptionId, setPriceEditOptionId] = useState(null);
@@ -208,6 +317,10 @@ export default function App() {
   const [editRateVal, setEditRateVal] = useState("");
   const [resetPwId, setResetPwId] = useState(null);
   const [resetPwVal, setResetPwVal] = useState("");
+  const [resetSecretId, setResetSecretId] = useState(null);
+  const [resetSecretVal, setResetSecretVal] = useState("");
+  const [showMySecretWord, setShowMySecretWord] = useState(false);
+  const [mySecretWordVal, setMySecretWordVal] = useState("");
   const [newAdminUsername, setNewAdminUsername] = useState("");
   const [newAdminPassword, setNewAdminPassword] = useState("");
   const [newAdminName, setNewAdminName] = useState("");
@@ -246,56 +359,119 @@ export default function App() {
   const [msgTarget, setMsgTarget] = useState("all");
   const searchInputRef = useRef(null);
 
+  const loadSharedData = async () => {
+    const u = await safeGet("users", true, []);
+    let cat = await safeGet("catalog", true, null);
+    if (cat === null) {
+      cat = SEED_CATALOG;
+      await safeSet("catalog", cat, true);
+    }
+    setCatalog(cat);
+    let po = await safeGet("packagingOptions", true, null);
+    if (po === null) {
+      po = DEFAULT_PACKAGING_OPTIONS;
+      await safeSet("packagingOptions", po, true);
+    }
+    const ent = await safeGet("entries", true, []);
+    const ts = await safeGet("timerSessions", true, []);
+    const ph = await safeGet("priceHistory", true, []);
+    const cb = await safeGet("customBarcodes", true, []);
+    const pi = await safeGet("productImages", true, {});
+    const ll = await safeGet("loginLog", true, []);
+    const msgs = await safeGet("messages", true, []);
+    const chatMsgs = await safeGet("chatMessages", true, []);
+    const settings = await safeGet("settings", true, { currency: "₽", showEmployeeTotals: true });
+    setUsers(u);
+    // currentUser — отдельный снимок пользователя, сохранённый при входе; если админ
+    // поменял его данные (ставку, роль и т.п.), это не подтянется само собой без
+    // явного пересинка при каждом обновлении данных (свайп/кнопка ↻)
+    setCurrentUser((prev) => {
+      if (!prev) return prev;
+      const fresh = u.find((x) => x.id === prev.id);
+      return fresh || prev;
+    });
+    setPackagingOptions(po);
+    setEntries(ent);
+    setTimerSessions(ts);
+    setCustomBarcodes(cb);
+    setProductImages(pi);
+    setLoginLog(ll);
+    setMessages(msgs);
+    setChatMessages(chatMsgs);
+    setPriceHistory(ph);
+    setCurrency(settings.currency || "₽");
+    setShowEmployeeTotals(settings.showEmployeeTotals !== false);
+    setShowTimerTab(settings.showTimerTab !== false);
+    setEnabledAdminTabs({ ...DEFAULT_ADMIN_TABS, ...(settings.enabledAdminTabs || {}) });
+    setAdminQuickReplies(settings.adminQuickReplies || DEFAULT_ADMIN_QUICK_REPLIES);
+    setEmployeeQuickReplies(settings.employeeQuickReplies || DEFAULT_EMPLOYEE_QUICK_REPLIES);
+    setShowChatReadReceipts(settings.showChatReadReceipts !== false);
+    setShowChartDaily(settings.showChartDaily !== false);
+    setShowChartEmployees(settings.showChartEmployees !== false);
+    setShowChartTopProducts(settings.showChartTopProducts !== false);
+    setShowChartComparison(settings.showChartComparison !== false);
+    setShowChartHeatmap(settings.showChartHeatmap !== false);
+    // При каждом обновлении данных (свайп/кнопка ↻) даты упаковки и часов сбрасываются
+    // на сегодняшний день — чтобы разовое исправление задним числом не забылось висеть выбранным
+    setPackDate(todayStr());
+    setHoursDate(todayStr());
+    return u;
+  };
+
+  const PULL_THRESHOLD = 60;
+  const PULL_DEADZONE = 12; // не реагируем на первые ~12px — гасит дребезг от обычного "резинового" отскока iOS у верха страницы
+  const pullRafRef = useRef(null);
+  const pullLatestYRef = useRef(null);
+  const handlePullTouchStart = (e) => {
+    if (refreshing) return;
+    const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+    if (scrollTop <= 0) {
+      pullStartYRef.current = e.touches[0].clientY;
+      pullingRef.current = true;
+    } else {
+      pullingRef.current = false;
+    }
+  };
+  const handlePullTouchMove = (e) => {
+    if (!pullingRef.current || pullStartYRef.current == null) return;
+    // Палец во время touchmove может двигаться десятки раз в секунду — если пересчитывать
+    // высоту индикатора на каждое такое событие, Safari/WebKit заметно "тормозит" на этом
+    // (частый пересчёт раскладки). Поэтому обновляем состояние не чаще одного раза за кадр
+    // отрисовки (requestAnimationFrame), а не на каждый чих touchmove.
+    pullLatestYRef.current = e.touches[0].clientY;
+    if (pullRafRef.current == null) {
+      pullRafRef.current = requestAnimationFrame(() => {
+        pullRafRef.current = null;
+        if (!pullingRef.current || pullStartYRef.current == null || pullLatestYRef.current == null) return;
+        const rawDelta = pullLatestYRef.current - pullStartYRef.current;
+        const eased = Math.max(0, rawDelta - PULL_DEADZONE);
+        setPullDistance((prev) => (eased === 0 && prev === 0 ? prev : Math.min(eased * 0.5, 90)));
+      });
+    }
+  };
+  const handlePullTouchEnd = async () => {
+    if (!pullingRef.current) return;
+    pullingRef.current = false;
+    pullStartYRef.current = null;
+    if (pullRafRef.current != null) { cancelAnimationFrame(pullRafRef.current); pullRafRef.current = null; }
+    if (pullDistance > PULL_THRESHOLD) {
+      setRefreshing(true);
+      setPullDistance(56);
+      await loadSharedData();
+      setRefreshing(false);
+      setToast("Обновлено");
+    }
+    setPullDistance(0);
+  };
+
   useEffect(() => {
     (async () => {
-      const u = await safeGet("users", true, []);
-      let cat = await safeGet("catalog", true, null);
-      if (cat === null) {
-        cat = SEED_CATALOG;
-        await safeSet("catalog", cat, true);
-      }
-      setCatalog(cat);
-      let po = await safeGet("packagingOptions", true, null);
-      if (po === null) {
-        po = DEFAULT_PACKAGING_OPTIONS;
-        await safeSet("packagingOptions", po, true);
-      }
-      const ent = await safeGet("entries", true, []);
-      const ts = await safeGet("timerSessions", true, []);
-      const ph = await safeGet("priceHistory", true, []);
-      const cb = await safeGet("customBarcodes", true, []);
-      const pi = await safeGet("productImages", true, {});
-      const ll = await safeGet("loginLog", true, []);
-      const msgs = await safeGet("messages", true, []);
-      const chatMsgs = await safeGet("chatMessages", true, []);
-      const settings = await safeGet("settings", true, { currency: "₽", showEmployeeTotals: true });
-      setUsers(u);
+      const u = await loadSharedData();
       const sessionUserId = await safeGet("session", false, null);
       if (sessionUserId) {
         const su = u.find((x) => x.id === sessionUserId);
         if (su) setCurrentUser(su);
       }
-      setPackagingOptions(po);
-      setEntries(ent);
-      setTimerSessions(ts);
-      setCustomBarcodes(cb);
-      setProductImages(pi);
-      setLoginLog(ll);
-      setMessages(msgs);
-      setChatMessages(chatMsgs);
-      setPriceHistory(ph);
-      setCurrency(settings.currency || "₽");
-      setShowEmployeeTotals(settings.showEmployeeTotals !== false);
-      setShowTimerTab(settings.showTimerTab !== false);
-      setEnabledAdminTabs({ ...DEFAULT_ADMIN_TABS, ...(settings.enabledAdminTabs || {}) });
-      setAdminQuickReplies(settings.adminQuickReplies || DEFAULT_ADMIN_QUICK_REPLIES);
-      setEmployeeQuickReplies(settings.employeeQuickReplies || DEFAULT_EMPLOYEE_QUICK_REPLIES);
-      setShowChatReadReceipts(settings.showChatReadReceipts !== false);
-      setShowChartDaily(settings.showChartDaily !== false);
-      setShowChartEmployees(settings.showChartEmployees !== false);
-      setShowChartTopProducts(settings.showChartTopProducts !== false);
-      setShowChartComparison(settings.showChartComparison !== false);
-      setShowChartHeatmap(settings.showChartHeatmap !== false);
       const savedTheme = await safeGet("theme", false, "dark");
       setTheme(savedTheme === "light" ? "light" : "dark");
       const savedSound = await safeGet("soundEnabled", false, true);
@@ -307,6 +483,12 @@ export default function App() {
         const snapKey = `snapshot:${todayStr()}`;
         const existing = await safeGet(snapKey, true, null);
         if (existing === null) {
+          const settings = await safeGet("settings", true, {});
+          const ent = await safeGet("entries", true, []);
+          const po = await safeGet("packagingOptions", true, []);
+          const ts = await safeGet("timerSessions", true, []);
+          const ph = await safeGet("priceHistory", true, []);
+          const cb = await safeGet("customBarcodes", true, []);
           const snapshot = {
             exportedAt: new Date().toISOString(),
             users: u, packagingOptions: po, entries: ent, timerSessions: ts, priceHistory: ph, customBarcodes: cb, settings,
@@ -700,13 +882,19 @@ export default function App() {
   const startVoiceRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
+      // Safari (iPhone) часто не поддерживает webm — берём лучший доступный формат,
+      // а не наклеиваем один и тот же ярлык на всё подряд (иначе аудио запишется в одном
+      // формате, а браузер попробует открыть его как другой — и не сможет проиграть)
+      const preferredTypes = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/aac", "audio/ogg"];
+      const supportedType = preferredTypes.find((t) => typeof MediaRecorder.isTypeSupported === "function" && MediaRecorder.isTypeSupported(t));
+      const recorder = supportedType ? new MediaRecorder(stream, { mimeType: supportedType }) : new MediaRecorder(stream);
       chatRecordChunksRef.current = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chatRecordChunksRef.current.push(e.data); };
       recorder.onstop = async () => {
         stream.getTracks().forEach((t) => t.stop());
         clearInterval(chatRecordTimerRef.current);
-        const blob = new Blob(chatRecordChunksRef.current, { type: "audio/webm" });
+        const actualType = recorder.mimeType || supportedType || "audio/webm";
+        const blob = new Blob(chatRecordChunksRef.current, { type: actualType });
         const reader = new FileReader();
         reader.onload = () => {
           const dataUrl = reader.result;
@@ -735,7 +923,72 @@ export default function App() {
     }
     setChatRecording(false);
   };
-  const persistEntries = async (next) => { setEntries(next); await safeSet("entries", next, true); };
+  const OFFLINE_QUEUE_KEY = "offlinePendingEntries";
+  const loadOfflineQueue = () => {
+    try { return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]"); } catch (e) { return []; }
+  };
+  const saveOfflineQueue = (q) => {
+    try { localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(q)); } catch (e) {}
+  };
+  const persistEntries = async (next, opts = {}) => {
+    setEntries(next);
+    const ok = await safeSet("entries", next, true);
+    if (!ok && opts.newEntry) {
+      // Не удалось отправить на сервер (нет сети) — сама запись всё равно уже
+      // видна локально (setEntries выше), а в очередь на досылку кладём именно
+      // её, чтобы не потерять и отправить, как только связь вернётся
+      const queue = loadOfflineQueue();
+      queue.push(opts.newEntry);
+      saveOfflineQueue(queue);
+      setPendingSyncCount(queue.length);
+    }
+  };
+  const syncOfflineQueue = async () => {
+    const queue = loadOfflineQueue();
+    if (queue.length === 0 || !navigator.onLine) return;
+    try {
+      const serverEntries = await safeGet("entries", true, null);
+      if (serverEntries === null) return;
+      const existingIds = new Set(serverEntries.map((e) => e.id));
+      const toAdd = queue.filter((e) => !existingIds.has(e.id));
+      const merged = [...serverEntries, ...toAdd];
+      const ok = await safeSet("entries", merged, true);
+      if (ok) {
+        setEntries(merged);
+        saveOfflineQueue([]);
+        setPendingSyncCount(0);
+        if (queue.length > 0) setToast(`Отправлено офлайн-записей: ${queue.length}`);
+      }
+    } catch (e) { /* всё ещё нет сети — попробуем ещё раз позже */ }
+  };
+
+  // Следим за появлением/пропажей сети: обновляем баннер и пытаемся досослать
+  // накопившуюся офлайн-очередь записей упаковки/часов при каждом восстановлении связи.
+  // "Офлайн" показываем не мгновенно, а с небольшой задержкой — чтобы кратковременные
+  // обрывы связи (слабый сигнал) не заставляли баннер мигать туда-обратно и дёргать интерфейс.
+  useEffect(() => {
+    setPendingSyncCount(loadOfflineQueue().length);
+    let offlineTimer = null;
+    const handleOnline = () => {
+      if (offlineTimer) { clearTimeout(offlineTimer); offlineTimer = null; }
+      setIsOnline(true);
+      syncOfflineQueue();
+    };
+    const handleOffline = () => {
+      if (offlineTimer) clearTimeout(offlineTimer);
+      offlineTimer = setTimeout(() => setIsOnline(false), 2000);
+    };
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    const interval = setInterval(() => { if (navigator.onLine) syncOfflineQueue(); }, 20000);
+    syncOfflineQueue();
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+      if (offlineTimer) clearTimeout(offlineTimer);
+      clearInterval(interval);
+    };
+  }, []);
   const persistTimerSessions = async (next) => { setTimerSessions(next); await safeSet("timerSessions", next, true); };
   const persistPriceHistory = async (next) => { setPriceHistory(next); await safeSet("priceHistory", next, true); };
   const persistSettings = async (updates) => {
@@ -839,10 +1092,49 @@ export default function App() {
     setQrInput("");
   };
 
+  const doRecoverScan = () => {
+    setAuthError("");
+    const code = recoverQrInput.trim();
+    if (!code) return;
+    const user = users.find((u) => u.qrToken === code);
+    if (!user) { setAuthError("QR-код не распознан"); setRecoverQrInput(""); return; }
+    setRecoverUserId(user.id);
+    setRecoverStep("newpass");
+  };
+  const doRecoverBySecret = async () => {
+    setAuthError("");
+    const uname = recoverUsername.trim().toLowerCase();
+    const word = recoverSecretWord.trim().toLowerCase();
+    if (!uname || !word) return;
+    const user = users.find((u) => u.username === uname);
+    if (!user) { setAuthError("Такой логин не найден"); return; }
+    if (!user.secretWordHash) { setAuthError("У этого аккаунта не задано секретное слово — используйте QR-код или обратитесь к администратору"); return; }
+    const hash = await hashPassword(word);
+    if (hash !== user.secretWordHash) { setAuthError("Секретное слово не подошло"); return; }
+    setRecoverUserId(user.id);
+    setRecoverStep("newpass");
+  };
+  const doRecoverSubmit = async () => {
+    setAuthError("");
+    if (!recoverPassword || recoverPassword.length < 4) { setAuthError("Пароль должен быть не короче 4 символов"); return; }
+    if (recoverPassword !== recoverPassword2) { setAuthError("Пароли не совпадают"); return; }
+    const hash = await hashPassword(recoverPassword);
+    const next = users.map((u) => u.id === recoverUserId ? { ...u, passwordHash: hash } : u);
+    await persistUsers(next);
+    const user = next.find((u) => u.id === recoverUserId);
+    setCurrentUser(user);
+    await safeSet("session", user.id, false);
+    await logLogin(user, "восстановление пароля по QR");
+    setTab("log"); setAdminTab("overview");
+    setAuthMode("login");
+    setRecoverStep("scan"); setRecoverQrInput(""); setRecoverUserId(null); setRecoverPassword(""); setRecoverPassword2("");
+    setToast("Пароль изменён, вы вошли в систему");
+  };
+
   const doRegister = async () => {
     setAuthError("");
-    if (!regUsername.trim() || !regPassword || !regName.trim()) {
-      setAuthError("Заполните все поля");
+    if (!regUsername.trim() || !regPassword || !regName.trim() || !regSecretWord.trim()) {
+      setAuthError("Заполните все поля, включая секретное слово");
       return;
     }
     if (regPassword !== regPassword2) {
@@ -855,14 +1147,15 @@ export default function App() {
       return;
     }
     const hash = await hashPassword(regPassword);
-    const newUser = { id: uid(), username: uname, passwordHash: hash, role: "employee", name: regName.trim(), hourlyRate: 0, timerEnabled: false, barcodeAddEnabled: false, qrToken: uid() + uid() };
+    const secretHash = await hashPassword(regSecretWord.trim().toLowerCase());
+    const newUser = { id: uid(), username: uname, passwordHash: hash, secretWordHash: secretHash, role: "employee", name: regName.trim(), hourlyRate: 0, timerEnabled: false, barcodeAddEnabled: false, qrToken: uid() + uid() };
     const next = [...users, newUser];
     await persistUsers(next);
     setCurrentUser(newUser);
     await safeSet("session", newUser.id, false);
     await logLogin(newUser, "регистрация");
     setTab("log");
-    setRegUsername(""); setRegPassword(""); setRegPassword2(""); setRegName("");
+    setRegUsername(""); setRegPassword(""); setRegPassword2(""); setRegName(""); setRegSecretWord("");
   };
 
 
@@ -999,11 +1292,11 @@ export default function App() {
     const entry = {
       id: uid(), type: "piece", employeeId: currentUser.id,
       sku: product.sku, productName: product.name, unitPrice: opt.price, optionId: opt.id, optionLabel: opt.label || "", qty,
-      date: todayStr(), timestamp: Date.now(),
+      date: packDate || todayStr(), timestamp: Date.now(),
     };
     if (soundEnabled) playBeep();
     playVibrate(40);
-    await persistEntries([...entries, entry]);
+    await persistEntries([...entries, entry], { newEntry: entry });
     setToast(`+${qty} × ${product.name}${opt.label ? " (" + opt.label + ")" : ""}`);
   };
 
@@ -1035,6 +1328,10 @@ export default function App() {
     const interval = setInterval(async () => {
       const next = await safeGet("chatMessages", true, []);
       setChatMessages((prev) => {
+        // Ничего не изменилось с прошлой проверки — не трогаем состояние вообще,
+        // иначе React будет перерисовывать часть интерфейса каждые 4 секунды впустую
+        // (это и вызывало периодическое "дёргание" на iPhone)
+        if (next.length === prev.length && JSON.stringify(next) === JSON.stringify(prev)) return prev;
         if (next.length <= prev.length) return next;
         const prevIds = new Set(prev.map((m) => m.id));
         const arrived = next.filter((m) => !prevIds.has(m.id) && m.from !== currentUser.id);
@@ -1104,7 +1401,7 @@ export default function App() {
     };
     if (soundEnabled) playBeep(660, 130);
     playVibrate([30, 40, 30]);
-    await persistEntries([...entries, entry]);
+    await persistEntries([...entries, entry], { newEntry: entry });
     setHoursInput("");
     setToast(`Смена ${h} ч добавлена, ждёт подтверждения`);
   };
@@ -1506,7 +1803,10 @@ export default function App() {
   };
 
   const removeUser = async (id) => {
-    await persistUsers(users.filter((u) => u.id !== id));
+    const u = users.find((x) => x.id === id);
+    askConfirm(`Удалить сотрудника «${u ? u.name : "?"}»? Его логин и пароль будут удалены безвозвратно (сами записи упаковки останутся в журнале).`, async () => {
+      await persistUsers(users.filter((x) => x.id !== id));
+    });
   };
   const saveRate = async (id) => {
     const rate = parseFloat(editRateVal.replace(",", ".")) || 0;
@@ -1541,6 +1841,24 @@ export default function App() {
     await persistUsers(next);
     setResetPwId(null); setResetPwVal("");
     setToast("Пароль обновлён");
+  };
+  const saveSecretWordReset = async (id) => {
+    if (!resetSecretVal.trim()) return;
+    const hash = await hashPassword(resetSecretVal.trim().toLowerCase());
+    const next = users.map((u) => u.id === id ? { ...u, secretWordHash: hash } : u);
+    await persistUsers(next);
+    setResetSecretId(null); setResetSecretVal("");
+    setToast("Секретное слово обновлено");
+  };
+  const setMySecretWord = async () => {
+    if (!currentUser || !mySecretWordVal.trim()) return;
+    const hash = await hashPassword(mySecretWordVal.trim().toLowerCase());
+    const next = users.map((u) => u.id === currentUser.id ? { ...u, secretWordHash: hash } : u);
+    await persistUsers(next);
+    setCurrentUser((cu) => ({ ...cu, secretWordHash: hash }));
+    setShowMySecretWord(false);
+    setMySecretWordVal("");
+    setToast("Секретное слово сохранено");
   };
   const addAdmin = async () => {
     if (!newAdminUsername.trim() || !newAdminPassword || !newAdminName.trim()) return;
@@ -1595,71 +1913,7 @@ export default function App() {
     setToast("Дубли объединены");
   };
 
-  const styles = { page: { minHeight: "100dvh", background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter', sans-serif" } };
-  const GlobalStyle = () => (
-    <style>{`
-      :root {
-        --bg: #1B1F24; --bg-alt: #20252A; --surface: #262B31; --surface-2: #2C333B;
-        --border: #3A424B; --border-strong: #4B545E; --text: #EDEFF0; --text-secondary: #C7CDD3;
-        --muted: #8D97A0; --muted-2: #6C747C; --input-bg: #1F2429;
-        --accent: #F2A33B; --accent-hover: #F5B457; --accent-ink: #241705;
-        --teal: #49B5A6; --danger: #E2604F;
-      }
-      [data-theme="light"] {
-        --bg: #F3F4F6; --bg-alt: #FFFFFF; --surface: #FFFFFF; --surface-2: #EEF0F2;
-        --border: #DADEE3; --border-strong: #C2C8CE; --text: #1B1F24; --text-secondary: #33393F;
-        --muted: #5B6470; --muted-2: #7A828C; --input-bg: #FFFFFF;
-        --accent: #DB8A2A; --accent-hover: #C97B22; --accent-ink: #FFFFFF;
-        --teal: #2E8F82; --danger: #C6462F;
-      }
-      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-      html, body { height: 100%; overscroll-behavior-y: none; }
-      .btn { cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 10px 14px; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; transition: background .15s, border-color .15s; }
-      .btn:hover { background: var(--surface-2); border-color: var(--border-strong); }
-      .btn:active { transform: scale(0.98); }
-      .btn-accent { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-      .btn-accent:hover { background: var(--accent-hover); }
-      .btn-danger { background: transparent; border-color: var(--border-strong); color: var(--danger); }
-      .btn-danger:hover { background: rgba(226,96,79,0.12); }
-      input, select, textarea { background: var(--input-bg); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 9px 11px; font-family: 'Inter', sans-serif; font-size: 16px; }
-      input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
-      input::placeholder, textarea::placeholder { color: var(--muted-2); }
-      .mono { font-family: 'IBM Plex Mono', monospace; }
-      .display { font-family: 'Oswald', sans-serif; }
-      table { border-collapse: collapse; width: 100%; }
-      th, td { text-align: left; padding: 9px 8px; font-size: 13px; }
-      th { color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; border-bottom: 1px solid var(--border); }
-      td { border-bottom: 1px solid var(--surface-2); }
-      ::-webkit-scrollbar { width: 8px; height: 8px; }
-      ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-      .grid-log { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
-      .grid-emp { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-      @media (max-width: 760px) {
-        .grid-log, .grid-emp { grid-template-columns: 1fr; gap: 20px; }
-        .btn, select, input[type="date"] { min-height: 44px; }
-        table { font-size: 12px; }
-        th, td { padding: 8px 6px; }
-      }
-      @media (max-width: 400px) {
-        .display { font-size: 22px !important; }
-      }
-      .row-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-      .header-search-item:hover { background: var(--surface-2); }
-      #print-payslip { display: none; }
-      @media print {
-        body * { visibility: hidden; }
-        #print-payslip, #print-payslip * { visibility: visible; }
-        #print-payslip { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 20px; color: #000; background: #fff; }
-        #print-payslip table { border-collapse: collapse; width: 100%; }
-        #print-payslip th, #print-payslip td { border: 1px solid #999; padding: 6px 8px; font-size: 12px; text-align: left; }
-        #print-payslip h1 { font-size: 18px; margin: 0 0 4px; }
-        #print-payslip .print-sub { font-size: 12px; color: #444; margin-bottom: 16px; }
-      }
-    `}</style>
-  );
-  const FontLinks = () => (
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Oswald:wght@500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
-  );
+  const styles = { page: { minHeight: "100dvh", background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter', sans-serif", overflowX: "hidden" } };
 
   if (loading) {
     return (
@@ -1705,6 +1959,7 @@ export default function App() {
             <button onClick={() => { setAuthMode("login"); setAuthError(""); }} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", padding: "8px 0", fontSize: 14, fontWeight: 500, color: authMode === "login" ? "var(--accent)" : "var(--muted)", borderBottom: authMode === "login" ? "2px solid var(--accent)" : "2px solid transparent" }}>{t("tabLogin")}</button>
             <button onClick={() => { setAuthMode("qr"); setAuthError(""); }} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", padding: "8px 0", fontSize: 14, fontWeight: 500, color: authMode === "qr" ? "var(--accent)" : "var(--muted)", borderBottom: authMode === "qr" ? "2px solid var(--accent)" : "2px solid transparent" }}>{t("tabQr")}</button>
             <button onClick={() => { setAuthMode("register"); setAuthError(""); }} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", padding: "8px 0", fontSize: 14, fontWeight: 500, color: authMode === "register" ? "var(--accent)" : "var(--muted)", borderBottom: authMode === "register" ? "2px solid var(--accent)" : "2px solid transparent" }}>{t("tabRegister")}</button>
+            <button onClick={() => { setAuthMode("recover"); setAuthError(""); setRecoverStep("scan"); }} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", padding: "8px 0", fontSize: 12, fontWeight: 500, color: authMode === "recover" ? "var(--accent)" : "var(--muted)", borderBottom: authMode === "recover" ? "2px solid var(--accent)" : "2px solid transparent" }}>Забыли пароль?</button>
           </div>
 
           {authMode === "login" ? (
@@ -1721,22 +1976,56 @@ export default function App() {
               {authError && <div style={{ color: "var(--danger)", fontSize: 13 }}>{authError}</div>}
               <button className="btn btn-accent" onClick={() => doQrLogin(qrInput)}>{t("signInQr")}</button>
             </div>
-          ) : (
+          ) : authMode === "register" ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 2 }}>Регистрация для упаковщиков. Ставку вам назначит администратор после регистрации.</div>
               <input placeholder={t("yourName")} value={regName} onChange={(e) => setRegName(e.target.value)} />
               <input placeholder={t("login")} value={regUsername} onChange={(e) => setRegUsername(e.target.value)} />
               <input type="password" placeholder={t("password")} value={regPassword} onChange={(e) => setRegPassword(e.target.value)} />
               <input type="password" placeholder={t("confirmPassword")} value={regPassword2} onChange={(e) => setRegPassword2(e.target.value)} />
+              <input placeholder="Секретное слово (для восстановления пароля)" value={regSecretWord} onChange={(e) => setRegSecretWord(e.target.value)} />
+              <div style={{ fontSize: 11, color: "var(--muted-2)", marginTop: -6 }}>Придумайте слово, которое легко запомните — оно понадобится, если забудете пароль и не будет под рукой QR-кода.</div>
               {authError && <div style={{ color: "var(--danger)", fontSize: 13 }}>{authError}</div>}
               <button className="btn btn-accent" onClick={doRegister}>{t("register")}</button>
             </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {recoverStep === "scan" ? (
+                <>
+                  <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 2 }}>Чтобы задать новый пароль без участия администратора, сначала подтвердите, что это вы.</div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button className="btn" style={{ flex: 1, padding: "6px 10px", fontSize: 12, background: recoverMethod === "qr" ? "var(--accent)" : "var(--surface)", color: recoverMethod === "qr" ? "#1a1a1a" : "var(--text)" }} onClick={() => { setRecoverMethod("qr"); setAuthError(""); }}>По QR-коду</button>
+                    <button className="btn" style={{ flex: 1, padding: "6px 10px", fontSize: 12, background: recoverMethod === "secret" ? "var(--accent)" : "var(--surface)", color: recoverMethod === "secret" ? "#1a1a1a" : "var(--text)" }} onClick={() => { setRecoverMethod("secret"); setAuthError(""); }}>По секретному слову</button>
+                  </div>
+                  {recoverMethod === "qr" ? (
+                    <>
+                      <div style={{ fontSize: 12, color: "var(--muted-2)" }}>Отсканируйте (или вставьте) свой личный QR-код — тот же, что используете для входа.</div>
+                      <input autoFocus placeholder="Отсканируйте QR..." value={recoverQrInput} onChange={(e) => setRecoverQrInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && doRecoverScan()} />
+                      {authError && <div style={{ color: "var(--danger)", fontSize: 13 }}>{authError}</div>}
+                      <button className="btn btn-accent" onClick={doRecoverScan}>Подтвердить QR-кодом</button>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 12, color: "var(--muted-2)" }}>Введите свой логин и секретное слово, которое указывали при регистрации.</div>
+                      <input autoFocus placeholder={t("login")} value={recoverUsername} onChange={(e) => setRecoverUsername(e.target.value)} />
+                      <input placeholder="Секретное слово" value={recoverSecretWord} onChange={(e) => setRecoverSecretWord(e.target.value)} onKeyDown={(e) => e.key === "Enter" && doRecoverBySecret()} />
+                      {authError && <div style={{ color: "var(--danger)", fontSize: 13 }}>{authError}</div>}
+                      <button className="btn btn-accent" onClick={doRecoverBySecret}>Подтвердить секретным словом</button>
+                    </>
+                  )}
+                  <div style={{ fontSize: 11, color: "var(--muted-2)" }}>Ни QR, ни секретного слова нет под рукой? Обратитесь к администратору — он сможет сбросить пароль вручную.</div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 13, color: "var(--text)" }}>Личность подтверждена — {users.find((u) => u.id === recoverUserId)?.name}. Задайте новый пароль:</div>
+                  <input type="password" autoFocus placeholder={t("password")} value={recoverPassword} onChange={(e) => setRecoverPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && doRecoverSubmit()} />
+                  <input type="password" placeholder={t("confirmPassword")} value={recoverPassword2} onChange={(e) => setRecoverPassword2(e.target.value)} onKeyDown={(e) => e.key === "Enter" && doRecoverSubmit()} />
+                  {authError && <div style={{ color: "var(--danger)", fontSize: 13 }}>{authError}</div>}
+                  <button className="btn btn-accent" onClick={doRecoverSubmit}>Сохранить новый пароль и войти</button>
+                </>
+              )}
+            </div>
           )}
-        </div>
-        <div style={{ textAlign: "center", marginTop: 12 }}>
-          <button onClick={resetAllTestData} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: "var(--muted-2)", textDecoration: "underline" }}>
-            Не могу войти — сбросить тестовые данные мокапа
-          </button>
         </div>
       </div>
     );
@@ -1745,8 +2034,22 @@ export default function App() {
   const isAdmin = currentUser.role === "admin";
 
   return (
-    <div data-theme={theme} style={styles.page}>
+    <div data-theme={theme} style={styles.page} onTouchStart={handlePullTouchStart} onTouchMove={handlePullTouchMove} onTouchEnd={handlePullTouchEnd}>
       <FontLinks /><GlobalStyle />
+      {(pullDistance > 0 || refreshing) && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, display: "flex", justifyContent: "center", alignItems: "center", height: refreshing ? 56 : pullDistance, overflow: "hidden", transition: refreshing ? "height 0.15s" : "none", zIndex: 50, background: "var(--bg)", borderBottom: pullDistance > 10 || refreshing ? "1px solid var(--border)" : "none", willChange: "height" }}>
+          <span className="mono" style={{ fontSize: 12, color: pullDistance > PULL_THRESHOLD || refreshing ? "var(--accent)" : "var(--muted-2)", transform: refreshing ? "none" : `rotate(${Math.min(pullDistance * 3, 200)}deg)`, display: "inline-block", transition: refreshing ? "none" : "transform 0.05s" }}>
+            {refreshing ? "⟳ Обновление..." : pullDistance > PULL_THRESHOLD ? "↓ Отпустите для обновления" : "↓"}
+          </span>
+        </div>
+      )}
+      {(!isOnline || pendingSyncCount > 0) && (
+        <div style={{ textAlign: "center", padding: "6px 10px", fontSize: 12, background: !isOnline ? "var(--danger)" : "var(--accent)", color: "#1a1a1a", fontWeight: 500 }}>
+          {!isOnline
+            ? (pendingSyncCount > 0 ? `📴 Нет связи — ждут отправки: ${pendingSyncCount}` : "📴 Нет связи — данные могут быть неактуальны")
+            : `⏳ Отправка накопленных записей: ${pendingSyncCount}...`}
+        </div>
+      )}
       <div style={{ height: 6, background: "repeating-linear-gradient(45deg, var(--accent) 0 10px, var(--bg) 10px 20px)" }} />
       <div style={{ maxWidth: 1080, margin: "0 auto", padding: "calc(24px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) calc(60px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left))" }}>
         <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 28 }}>
@@ -1798,7 +2101,12 @@ export default function App() {
             </div>
           )}
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 999, padding: "6px 6px 6px 14px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, padding: "6px 6px 6px 14px", maxWidth: "100%" }}>
+            <button className="btn" style={{ padding: "6px 10px", borderRadius: 999, fontSize: 12 }}
+              onClick={async () => { setRefreshing(true); await loadSharedData(); setRefreshing(false); setToast("Обновлено"); }}
+              disabled={refreshing} title="Обновить данные">
+              {refreshing ? "⟳" : "↻"}
+            </button>
             <button className="btn" style={{ padding: "6px 10px", borderRadius: 999, fontSize: 11 }} onClick={toggleLang} title="Тил / Язык">
               {lang === "ru" ? "UZ" : "RU"}
             </button>
@@ -1837,6 +2145,11 @@ export default function App() {
               </button>
             )}
             <span style={{ fontWeight: 600, fontSize: 14 }}>{currentUser.name}</span>
+            <button className="btn" style={{ padding: "6px 10px", borderRadius: 999, fontSize: 12, borderColor: currentUser.secretWordHash ? undefined : "var(--accent)", color: currentUser.secretWordHash ? undefined : "var(--accent)" }}
+              onClick={() => { setShowMySecretWord(true); setMySecretWordVal(""); }}
+              title={currentUser.secretWordHash ? "Изменить секретное слово" : "Задать секретное слово — понадобится, если забудете пароль"}>
+              🔑{!currentUser.secretWordHash && <span className="header-btn-label"> Задать слово</span>}
+            </button>
             <button className="btn" style={{ padding: "6px 10px", borderRadius: 999, fontSize: 12 }} onClick={logout}>{t("logout")}</button>
           </div>
         </header>
@@ -2232,9 +2545,16 @@ export default function App() {
                             <button className="btn btn-accent" style={{ padding: "6px 10px" }} onClick={() => savePwReset(e.id)}>Сохранить</button>
                             <button className="btn" style={{ padding: "6px 10px" }} onClick={() => setResetPwId(null)}>Отмена</button>
                           </div>
+                        ) : resetSecretId === e.id ? (
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <input type="text" placeholder="Новое секретное слово" value={resetSecretVal} onChange={(ev) => setResetSecretVal(ev.target.value)} style={{ flex: 1 }} />
+                            <button className="btn btn-accent" style={{ padding: "6px 10px" }} onClick={() => saveSecretWordReset(e.id)}>Сохранить</button>
+                            <button className="btn" style={{ padding: "6px 10px" }} onClick={() => setResetSecretId(null)}>Отмена</button>
+                          </div>
                         ) : (
                           <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
                             <button className="btn" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => { setResetPwId(e.id); setResetPwVal(""); }}>Сбросить пароль</button>
+                            <button className="btn" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => { setResetSecretId(e.id); setResetSecretVal(""); }}>{e.secretWordHash ? "Сменить секретное слово" : "Задать секретное слово"}</button>
                             <button className="btn" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => setShowQrForId(e.id)}>Показать QR</button>
                             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: e.timerEnabled ? "var(--accent)" : "var(--muted)", cursor: "pointer" }}>
                               <input type="checkbox" checked={!!e.timerEnabled} onChange={(ev) => toggleTimerForUser(e.id, ev.target.checked)} style={{ width: 15, height: 15, padding: 0 }} />
@@ -2535,8 +2855,8 @@ export default function App() {
             )}
 
             {adminTab === "chat" && (
-              <div style={{ display: "flex", gap: 16, height: 560, maxWidth: 900 }}>
-                <div style={{ width: 220, flexShrink: 0, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, overflowY: "auto" }}>
+              <div className="chat-layout">
+                <div className="chat-threads" style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, overflowY: "auto" }}>
                   <button onClick={() => { setChatActiveThread("all"); markChatThreadRead("all"); }}
                     style={{ width: "100%", textAlign: "left", padding: "12px 14px", background: chatActiveThread === "all" ? "var(--surface-2)" : "none", border: "none", borderBottom: "1px solid var(--surface-2)", cursor: "pointer", color: "var(--text)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <span>💬 Общий чат</span>
@@ -2551,7 +2871,7 @@ export default function App() {
                   ))}
                   {employees.length === 0 && <div style={{ padding: 14, fontSize: 12, color: "var(--muted-2)" }}>Пока нет сотрудников.</div>}
                 </div>
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+                <div className="chat-panel" style={{ display: "flex", flexDirection: "column", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
                   <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--surface-2)", fontWeight: 600, fontSize: 14 }}>
                     {chatActiveThread === "all" ? "Общий чат (видят все сотрудники)" : chatUserName(chatActiveThread)}
                   </div>
@@ -2586,17 +2906,17 @@ export default function App() {
                       ))}
                     </div>
                   )}
-                  <div style={{ padding: 12, borderTop: "1px solid var(--surface-2)", display: "flex", gap: 8 }}>
-                    <button className="btn" style={{ padding: "8px 10px", fontSize: 12 }} onClick={() => setChatAttachOpen(true)} title="Прикрепить товар">📎</button>
-                    <button className="btn" style={{ padding: "8px 10px", fontSize: 12 }} onClick={() => setChatMediaOpen(true)} title="Фото или видео по ссылке">🖼️</button>
-                    <button className="btn" style={{ padding: "8px 10px", fontSize: 12, borderColor: chatRecording ? "var(--danger)" : undefined, color: chatRecording ? "var(--danger)" : undefined }}
+                  <div className="chat-input-row">
+                    <button className="btn chat-icon-btn" onClick={() => setChatAttachOpen(true)} title="Прикрепить товар">📎</button>
+                    <button className="btn chat-icon-btn" onClick={() => setChatMediaOpen(true)} title="Фото или видео по ссылке">🖼️</button>
+                    <button className="btn chat-icon-btn" style={{ borderColor: chatRecording ? "var(--danger)" : undefined, color: chatRecording ? "var(--danger)" : undefined }}
                       onClick={() => (chatRecording ? stopVoiceRecording() : startVoiceRecording())} title="Голосовое сообщение">
-                      {chatRecording ? `⏹ ${chatRecordSeconds}с` : "🎤"}
+                      {chatRecording ? `⏹${chatRecordSeconds}с` : "🎤"}
                     </button>
                     <input value={chatInput} onChange={(e) => setChatInput(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter" && chatInput.trim()) { sendChatMessage(chatActiveThread, chatInput); setChatInput(""); } }}
-                      placeholder="Написать сообщение..." style={{ flex: 1 }} />
-                    <button className="btn btn-accent" onClick={() => { if (chatInput.trim()) { sendChatMessage(chatActiveThread, chatInput); setChatInput(""); } }}>Отправить</button>
+                      placeholder="Написать сообщение..." style={{ flex: 1, minWidth: 0 }} />
+                    <button className="btn btn-accent" style={{ flexShrink: 0 }} onClick={() => { if (chatInput.trim()) { sendChatMessage(chatActiveThread, chatInput); setChatInput(""); } }}>Отправить</button>
                   </div>
                 </div>
               </div>
@@ -2805,7 +3125,11 @@ export default function App() {
                 <div>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, flexWrap: "wrap", gap: 8 }}>
                     <div style={{ fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Поиск товара</div>
-                    <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: packDate !== todayStr() ? "var(--accent)" : "var(--muted)" }}>
+                        Дата упаковки:
+                        <input type="date" value={packDate} onChange={(e) => setPackDate(e.target.value || todayStr())} style={{ padding: "4px 8px", fontSize: 12 }} />
+                      </label>
                       <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: soundEnabled ? "var(--accent)" : "var(--muted)" }}>
                         <input type="checkbox" checked={soundEnabled} onChange={(e) => toggleSound()} style={{ width: 15, height: 15, padding: 0 }} />
                         Звук
@@ -2816,6 +3140,11 @@ export default function App() {
                       </label>
                     </div>
                   </div>
+                  {packDate !== todayStr() && (
+                    <div style={{ fontSize: 11, color: "var(--accent)", marginBottom: 10 }}>
+                      ⚠ Записи будут добавлены датой {fmtDate(packDate)}, а не сегодняшним числом.
+                    </div>
+                  )}
                   <input ref={searchInputRef} autoFocus value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("searchProduct")} style={{ width: "100%", padding: "12px 14px", fontSize: 15, marginBottom: 8 }} />
                   <div style={{ marginBottom: scanMode ? 4 : 14 }}><SearchModeToggle mode={searchMode} onChange={setSearchMode} /></div>
                   {scanMode && <div style={{ fontSize: 11, color: "var(--muted-2)", marginBottom: 14 }}>Сканируйте штрихкод сканером — товар добавится сразу, по 1 шт., поле очистится само.</div>}
@@ -2879,15 +3208,15 @@ export default function App() {
                             </div>
 
                             {opts.length === 0 ? (
-                              <PieceOptionRow key="none" qty={qtyMap[`none-${p.sku}`] || 1}
+                              <PieceOptionRow key="none" qty={qtyMap[`none-${p.sku}`] ?? 1}
                                 onQtyChange={(v) => setQtyMap((m) => ({ ...m, [`none-${p.sku}`]: v }))}
                                 priceLabel="цена не задана" priceColor="var(--muted-2)"
-                                onAdd={() => addPieceEntry(p, qtyMap[`none-${p.sku}`] || 1, { price: 0, label: "", id: null })} />
+                                onAdd={() => { const q = Math.max(1, parseInt(qtyMap[`none-${p.sku}`]) || 1); askConfirm(`Добавить ${q} × ${p.name}? Дата: ${fmtDate(packDate)}`, () => addPieceEntry(p, q, { price: 0, label: "", id: null })); }} />
                             ) : opts.map((opt) => (
-                              <PieceOptionRow key={opt.id} label={opt.label} qty={qtyMap[opt.id] || 1}
+                              <PieceOptionRow key={opt.id} label={opt.label} qty={qtyMap[opt.id] ?? 1}
                                 onQtyChange={(v) => setQtyMap((m) => ({ ...m, [opt.id]: v }))}
                                 priceLabel={money(opt.price)} priceColor="var(--accent)"
-                                onAdd={() => addPieceEntry(p, qtyMap[opt.id] || 1, opt)} />
+                                onAdd={() => { const q = Math.max(1, parseInt(qtyMap[opt.id]) || 1); askConfirm(`Добавить ${q} × ${p.name}${opt.label ? " (" + opt.label + ")" : ""}? Дата: ${fmtDate(packDate)}`, () => addPieceEntry(p, q, opt)); }} />
                             ))}
 
                             {currentUser.barcodeAddEnabled && (
@@ -2901,11 +3230,20 @@ export default function App() {
 
                   <div style={{ fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Отработанные часы</div>
                   <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                    <input type="date" value={hoursDate} onChange={(e) => setHoursDate(e.target.value)} />
+                    <input type="date" value={hoursDate} onChange={(e) => setHoursDate(e.target.value || todayStr())} style={{ borderColor: hoursDate !== todayStr() ? "var(--accent)" : undefined, color: hoursDate !== todayStr() ? "var(--accent)" : undefined }} />
                     <input placeholder="Часы, напр. 8" value={hoursInput} onChange={(e) => setHoursInput(e.target.value)} style={{ width: 130 }} />
                     <span className="mono" style={{ color: "var(--muted)", fontSize: 13 }}>× {money(currentUser.hourlyRate || 0)}/ч</span>
-                    <button className="btn btn-accent" style={{ marginLeft: "auto" }} onClick={addHourEntry}>Добавить смену</button>
+                    <button className="btn btn-accent" style={{ marginLeft: "auto" }} onClick={() => {
+                      const h = parseFloat(hoursInput.replace(",", "."));
+                      if (!h || h <= 0) { setToast("Укажите количество часов"); return; }
+                      askConfirm(`Добавить смену ${h} ч? Дата: ${fmtDate(hoursDate)}`, addHourEntry);
+                    }}>Добавить смену</button>
                   </div>
+                  {hoursDate !== todayStr() && (
+                    <div style={{ fontSize: 11, color: "var(--accent)", marginTop: 8 }}>
+                      ⚠ Смена будет добавлена датой {fmtDate(hoursDate)}, а не сегодняшним числом.
+                    </div>
+                  )}
                   {(currentUser.hourlyRate || 0) === 0 && <div style={{ fontSize: 12, color: "var(--muted-2)", marginTop: 8 }}>Ставка за час ещё не назначена — обратитесь к администратору.</div>}
                 </div>
 
@@ -3015,8 +3353,8 @@ export default function App() {
             )}
 
             {tab === "chat" && (
-              <div style={{ display: "flex", flexDirection: "column", height: 560, maxWidth: 600 }}>
-                <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+              <div className="chat-layout" style={{ flexDirection: "column", maxWidth: 600 }}>
+                <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
                   <button className="btn" style={{ padding: "6px 14px", fontSize: 13, background: chatActiveThread === "all" ? "var(--accent)" : "var(--surface)", color: chatActiveThread === "all" ? "#1a1a1a" : "var(--text)", position: "relative" }}
                     onClick={() => { setChatActiveThread("all"); markChatThreadRead("all"); }}>
                     Общий чат
@@ -3028,7 +3366,7 @@ export default function App() {
                     {chatUnreadByThread[currentUser.id] > 0 && <span className="mono" style={{ marginLeft: 6, fontSize: 10, background: "var(--danger)", color: "#fff", borderRadius: 999, padding: "1px 6px" }}>{chatUnreadByThread[currentUser.id]}</span>}
                   </button>
                 </div>
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+                <div className="chat-panel" style={{ display: "flex", flexDirection: "column", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
                   <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
                     {chatMessagesInActiveThread.length === 0 && <div style={{ fontSize: 13, color: "var(--muted-2)" }}>Сообщений пока нет.</div>}
                     {chatMessagesInActiveThread.map((m) => {
@@ -3060,17 +3398,17 @@ export default function App() {
                       ))}
                     </div>
                   )}
-                  <div style={{ padding: 12, borderTop: "1px solid var(--surface-2)", display: "flex", gap: 8 }}>
-                    <button className="btn" style={{ padding: "8px 10px", fontSize: 12 }} onClick={() => setChatAttachOpen(true)} title="Прикрепить товар">📎</button>
-                    <button className="btn" style={{ padding: "8px 10px", fontSize: 12 }} onClick={() => setChatMediaOpen(true)} title="Фото или видео по ссылке">🖼️</button>
-                    <button className="btn" style={{ padding: "8px 10px", fontSize: 12, borderColor: chatRecording ? "var(--danger)" : undefined, color: chatRecording ? "var(--danger)" : undefined }}
+                  <div className="chat-input-row">
+                    <button className="btn chat-icon-btn" onClick={() => setChatAttachOpen(true)} title="Прикрепить товар">📎</button>
+                    <button className="btn chat-icon-btn" onClick={() => setChatMediaOpen(true)} title="Фото или видео по ссылке">🖼️</button>
+                    <button className="btn chat-icon-btn" style={{ borderColor: chatRecording ? "var(--danger)" : undefined, color: chatRecording ? "var(--danger)" : undefined }}
                       onClick={() => (chatRecording ? stopVoiceRecording() : startVoiceRecording())} title="Голосовое сообщение">
-                      {chatRecording ? `⏹ ${chatRecordSeconds}с` : "🎤"}
+                      {chatRecording ? `⏹${chatRecordSeconds}с` : "🎤"}
                     </button>
                     <input value={chatInput} onChange={(e) => setChatInput(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter" && chatInput.trim()) { sendChatMessage(chatActiveThread, chatInput); setChatInput(""); } }}
-                      placeholder="Написать сообщение..." style={{ flex: 1 }} />
-                    <button className="btn btn-accent" onClick={() => { if (chatInput.trim()) { sendChatMessage(chatActiveThread, chatInput); setChatInput(""); } }}>Отправить</button>
+                      placeholder="Написать сообщение..." style={{ flex: 1, minWidth: 0 }} />
+                    <button className="btn btn-accent" style={{ flexShrink: 0 }} onClick={() => { if (chatInput.trim()) { sendChatMessage(chatActiveThread, chatInput); setChatInput(""); } }}>Отправить</button>
                   </div>
                 </div>
               </div>
@@ -3084,7 +3422,24 @@ export default function App() {
       )}
 
       {lightbox && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, flexDirection: "column", padding: 20 }} onClick={() => setLightbox(null)}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, flexDirection: "column", padding: 20 }}
+          onClick={() => setLightbox(null)}
+          onTouchStart={(e) => { lightboxTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }}
+          onTouchEnd={(e) => {
+            const start = lightboxTouchRef.current;
+            if (!start) return;
+            const dx = e.changedTouches[0].clientX - start.x;
+            const dy = e.changedTouches[0].clientY - start.y;
+            lightboxTouchRef.current = null;
+            if (Math.abs(dx) < 40 && Math.abs(dy) < 40) return; // клик, не свайп
+            if (Math.abs(dy) > Math.abs(dx)) {
+              // свайп вверх/вниз — закрыть
+              setLightbox(null);
+            } else if (lightbox.images.length > 1) {
+              // свайп влево/вправо — листать
+              setLightbox((l) => ({ ...l, index: dx < 0 ? (l.index + 1) % l.images.length : (l.index - 1 + l.images.length) % l.images.length }));
+            }
+          }}>
           <div style={{ fontSize: 14, color: "#fff", marginBottom: 12, textAlign: "center" }}>{lightbox.name} · {lightbox.index + 1}/{lightbox.images.length}</div>
           <LightboxImage src={lightbox.images[lightbox.index]} onStop={(e) => e.stopPropagation()} />
           <div style={{ display: "flex", gap: 10, marginTop: 16 }} onClick={(e) => e.stopPropagation()}>
@@ -3175,6 +3530,20 @@ export default function App() {
             <div style={{ display: "flex", gap: 8 }}>
               <button className="btn btn-danger" onClick={() => { const fn = confirmDialog.onConfirm; setConfirmDialog(null); fn(); }}>Подтвердить</button>
               <button className="btn" onClick={() => setConfirmDialog(null)}>Отмена</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMySecretWord && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }} onClick={() => setShowMySecretWord(false)}>
+          <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>{currentUser.secretWordHash ? "Изменить секретное слово" : "Задать секретное слово"}</div>
+            <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 12 }}>Пригодится, если забудете пароль — на экране входа сможете сбросить его сами, введя логин и это слово (без участия администратора).</div>
+            <input autoFocus placeholder="Секретное слово" value={mySecretWordVal} onChange={(e) => setMySecretWordVal(e.target.value)} onKeyDown={(e) => e.key === "Enter" && setMySecretWord()} style={{ width: "100%", marginBottom: 10 }} />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="btn btn-accent" onClick={setMySecretWord}>Сохранить</button>
+              <button className="btn" onClick={() => setShowMySecretWord(false)}>Отмена</button>
             </div>
           </div>
         </div>
@@ -3348,9 +3717,15 @@ function PieceOptionRow({ label, qty, onQtyChange, priceLabel, priceColor, onAdd
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", padding: "6px 0", borderTop: "1px dashed var(--border)" }}>
       {label && <span className="mono" style={{ fontSize: 11, color: "var(--muted-2)", minWidth: 70 }}>{label}</span>}
       <span className="mono" style={{ color: priceColor, fontSize: 13 }}>{priceLabel}</span>
-      <button className="btn" style={{ padding: "6px 12px", marginLeft: "auto" }} onClick={() => onQtyChange(Math.max(1, qty - 1))}>-</button>
-      <input className="mono" style={{ width: 50, textAlign: "center" }} value={qty} onChange={(ev) => onQtyChange(Math.max(1, parseInt(ev.target.value) || 1))} />
-      <button className="btn" style={{ padding: "6px 12px" }} onClick={() => onQtyChange(qty + 1)}>+</button>
+      <button className="btn" style={{ padding: "6px 12px", marginLeft: "auto" }} onClick={() => onQtyChange(Math.max(1, (parseInt(qty) || 0) - 1))}>-</button>
+      <input className="mono" style={{ width: 50, textAlign: "center" }} value={qty}
+        onChange={(ev) => {
+          const v = ev.target.value;
+          if (v === "") { onQtyChange(""); return; } // разрешаем временно очистить поле, чтобы ввести своё число
+          if (/^\d+$/.test(v)) onQtyChange(parseInt(v, 10));
+        }}
+        onBlur={() => { if (qty === "" || Number(qty) < 1) onQtyChange(1); }} />
+      <button className="btn" style={{ padding: "6px 12px" }} onClick={() => onQtyChange((parseInt(qty) || 0) + 1)}>+</button>
       <button className="btn btn-accent" style={{ padding: "8px 14px" }} onClick={onAdd}>Добавить</button>
     </div>
   );
