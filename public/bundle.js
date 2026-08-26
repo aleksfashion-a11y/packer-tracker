@@ -79058,6 +79058,13 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
     const [newProductBarcodes, setNewProductBarcodes] = (0, import_react54.useState)("");
     const [newProductError, setNewProductError] = (0, import_react54.useState)("");
     const [importReport, setImportReport] = (0, import_react54.useState)(null);
+    const [ozonStatus, setOzonStatus] = (0, import_react54.useState)(null);
+    const [ozonClientId, setOzonClientId] = (0, import_react54.useState)("");
+    const [ozonApiKey, setOzonApiKey] = (0, import_react54.useState)("");
+    const [ozonEditingCreds, setOzonEditingCreds] = (0, import_react54.useState)(false);
+    const [ozonSyncing, setOzonSyncing] = (0, import_react54.useState)(false);
+    const [ozonHistory, setOzonHistory] = (0, import_react54.useState)([]);
+    const [ozonUndoing, setOzonUndoing] = (0, import_react54.useState)(false);
     const [packagingOptions, setPackagingOptions] = (0, import_react54.useState)([]);
     const [entries, setEntries] = (0, import_react54.useState)([]);
     const [currency, setCurrency] = (0, import_react54.useState)("\u20BD");
@@ -79340,6 +79347,12 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       if (!showTimerTab && adminTab === "timer") setAdminTab("overview");
     }, [showTimerTab, adminTab]);
     (0, import_react54.useEffect)(() => {
+      if (adminTab === "products") {
+        loadOzonStatus();
+        loadOzonHistory();
+      }
+    }, [adminTab]);
+    (0, import_react54.useEffect)(() => {
       const toggleable = ["overview", "log", "employees", "products", "messages", "chat"];
       if (toggleable.includes(adminTab) && enabledAdminTabs[adminTab] === false) {
         const firstEnabled = toggleable.find((k2) => enabledAdminTabs[k2] !== false);
@@ -79390,6 +79403,38 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       const wb = utils.book_new();
       utils.book_append_sheet(wb, ws, "\u041A\u0430\u0442\u0430\u043B\u043E\u0433");
       writeFileSync(wb, `catalog_${todayStr()}.xlsx`);
+    };
+    const exportOzonSyncToExcel = (entry) => {
+      const dateStr = new Date(entry.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+      const rows = [];
+      (entry.addedItems || []).forEach((it) => {
+        rows.push({
+          "\u0422\u0438\u043F \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F": "\u0414\u043E\u0431\u0430\u0432\u043B\u0435\u043D",
+          "\u0410\u0440\u0442\u0438\u043A\u0443\u043B": it.sku,
+          "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435": it.name,
+          "\u0428\u0442\u0440\u0438\u0445\u043A\u043E\u0434\u044B": (it.barcodes || []).join(", "),
+          "\u0411\u044B\u043B\u043E (\u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435)": "",
+          "\u0411\u044B\u043B\u043E (\u0448\u0442\u0440\u0438\u0445\u043A\u043E\u0434\u044B)": ""
+        });
+      });
+      (entry.updatedItems || []).forEach((it) => {
+        rows.push({
+          "\u0422\u0438\u043F \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F": "\u041E\u0431\u043D\u043E\u0432\u043B\u0451\u043D",
+          "\u0410\u0440\u0442\u0438\u043A\u0443\u043B": it.sku,
+          "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435": it.newName,
+          "\u0428\u0442\u0440\u0438\u0445\u043A\u043E\u0434\u044B": (it.newBarcodes || []).join(", "),
+          "\u0411\u044B\u043B\u043E (\u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435)": it.previousName || "",
+          "\u0411\u044B\u043B\u043E (\u0448\u0442\u0440\u0438\u0445\u043A\u043E\u0434\u044B)": (it.previousBarcodes || []).join(", ")
+        });
+      });
+      if (rows.length === 0) {
+        setToast("\u0412 \u044D\u0442\u043E\u0439 \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u0438 \u043D\u0435\u0447\u0435\u0433\u043E \u0432\u044B\u0433\u0440\u0443\u0436\u0430\u0442\u044C \u2014 \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u0438\u0437\u043C\u0435\u043D\u0438\u043B\u043E\u0441\u044C");
+        return;
+      }
+      const ws = utils.json_to_sheet(rows);
+      const wb = utils.book_new();
+      utils.book_append_sheet(wb, ws, "\u0418\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F Ozon");
+      writeFileSync(wb, `ozon-sync_${dateStr.replace(/[.,: ]+/g, "-")}.xlsx`);
     };
     const downloadJson = (obj, filename) => {
       const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
@@ -79543,6 +79588,99 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
         await persistCatalog(catalog.filter((p) => p.sku !== sku));
         setToast("\u0422\u043E\u0432\u0430\u0440 \u0443\u0434\u0430\u043B\u0451\u043D");
       });
+    };
+    const loadOzonStatus = async () => {
+      try {
+        const res = await fetch("/api/ozon/status");
+        if (!res.ok) return;
+        setOzonStatus(await res.json());
+      } catch (e) {
+      }
+    };
+    const loadOzonHistory = async () => {
+      try {
+        const res = await fetch("/api/ozon/history");
+        if (!res.ok) return;
+        const data = await res.json();
+        setOzonHistory(data.history || []);
+      } catch (e) {
+      }
+    };
+    const undoLastOzonSync = () => {
+      askConfirm("\u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044E\u044E \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044E \u0441 Ozon? \u0422\u043E\u0432\u0430\u0440\u044B, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u043E\u043D\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u043B\u0430, \u0431\u0443\u0434\u0443\u0442 \u0443\u0434\u0430\u043B\u0435\u043D\u044B, \u0430 \u0438\u0437\u043C\u0435\u043D\u0451\u043D\u043D\u044B\u0435 \u2014 \u0432\u0435\u0440\u043D\u0443\u0442\u0441\u044F \u043A \u043F\u0440\u0435\u0436\u043D\u0435\u043C\u0443 \u0432\u0438\u0434\u0443.", async () => {
+        setOzonUndoing(true);
+        try {
+          const res = await fetch("/api/ozon/undo-last-sync", { method: "POST" });
+          const data = await res.json();
+          if (!res.ok) {
+            setToast(data.error || "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043C\u0435\u043D\u0438\u0442\u044C");
+            setOzonUndoing(false);
+            return;
+          }
+          await loadSharedData();
+          await loadOzonStatus();
+          await loadOzonHistory();
+          setToast(`\u041E\u0442\u043C\u0435\u043D\u0435\u043D\u043E: \u0443\u0434\u0430\u043B\u0435\u043D\u043E ${data.removedCount}, \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0435\u043D\u043E \u043A \u043F\u0440\u0435\u0436\u043D\u0435\u043C\u0443 \u0432\u0438\u0434\u0443 ${data.restoredCount}`);
+        } catch (e) {
+          setToast("\u042D\u0442\u0430 \u0444\u0443\u043D\u043A\u0446\u0438\u044F \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u043D\u0430 \u043D\u0430\u0441\u0442\u043E\u044F\u0449\u0435\u043C \u0441\u0435\u0440\u0432\u0435\u0440\u0435, \u043D\u0435 \u0432 \u043C\u043E\u043A\u0430\u043F\u0435");
+        }
+        setOzonUndoing(false);
+      });
+    };
+    const saveOzonCredentials = async () => {
+      if (!ozonClientId.trim() || !ozonApiKey.trim()) {
+        setToast("\u0423\u043A\u0430\u0436\u0438\u0442\u0435 Client-Id \u0438 Api-Key");
+        return;
+      }
+      try {
+        const res = await fetch("/api/ozon/credentials", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientId: ozonClientId.trim(), apiKey: ozonApiKey.trim() })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setToast(data.error || "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C");
+          return;
+        }
+        setToast("\u041A\u043B\u044E\u0447\u0438 Ozon \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u044B");
+        setOzonEditingCreds(false);
+        setOzonClientId("");
+        setOzonApiKey("");
+        await loadOzonStatus();
+      } catch (e) {
+        setToast("\u042D\u0442\u0430 \u0444\u0443\u043D\u043A\u0446\u0438\u044F \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u043D\u0430 \u043D\u0430\u0441\u0442\u043E\u044F\u0449\u0435\u043C \u0441\u0435\u0440\u0432\u0435\u0440\u0435, \u043D\u0435 \u0432 \u043C\u043E\u043A\u0430\u043F\u0435");
+      }
+    };
+    const removeOzonCredentials = () => {
+      askConfirm("\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0441\u043E\u0445\u0440\u0430\u043D\u0451\u043D\u043D\u044B\u0435 \u043A\u043B\u044E\u0447\u0438 Ozon? \u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u043F\u0435\u0440\u0435\u0441\u0442\u0430\u043D\u0435\u0442 \u0440\u0430\u0431\u043E\u0442\u0430\u0442\u044C, \u043F\u043E\u043A\u0430 \u043D\u0435 \u0432\u0432\u0435\u0434\u0451\u0442\u0435 \u0438\u0445 \u0437\u0430\u043D\u043E\u0432\u043E.", async () => {
+        try {
+          await fetch("/api/ozon/credentials", { method: "DELETE" });
+          setToast("\u041A\u043B\u044E\u0447\u0438 Ozon \u0443\u0434\u0430\u043B\u0435\u043D\u044B");
+          await loadOzonStatus();
+        } catch (e) {
+          setToast("\u042D\u0442\u0430 \u0444\u0443\u043D\u043A\u0446\u0438\u044F \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u043D\u0430 \u043D\u0430\u0441\u0442\u043E\u044F\u0449\u0435\u043C \u0441\u0435\u0440\u0432\u0435\u0440\u0435, \u043D\u0435 \u0432 \u043C\u043E\u043A\u0430\u043F\u0435");
+        }
+      });
+    };
+    const syncOzonCatalog = async () => {
+      setOzonSyncing(true);
+      try {
+        const res = await fetch("/api/ozon/sync", { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) {
+          setToast(data.error || "\u041E\u0448\u0438\u0431\u043A\u0430 \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u0438");
+          setOzonSyncing(false);
+          return;
+        }
+        await loadSharedData();
+        setToast(`Ozon: \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E ${data.added}, \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E ${data.updated} \u0438\u0437 ${data.total}`);
+        await loadOzonStatus();
+        await loadOzonHistory();
+      } catch (e) {
+        setToast("\u042D\u0442\u0430 \u0444\u0443\u043D\u043A\u0446\u0438\u044F \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u043D\u0430 \u043D\u0430\u0441\u0442\u043E\u044F\u0449\u0435\u043C \u0441\u0435\u0440\u0432\u0435\u0440\u0435, \u043D\u0435 \u0432 \u043C\u043E\u043A\u0430\u043F\u0435");
+      }
+      setOzonSyncing(false);
     };
     const persistPackagingOptions = async (next) => {
       setPackagingOptions(next);
@@ -81503,6 +81641,53 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                     if (e.target.files[0]) importImagesFromExcel(e.target.files[0]);
                     e.target.value = "";
                   } })
+                ] })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, marginBottom: 14, maxWidth: 640 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 13, fontWeight: 600, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }, children: [
+                "\u{1F535} \u0410\u0432\u0442\u043E\u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u0441 Ozon",
+                ozonStatus && ozonStatus.configured && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mono", style: { fontSize: 10, background: "rgba(90,200,120,0.15)", color: "#5ac878", border: "1px solid #5ac878", borderRadius: 999, padding: "1px 8px" }, children: "\u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u043E" })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--muted-2)", marginBottom: 10 }, children: "\u041F\u043E\u0434\u0442\u044F\u0433\u0438\u0432\u0430\u0435\u0442 \u0430\u0440\u0442\u0438\u043A\u0443\u043B, \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0438 \u0448\u0442\u0440\u0438\u0445\u043A\u043E\u0434\u044B \u043D\u0430\u043F\u0440\u044F\u043C\u0443\u044E \u0438\u0437 \u0432\u0430\u0448\u0435\u0433\u043E \u043A\u0430\u0431\u0438\u043D\u0435\u0442\u0430 \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u0430 Ozon \u2014 \u0431\u0435\u0437 \u0440\u0443\u0447\u043D\u043E\u0439 \u0432\u044B\u0433\u0440\u0443\u0437\u043A\u0438 Excel. \u041A\u043B\u044E\u0447\u0438 \u0432\u043E\u0437\u044C\u043C\u0438\u0442\u0435 \u0432 \u043A\u0430\u0431\u0438\u043D\u0435\u0442\u0435 Ozon: \u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u2192 Seller API." }),
+              !ozonStatus || !ozonStatus.configured || ozonEditingCreds ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 8, maxWidth: 420 }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "Client-Id", value: ozonClientId, onChange: (e) => setOzonClientId(e.target.value) }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "Api-Key", type: "password", value: ozonApiKey, onChange: (e) => setOzonApiKey(e.target.value) }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 14px" }, onClick: saveOzonCredentials, children: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043A\u043B\u044E\u0447\u0438" }),
+                  ozonEditingCreds && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px" }, onClick: () => setOzonEditingCreds(false), children: "\u041E\u0442\u043C\u0435\u043D\u0430" })
+                ] })
+              ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mono", style: { fontSize: 12, color: "var(--muted-2)", marginBottom: 10 }, children: [
+                  "Client-Id: ",
+                  ozonStatus.clientIdHint || "\u2014",
+                  ozonStatus.lastSync && ` \xB7 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F: ${new Date(ozonStatus.lastSync.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} (\u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E ${ozonStatus.lastSync.added}, \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E ${ozonStatus.lastSync.updated} \u0438\u0437 ${ozonStatus.lastSync.total})`
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 14px" }, onClick: syncOzonCatalog, disabled: ozonSyncing, children: ozonSyncing ? "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F..." : "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0441\u0435\u0439\u0447\u0430\u0441" }),
+                  ozonHistory.length > 0 && !ozonHistory[0].undone && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "6px 14px", fontSize: 12 }, onClick: undoLastOzonSync, disabled: ozonUndoing, children: ozonUndoing ? "\u041E\u0442\u043C\u0435\u043D\u0430..." : "\u21B6 \u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044E\u044E \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044E" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px", fontSize: 12 }, onClick: () => setOzonEditingCreds(true), children: "\u0421\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043B\u044E\u0447\u0438" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "6px 14px", fontSize: 12 }, onClick: removeOzonCredentials, children: "\u041E\u0442\u043A\u043B\u044E\u0447\u0438\u0442\u044C" })
+                ] }),
+                ozonHistory.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("details", { style: { marginTop: 12 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("summary", { style: { cursor: "pointer", fontSize: 12, color: "var(--accent)" }, children: [
+                    "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u0439 (",
+                    ozonHistory.length,
+                    ")"
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, overflowY: "auto" }, children: ozonHistory.map((h) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", background: "var(--surface-2)", borderRadius: 6 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "mono", style: { fontSize: 11, color: h.undone ? "var(--muted-2)" : "var(--text)", textDecoration: h.undone ? "line-through" : "none" }, children: [
+                      new Date(h.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }),
+                      " \u2014 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E ",
+                      h.added,
+                      ", \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E ",
+                      h.updated,
+                      " \u0438\u0437 ",
+                      h.total,
+                      h.undone ? " (\u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E)" : ""
+                    ] }),
+                    (h.added > 0 || h.updated > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "3px 8px", fontSize: 10, flexShrink: 0 }, onClick: () => exportOzonSyncToExcel(h), children: "Excel" })
+                  ] }, h.id)) })
                 ] })
               ] })
             ] }),
