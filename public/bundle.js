@@ -79064,7 +79064,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
     const [ozonEditingCreds, setOzonEditingCreds] = (0, import_react54.useState)(false);
     const [ozonSyncing, setOzonSyncing] = (0, import_react54.useState)(false);
     const [ozonHistory, setOzonHistory] = (0, import_react54.useState)([]);
-    const [ozonUndoing, setOzonUndoing] = (0, import_react54.useState)(false);
+    const [ozonUndoing, setOzonUndoing] = (0, import_react54.useState)(null);
     const [packagingOptions, setPackagingOptions] = (0, import_react54.useState)([]);
     const [entries, setEntries] = (0, import_react54.useState)([]);
     const [currency, setCurrency] = (0, import_react54.useState)("\u20BD");
@@ -79606,15 +79606,16 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       } catch (e) {
       }
     };
-    const undoLastOzonSync = () => {
-      askConfirm("\u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044E\u044E \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044E \u0441 Ozon? \u0422\u043E\u0432\u0430\u0440\u044B, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u043E\u043D\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u043B\u0430, \u0431\u0443\u0434\u0443\u0442 \u0443\u0434\u0430\u043B\u0435\u043D\u044B, \u0430 \u0438\u0437\u043C\u0435\u043D\u0451\u043D\u043D\u044B\u0435 \u2014 \u0432\u0435\u0440\u043D\u0443\u0442\u0441\u044F \u043A \u043F\u0440\u0435\u0436\u043D\u0435\u043C\u0443 \u0432\u0438\u0434\u0443.", async () => {
-        setOzonUndoing(true);
+    const undoOzonSync = (entry, isLatest) => {
+      const warning2 = isLatest ? "\u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C \u044D\u0442\u0443 \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044E \u0441 Ozon? \u0422\u043E\u0432\u0430\u0440\u044B, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u043E\u043D\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u043B\u0430, \u0431\u0443\u0434\u0443\u0442 \u0443\u0434\u0430\u043B\u0435\u043D\u044B, \u0430 \u0438\u0437\u043C\u0435\u043D\u0451\u043D\u043D\u044B\u0435 \u2014 \u0432\u0435\u0440\u043D\u0443\u0442\u0441\u044F \u043A \u043F\u0440\u0435\u0436\u043D\u0435\u043C\u0443 \u0432\u0438\u0434\u0443." : "\u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C \u044D\u0442\u0443 (\u043D\u0435 \u0441\u0430\u043C\u0443\u044E \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044E\u044E) \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044E? \u0415\u0441\u043B\u0438 \u043F\u043E\u0441\u043B\u0435 \u043D\u0435\u0451 \u0431\u044B\u043B\u0438 \u0434\u0440\u0443\u0433\u0438\u0435 \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F \u0442\u0435\u0445 \u0436\u0435 \u0442\u043E\u0432\u0430\u0440\u043E\u0432 \u2014 \u043E\u043D\u0438 \u043D\u0435 \u043F\u043E\u0441\u0442\u0440\u0430\u0434\u0430\u044E\u0442, \u043D\u043E \u0441\u043E\u0432\u0435\u0442\u0443\u0435\u043C \u0441\u043D\u0430\u0447\u0430\u043B\u0430 \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C Excel-\u043E\u0442\u0447\u0451\u0442 \u044D\u0442\u043E\u0439 \u0437\u0430\u043F\u0438\u0441\u0438, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u043D\u0438\u043C\u0430\u0442\u044C, \u0447\u0442\u043E \u0438\u043C\u0435\u043D\u043D\u043E \u043E\u0442\u043A\u0430\u0442\u0438\u0442\u0441\u044F.";
+      askConfirm(warning2, async () => {
+        setOzonUndoing(entry.id);
         try {
-          const res = await fetch("/api/ozon/undo-last-sync", { method: "POST" });
+          const res = await fetch(`/api/ozon/undo/${entry.id}`, { method: "POST" });
           const data = await res.json();
           if (!res.ok) {
             setToast(data.error || "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0442\u043C\u0435\u043D\u0438\u0442\u044C");
-            setOzonUndoing(false);
+            setOzonUndoing(null);
             return;
           }
           await loadSharedData();
@@ -79624,7 +79625,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
         } catch (e) {
           setToast("\u042D\u0442\u0430 \u0444\u0443\u043D\u043A\u0446\u0438\u044F \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u043D\u0430 \u043D\u0430\u0441\u0442\u043E\u044F\u0449\u0435\u043C \u0441\u0435\u0440\u0432\u0435\u0440\u0435, \u043D\u0435 \u0432 \u043C\u043E\u043A\u0430\u043F\u0435");
         }
-        setOzonUndoing(false);
+        setOzonUndoing(null);
       });
     };
     const saveOzonCredentials = async () => {
@@ -81665,7 +81666,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 ] }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 14px" }, onClick: syncOzonCatalog, disabled: ozonSyncing, children: ozonSyncing ? "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F..." : "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0441\u0435\u0439\u0447\u0430\u0441" }),
-                  ozonHistory.length > 0 && !ozonHistory[0].undone && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "6px 14px", fontSize: 12 }, onClick: undoLastOzonSync, disabled: ozonUndoing, children: ozonUndoing ? "\u041E\u0442\u043C\u0435\u043D\u0430..." : "\u21B6 \u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044E\u044E \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044E" }),
+                  ozonHistory.length > 0 && !ozonHistory[0].undone && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "6px 14px", fontSize: 12 }, onClick: () => undoOzonSync(ozonHistory[0], true), disabled: !!ozonUndoing, children: ozonUndoing === ozonHistory[0].id ? "\u041E\u0442\u043C\u0435\u043D\u0430..." : "\u21B6 \u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044E\u044E \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044E" }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px", fontSize: 12 }, onClick: () => setOzonEditingCreds(true), children: "\u0421\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043B\u044E\u0447\u0438" }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "6px 14px", fontSize: 12 }, onClick: removeOzonCredentials, children: "\u041E\u0442\u043A\u043B\u044E\u0447\u0438\u0442\u044C" })
                 ] }),
@@ -81675,7 +81676,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                     ozonHistory.length,
                     ")"
                   ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, overflowY: "auto" }, children: ozonHistory.map((h) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", background: "var(--surface-2)", borderRadius: 6 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }, children: ozonHistory.map((h, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", background: "var(--surface-2)", borderRadius: 6, flexWrap: "wrap" }, children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "mono", style: { fontSize: 11, color: h.undone ? "var(--muted-2)" : "var(--text)", textDecoration: h.undone ? "line-through" : "none" }, children: [
                       new Date(h.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }),
                       " \u2014 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E ",
@@ -81686,7 +81687,10 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                       h.total,
                       h.undone ? " (\u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E)" : ""
                     ] }),
-                    (h.added > 0 || h.updated > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "3px 8px", fontSize: 10, flexShrink: 0 }, onClick: () => exportOzonSyncToExcel(h), children: "Excel" })
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6, flexShrink: 0 }, children: [
+                      (h.added > 0 || h.updated > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "3px 8px", fontSize: 10 }, onClick: () => exportOzonSyncToExcel(h), children: "Excel" }),
+                      !h.undone && (h.added > 0 || h.updated > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "3px 8px", fontSize: 10 }, onClick: () => undoOzonSync(h, i === 0), disabled: !!ozonUndoing, children: ozonUndoing === h.id ? "..." : "\u21B6 \u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C" })
+                    ] })
                   ] }, h.id)) })
                 ] })
               ] })
