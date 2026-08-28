@@ -405,13 +405,21 @@ app.post("/api/ozon/sync", async (req, res) => {
         addedItems.push({ sku: p.sku, name: p.name, barcodes: p.barcodes });
       } else {
         const existing = next[idx];
-        const mergedBarcodes = Array.from(new Set([...(existing.barcodes || []), ...p.barcodes]));
+        // Ozon — источник истины для штрихкодов этого товара: полностью ЗАМЕНЯЕМ
+        // список штрихкодов на тот, что вернул Ozon, а не объединяем со старым.
+        // Раньше было объединение (Set из старых+новых) — из-за этого, если вручную
+        // исправить неверный штрихкод в приложении, следующая синхронизация просто
+        // добавляла верный штрихкод от Ozon РЯДОМ со старым неверным, вместо замены.
+        const newBarcodes = p.barcodes || [];
+        const existingBarcodes = existing.barcodes || [];
+        const barcodesChanged = newBarcodes.length !== existingBarcodes.length
+          || newBarcodes.some((b) => !existingBarcodes.includes(b))
+          || existingBarcodes.some((b) => !newBarcodes.includes(b));
         const nameChanged = p.name && p.name !== existing.name;
-        const barcodesChanged = mergedBarcodes.length !== (existing.barcodes || []).length;
         if (nameChanged || barcodesChanged) {
           const newName = nameChanged ? p.name : existing.name;
-          updatedItems.push({ sku: existing.sku, previousName: existing.name, previousBarcodes: existing.barcodes || [], newName, newBarcodes: mergedBarcodes });
-          next[idx] = { ...existing, name: newName, barcodes: mergedBarcodes };
+          updatedItems.push({ sku: existing.sku, previousName: existing.name, previousBarcodes: existingBarcodes, newName, newBarcodes });
+          next[idx] = { ...existing, name: newName, barcodes: newBarcodes };
           updated++;
         }
       }
