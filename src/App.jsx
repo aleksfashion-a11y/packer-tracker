@@ -229,6 +229,13 @@ export default function App() {
   const [newProductBarcodes, setNewProductBarcodes] = useState("");
   const [newProductError, setNewProductError] = useState("");
   const [importReport, setImportReport] = useState(null);
+  const [ozonStatus, setOzonStatus] = useState(null); // { configured, clientIdHint, lastSync }
+  const [ozonClientId, setOzonClientId] = useState("");
+  const [ozonApiKey, setOzonApiKey] = useState("");
+  const [ozonEditingCreds, setOzonEditingCreds] = useState(false);
+  const [ozonSyncing, setOzonSyncing] = useState(false);
+  const [ozonHistory, setOzonHistory] = useState([]);
+  const [ozonUndoing, setOzonUndoing] = useState(null); // id отменяемой записи, либо null
   const [packagingOptions, setPackagingOptions] = useState([]);
   const [entries, setEntries] = useState([]);
   const [currency, setCurrency] = useState("₽");
@@ -519,6 +526,10 @@ export default function App() {
   }, [showTimerTab, adminTab]);
 
   useEffect(() => {
+    if (adminTab === "products") { loadOzonStatus(); loadOzonHistory(); }
+  }, [adminTab]);
+
+  useEffect(() => {
     const toggleable = ["overview", "log", "employees", "products", "messages", "chat"];
     if (toggleable.includes(adminTab) && enabledAdminTabs[adminTab] === false) {
       const firstEnabled = toggleable.find((k) => enabledAdminTabs[k] !== false);
@@ -566,6 +577,39 @@ export default function App() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Каталог");
     XLSX.writeFile(wb, `catalog_${todayStr()}.xlsx`);
+  };
+
+  const exportOzonSyncToExcel = (entry) => {
+    const dateStr = new Date(entry.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const rows = [];
+    (entry.addedItems || []).forEach((it) => {
+      rows.push({
+        "Тип изменения": "Добавлен",
+        "Артикул": it.sku,
+        "Название": it.name,
+        "Штрихкоды": (it.barcodes || []).join(", "),
+        "Было (название)": "",
+        "Было (штрихкоды)": "",
+      });
+    });
+    (entry.updatedItems || []).forEach((it) => {
+      rows.push({
+        "Тип изменения": "Обновлён",
+        "Артикул": it.sku,
+        "Название": it.newName,
+        "Штрихкоды": (it.newBarcodes || []).join(", "),
+        "Было (название)": it.previousName || "",
+        "Было (штрихкоды)": (it.previousBarcodes || []).join(", "),
+      });
+    });
+    if (rows.length === 0) {
+      setToast("В этой синхронизации нечего выгружать — ничего не изменилось");
+      return;
+    }
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Изменения Ozon");
+    XLSX.writeFile(wb, `ozon-sync_${dateStr.replace(/[.,: ]+/g, "-")}.xlsx`);
   };
 
   const downloadJson = (obj, filename) => {
@@ -691,6 +735,83 @@ export default function App() {
       await persistCatalog(catalog.filter((p) => p.sku !== sku));
       setToast("Товар удалён");
     });
+  };
+  // Синхронизация с Ozon — идёт через отдельные защищённые серверные эндпоинты
+  // (не через общий window.storage/api/kv), поскольку там передаются секретные
+  // ключи продавца. В песочнице-мокапе внутри чата этих эндпоинтов нет — запросы
+  // просто тихо не сработают, ошибка не показывается пользователю зря.
+  const loadOzonStatus = async () => {
+    try {
+      const res = await fetch("/api/ozon/status");
+      if (!res.ok) return;
+      setOzonStatus(await res.json());
+    } catch (e) { /* мокап в чате или сеть недоступна — ничего страшного */ }
+  };
+  const loadOzonHistory = async () => {
+    try {
+      const res = await fetch("/api/ozon/history");
+      if (!res.ok) return;
+      const data = await res.json();
+      setOzonHistory(data.history || []);
+    } catch (e) { /* мокап в чате — не критично */ }
+  };
+  const undoOzonSync = (entry, isLatest) => {
+    const warning = isLatest
+      ? "Отменить эту синхронизацию с Ozon? Товары, которые она добавила, будут удалены, а изменённые — вернутся к прежнему виду."
+      : "Отменить эту (не самую последнюю) синхронизацию? Если после неё были другие изменения тех же товаров — они не пострадают, но советуем сначала посмотреть Excel-отчёт этой записи, чтобы понимать, что именно откатится.";
+    askConfirm(warning, async () => {
+      setOzonUndoing(entry.id);
+      try {
+        const res = await fetch(`/api/ozon/undo/${entry.id}`, { method: "POST" });
+        const data = await res.json();
+        if (!res.ok) { setToast(data.error || "Не удалось отменить"); setOzonUndoing(null); return; }
+        await loadSharedData();
+        await loadOzonStatus();
+        await loadOzonHistory();
+        setToast(`Отменено: удалено ${data.removedCount}, возвращено к прежнему виду ${data.restoredCount}`);
+      } catch (e) {
+        setToast("Эта функция работает только на настоящем сервере, не в мокапе");
+      }
+      setOzonUndoing(null);
+    });
+  };
+  const saveOzonCredentials = async () => {
+    if (!ozonClientId.trim() || !ozonApiKey.trim()) { setToast("Укажите Client-Id и Api-Key"); return; }
+    try {
+      const res = await fetch("/api/ozon/credentials", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: ozonClientId.trim(), apiKey: ozonApiKey.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setToast(data.error || "Не удалось сохранить"); return; }
+      setToast("Ключи Ozon сохранены");
+      setOzonEditingCreds(false); setOzonClientId(""); setOzonApiKey("");
+      await loadOzonStatus();
+    } catch (e) { setToast("Эта функция работает только на настоящем сервере, не в мокапе"); }
+  };
+  const removeOzonCredentials = () => {
+    askConfirm("Удалить сохранённые ключи Ozon? Синхронизация перестанет работать, пока не введёте их заново.", async () => {
+      try {
+        await fetch("/api/ozon/credentials", { method: "DELETE" });
+        setToast("Ключи Ozon удалены");
+        await loadOzonStatus();
+      } catch (e) { setToast("Эта функция работает только на настоящем сервере, не в мокапе"); }
+    });
+  };
+  const syncOzonCatalog = async () => {
+    setOzonSyncing(true);
+    try {
+      const res = await fetch("/api/ozon/sync", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) { setToast(data.error || "Ошибка синхронизации"); setOzonSyncing(false); return; }
+      await loadSharedData(); // подтягиваем обновлённый каталог и фото себе на экран
+      setToast(`Ozon: добавлено ${data.added}, обновлено ${data.updated} из ${data.total}${data.photosUpdated ? `, фото обновлено: ${data.photosUpdated}` : ""}`);
+      await loadOzonStatus();
+      await loadOzonHistory();
+    } catch (e) {
+      setToast("Эта функция работает только на настоящем сервере, не в мокапе");
+    }
+    setOzonSyncing(false);
   };
   const persistPackagingOptions = async (next) => { setPackagingOptions(next); await safeSet("packagingOptions", next, true); };
   const persistCustomBarcodes = async (next) => { setCustomBarcodes(next); await safeSet("customBarcodes", next, true); };
@@ -1312,6 +1433,18 @@ export default function App() {
   }, [search, scanMode, barcodesForSku]);
 
   const employees = users.filter((u) => u.role === "employee");
+  // Каталог "по умолчанию" (без активного поиска) — отсортирован по артикулу или по
+  // названию, в зависимости от выбора администратора (по умолчанию — по артикулу,
+  // от меньшего к большему). localeCompare с numeric:true — это "естественная"
+  // сортировка: "9" идёт раньше "10" (а не как при обычном текстовом сравнении, где
+  // "10" оказался бы раньше "9"), а буквенные артикулы сортируются по алфавиту.
+  const [catalogSortMode, setCatalogSortMode] = useState("sku"); // "sku" | "name"
+  const sortedCatalog = useMemo(() => {
+    return [...catalog].sort((a, b) => {
+      if (catalogSortMode === "name") return a.name.localeCompare(b.name, "ru");
+      return String(a.sku).localeCompare(String(b.sku), undefined, { numeric: true, sensitivity: "base" });
+    });
+  }, [catalog, catalogSortMode]);
 
   // Опрос новых сообщений чата раз в несколько секунд (в мокапе нет постоянного соединения,
   // поэтому вместо мгновенной доставки — периодическая проверка). Если пришло новое сообщение
@@ -2621,6 +2754,70 @@ export default function App() {
                     </label>
                   </div>
                 </div>
+
+                <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, marginBottom: 14, maxWidth: 640 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                    🔵 Автосинхронизация с Ozon
+                    {ozonStatus && ozonStatus.configured && <span className="mono" style={{ fontSize: 10, background: "rgba(90,200,120,0.15)", color: "#5ac878", border: "1px solid #5ac878", borderRadius: 999, padding: "1px 8px" }}>подключено</span>}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 10 }}>
+                    Подтягивает артикул, название и штрихкоды напрямую из вашего кабинета продавца Ozon — без ручной выгрузки Excel. Ключи возьмите в кабинете Ozon: Настройки → Seller API.
+                  </div>
+
+                  {!ozonStatus || !ozonStatus.configured || ozonEditingCreds ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 420 }}>
+                      <input placeholder="Client-Id" value={ozonClientId} onChange={(e) => setOzonClientId(e.target.value)} />
+                      <input placeholder="Api-Key" type="password" value={ozonApiKey} onChange={(e) => setOzonApiKey(e.target.value)} />
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button className="btn btn-accent" style={{ padding: "6px 14px" }} onClick={saveOzonCredentials}>Сохранить ключи</button>
+                        {ozonEditingCreds && <button className="btn" style={{ padding: "6px 14px" }} onClick={() => setOzonEditingCreds(false)}>Отмена</button>}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="mono" style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 10 }}>
+                        Client-Id: {ozonStatus.clientIdHint || "—"}
+                        {ozonStatus.lastSync && ` · последняя синхронизация: ${new Date(ozonStatus.lastSync.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} (добавлено ${ozonStatus.lastSync.added}, обновлено ${ozonStatus.lastSync.updated} из ${ozonStatus.lastSync.total}${ozonStatus.lastSync.photosUpdated ? `, фото: ${ozonStatus.lastSync.photosUpdated}` : ""})`}
+                      </div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button className="btn btn-accent" style={{ padding: "6px 14px" }} onClick={syncOzonCatalog} disabled={ozonSyncing}>
+                          {ozonSyncing ? "Синхронизация..." : "Синхронизировать сейчас"}
+                        </button>
+                        {ozonHistory.length > 0 && !ozonHistory[0].undone && (
+                          <button className="btn btn-danger" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => undoOzonSync(ozonHistory[0], true)} disabled={!!ozonUndoing}>
+                            {ozonUndoing === ozonHistory[0].id ? "Отмена..." : "↶ Отменить последнюю синхронизацию"}
+                          </button>
+                        )}
+                        <button className="btn" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => setOzonEditingCreds(true)}>Сменить ключи</button>
+                        <button className="btn btn-danger" style={{ padding: "6px 14px", fontSize: 12 }} onClick={removeOzonCredentials}>Отключить</button>
+                      </div>
+                      {ozonHistory.length > 0 && (
+                        <details style={{ marginTop: 12 }}>
+                          <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--accent)" }}>История синхронизаций ({ozonHistory.length})</summary>
+                          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }}>
+                            {ozonHistory.map((h, i) => (
+                              <div key={h.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", background: "var(--surface-2)", borderRadius: 6, flexWrap: "wrap" }}>
+                                <span className="mono" style={{ fontSize: 11, color: h.undone ? "var(--muted-2)" : "var(--text)", textDecoration: h.undone ? "line-through" : "none" }}>
+                                  {new Date(h.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} — добавлено {h.added}, обновлено {h.updated} из {h.total}{h.photosUpdated ? `, фото: ${h.photosUpdated}` : ""}{h.undone ? " (отменено)" : ""}
+                                </span>
+                                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                                  {(h.added > 0 || h.updated > 0) && (
+                                    <button className="btn" style={{ padding: "3px 8px", fontSize: 10 }} onClick={() => exportOzonSyncToExcel(h)}>Excel</button>
+                                  )}
+                                  {!h.undone && (h.added > 0 || h.updated > 0) && (
+                                    <button className="btn btn-danger" style={{ padding: "3px 8px", fontSize: 10 }} onClick={() => undoOzonSync(h, i === 0)} disabled={!!ozonUndoing}>
+                                      {ozonUndoing === h.id ? "..." : "↶ Отменить"}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  )}
+                </div>
                 {importReport && (importReport.skippedRows.length > 0 || importReport.noBarcodeProducts.length > 0) && (
                   <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, marginBottom: 14, maxWidth: 520 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -2670,7 +2867,16 @@ export default function App() {
                   Загрузите файл выгрузки Ozon (со столбцами «Артикул», «Ссылка на главное фото», «Ссылки на дополнительные фото») — фото подставятся автоматически по совпадению артикула.
                 </div>
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Найти товар для установки цены..." style={{ width: "100%", padding: "10px 12px", marginBottom: 8, maxWidth: 460 }} />
-                <div style={{ marginBottom: 12 }}><SearchModeToggle mode={searchMode} onChange={setSearchMode} /></div>
+                <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                  <SearchModeToggle mode={searchMode} onChange={setSearchMode} />
+                  {!search.trim() && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 12, color: "var(--muted-2)" }}>Сортировка:</span>
+                      <button className="btn" style={{ padding: "4px 10px", fontSize: 12, background: catalogSortMode === "sku" ? "var(--accent)" : "var(--surface)", color: catalogSortMode === "sku" ? "#1a1a1a" : "var(--text)" }} onClick={() => setCatalogSortMode("sku")}>По артикулу</button>
+                      <button className="btn" style={{ padding: "4px 10px", fontSize: 12, background: catalogSortMode === "name" ? "var(--accent)" : "var(--surface)", color: catalogSortMode === "name" ? "#1a1a1a" : "var(--text)" }} onClick={() => setCatalogSortMode("name")}>По названию</button>
+                    </div>
+                  )}
+                </div>
                 <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, maxWidth: 640 }}>
                   {search.trim() && searchResults.length === 0 ? (
                     <div style={{ padding: "20px 0", textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
@@ -2679,7 +2885,7 @@ export default function App() {
                         <button className="btn" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => setShowFuzzy(true)}>Показать похожие номера ({fuzzyResults.length})</button>
                       )}
                     </div>
-                  ) : (search.trim() ? searchResults : catalog.slice(0, 40)).map((p) => {
+                  ) : (search.trim() ? searchResults : sortedCatalog.slice(0, 40)).map((p) => {
                     const opts = optionsForSku(p.sku);
                     const hasDuplicates = opts.length !== new Set(opts.map((o) => o.price)).size;
                     const img = getProductImage(p.sku);
