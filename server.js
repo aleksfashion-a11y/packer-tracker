@@ -335,7 +335,14 @@ app.post("/api/ozon/sync", async (req, res) => {
         // вместо того, чтобы обновиться.
         const skuRaw = String(item.offer_id).trim();
         const sku = /^\d+$/.test(skuRaw) ? parseInt(skuRaw, 10) : skuRaw;
-        products.push({ sku, name: item.name || `Товар ${skuRaw}`, barcodes });
+        // Фото — тем же запросом, без отдельного обращения к Ozon: "images" обычно
+        // содержит все фото товара, "primary_image" — выделенное главное. На случай,
+        // если формат ответа Ozon чуть отличается, проверяем оба варианта защитно.
+        const imagesRaw = Array.isArray(item.images) ? item.images.filter(Boolean) : [];
+        const primaryRaw = Array.isArray(item.primary_image) ? item.primary_image[0] : item.primary_image;
+        const mainImage = primaryRaw || imagesRaw[0] || "";
+        const gallery = imagesRaw.filter((u) => u && u !== mainImage);
+        products.push({ sku, name: item.name || `Товар ${skuRaw}`, barcodes, mainImage, gallery });
       }
     }
 
@@ -425,13 +432,35 @@ app.post("/api/ozon/sync", async (req, res) => {
       }
     }
     await storeSetJSON("catalog", next);
-    console.log(`[Ozon sync] Готово: было ${currentCatalog.length} товаров, стало ${next.length}. Добавлено ${added}, обновлено ${updated}, без изменений ${dedupedProducts.length - added - updated}.`);
+
+    // Фото — отдельное хранилище (productImages), не часть самого каталога.
+    // Ozon тоже источник истины: если для товара пришла ссылка на фото — заменяем,
+    // если фото совсем нет в ответе Ozon — не трогаем то, что уже было (мало ли,
+    // фото могло быть загружено вручную через "Импорт фото из Excel", когда на самом
+    // Ozon карточка временно без фото).
+    const currentImages = (await storeGetJSON("productImages", {})) || {};
+    const nextImages = { ...currentImages };
+    let photosUpdated = 0;
+    for (const p of dedupedProducts) {
+      if (!p.mainImage && (!p.gallery || p.gallery.length === 0)) continue; // у Ozon нет фото — не трогаем
+      const skuKey = String(p.sku);
+      const existingImg = currentImages[skuKey];
+      const existingMain = existingImg ? (typeof existingImg === "string" ? existingImg : existingImg.main) : "";
+      const existingGallery = existingImg && typeof existingImg !== "string" ? (existingImg.gallery || []) : [];
+      const galleryChanged = p.gallery.length !== existingGallery.length || p.gallery.some((u) => !existingGallery.includes(u));
+      if (p.mainImage !== existingMain || galleryChanged) {
+        nextImages[skuKey] = { main: p.mainImage || "", gallery: p.gallery || [] };
+        photosUpdated++;
+      }
+    }
+    if (photosUpdated > 0) await storeSetJSON("productImages", nextImages);
+    console.log(`[Ozon sync] Готово: было ${currentCatalog.length} товаров, стало ${next.length}. Добавлено ${added}, обновлено ${updated}, без изменений ${dedupedProducts.length - added - updated}. Фото обновлено: ${photosUpdated}.`);
 
     const historyEntry = {
       id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
       timestamp: Date.now(),
       total: dedupedProducts.length,
-      added, updated,
+      added, updated, photosUpdated,
       addedItems, updatedItems,
       addedSkus: addedItems.map((i) => i.sku), // отдельный список артикулов — для отмены
       undone: false,
@@ -439,9 +468,9 @@ app.post("/api/ozon/sync", async (req, res) => {
     const history = (await storeGetJSON("_ozonSyncHistory", [])) || [];
     history.unshift(historyEntry); // самая свежая — в начале списка
     await storeSetJSON("_ozonSyncHistory", history.slice(0, 20)); // храним последние 20 запусков
-    await storeSetJSON("_ozonLastSync", { timestamp: historyEntry.timestamp, total: historyEntry.total, added, updated });
+    await storeSetJSON("_ozonLastSync", { timestamp: historyEntry.timestamp, total: historyEntry.total, added, updated, photosUpdated });
 
-    res.json({ timestamp: historyEntry.timestamp, total: historyEntry.total, added, updated });
+    res.json({ timestamp: historyEntry.timestamp, total: historyEntry.total, added, updated, photosUpdated });
   } catch (e) {
     res.status(500).json({ error: "Ошибка синхронизации с Ozon: " + e.message });
   }
@@ -490,7 +519,7 @@ app.post("/api/ozon/undo/:id", async (req, res) => {
     entry.undone = true;
     await storeSetJSON("_ozonSyncHistory", history);
     const lastActive = history.find((h) => !h.undone);
-    await storeSetJSON("_ozonLastSync", lastActive ? { timestamp: lastActive.timestamp, total: lastActive.total, added: lastActive.added, updated: lastActive.updated } : null);
+    await storeSetJSON("_ozonLastSync", lastActive ? { timestamp: lastActive.timestamp, total: lastActive.total, added: lastActive.added, updated: lastActive.updated, photosUpdated: lastActive.photosUpdated } : null);
 
     res.json({ ok: true, removedCount: entry.addedSkus.length, restoredCount: entry.updatedItems.length });
   } catch (e) {
