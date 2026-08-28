@@ -120,16 +120,35 @@ function makePgStore() {
         "SELECT value FROM kv_store WHERE project = $1 AND key = $2",
         [PROJECT_NAME, key]
       );
-      return rows.length ? rows[0].value : undefined;
+      if (!rows.length) return undefined;
+      const raw = rows[0].value;
+      // Историческая особенность: браузер (App.jsx/entry.jsx) сам оборачивает
+      // значение в JSON.stringify перед отправкой, а затем сам же один раз
+      // распаковывает его при чтении — так исторически сложился протокол между
+      // клиентом и этим хранилищем. Чтобы всё работало ОДИНАКОВО что для браузера,
+      // что для прямого серверного кода (как синхронизация с Ozon), get() всегда
+      // возвращает значение как JSON-текст (строку) — если Postgres уже отдал
+      // готовый разобранный объект/массив (когда значение туда записал сам сервер
+      // напрямую, не через двойное оборачивание), досериализуем его один раз здесь.
+      return typeof raw === "string" ? raw : JSON.stringify(raw);
     },
     async set(key, value) {
       await ready;
+      // Если пришла уже готовая JSON-строка (обычный путь от браузера, который
+      // сам делает JSON.stringify перед отправкой) — записываем её КАК ЕСТЬ, без
+      // повторного оборачивания: Postgres сам корректно распознает и сохранит её
+      // как настоящий JSONB-массив/объект. Раньше здесь стоял JSON.stringify(value)
+      // БЕЗУСЛОВНО, что при значении-строке заворачивало его ВТОРОЙ раз — из-за
+      // этого при прямом серверном чтении (минуя браузерную "обёртку") значение
+      // выглядело как одна большая строка, а не как список товаров — это и стало
+      // причиной сбоя синхронизации с Ozon 27-28 августа 2026.
+      const jsonText = typeof value === "string" ? value : JSON.stringify(value);
       await pool.query(
         `INSERT INTO kv_store (project, key, value, updated_at)
-         VALUES ($1, $2, $3, now())
+         VALUES ($1, $2, $3::jsonb, now())
          ON CONFLICT (project, key)
-         DO UPDATE SET value = $3, updated_at = now()`,
-        [PROJECT_NAME, key, JSON.stringify(value)]
+         DO UPDATE SET value = $3::jsonb, updated_at = now()`,
+        [PROJECT_NAME, key, jsonText]
       );
     },
     async del(key) {
@@ -144,6 +163,26 @@ function makePgStore() {
 }
 
 store = DATABASE_URL ? makePgStore() : makeFileStore();
+
+// Удобные обёртки для СЕРВЕРНОГО кода (не браузера), которому нужно работать с
+// НАСТОЯЩИМИ объектами/массивами, а не с "сырым" JSON-текстом, который хранит store.
+// store.get/set всегда оперируют JSON-текстом (строкой) — это исторически сложившийся
+// протокол, совместимый с тем, что уже делает браузерный App.jsx/entry.jsx. Любой
+// НОВЫЙ серверный код (как интеграция с Ozon ниже) должен пользоваться именно этими
+// обёртками, а не store.get/set напрямую — иначе будет тот самый баг с "текстом вместо
+// списка товаров", из-за которого сломалась синхронизация 27-28 августа 2026.
+async function storeGetJSON(key, fallback) {
+  const raw = await store.get(key);
+  if (raw === undefined || raw === null) return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch (e) {
+    return fallback;
+  }
+}
+async function storeSetJSON(key, value) {
+  await store.set(key, JSON.stringify(value));
+}
 
 app.use(express.json({ limit: "15mb" }));
 app.use(express.static(path.join(__dirname, "public")));
@@ -210,8 +249,8 @@ app.delete("/api/kv/:key", async (req, res) => {
 
 app.get("/api/ozon/status", async (req, res) => {
   try {
-    const creds = await store.get("_ozonCredentials");
-    const lastSync = await store.get("_ozonLastSync");
+    const creds = await storeGetJSON("_ozonCredentials", null);
+    const lastSync = await storeGetJSON("_ozonLastSync", null);
     res.json({
       configured: !!(creds && creds.clientId && creds.apiKey),
       clientIdHint: creds && creds.clientId ? "…" + String(creds.clientId).slice(-4) : null,
@@ -226,7 +265,7 @@ app.post("/api/ozon/credentials", async (req, res) => {
   try {
     const { clientId, apiKey } = req.body || {};
     if (!clientId || !apiKey) return res.status(400).json({ error: "Укажите Client-Id и Api-Key" });
-    await store.set("_ozonCredentials", { clientId: String(clientId).trim(), apiKey: String(apiKey).trim() });
+    await storeSetJSON("_ozonCredentials", { clientId: String(clientId).trim(), apiKey: String(apiKey).trim() });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -244,7 +283,7 @@ app.delete("/api/ozon/credentials", async (req, res) => {
 
 app.post("/api/ozon/sync", async (req, res) => {
   try {
-    const creds = await store.get("_ozonCredentials");
+    const creds = await storeGetJSON("_ozonCredentials", null);
     if (!creds || !creds.clientId || !creds.apiKey) {
       return res.status(400).json({ error: "Сначала укажите Client-Id и Api-Key от Ozon в настройках" });
     }
@@ -321,7 +360,7 @@ app.post("/api/ozon/sync", async (req, res) => {
     //
     // Дополнительно запоминаем, что именно добавили/изменили — чтобы можно было
     // одной кнопкой откатить именно эту синхронизацию, не трогая всё остальное.
-    const currentCatalog = (await store.get("catalog")) || [];
+    const currentCatalog = (await storeGetJSON("catalog", [])) || [];
     console.log(`[Ozon sync] Начало слияния: в каталоге сейчас ${currentCatalog.length} товаров, от Ozon получено ${dedupedProducts.length} товаров (после схлопывания внутренних дублей).`);
     // Точный "рентген" первых нескольких артикулов с обеих сторон — чтобы увидеть,
     // почему сравнение не находит совпадений, если это повторится: тип значения
@@ -377,7 +416,7 @@ app.post("/api/ozon/sync", async (req, res) => {
         }
       }
     }
-    await store.set("catalog", next);
+    await storeSetJSON("catalog", next);
     console.log(`[Ozon sync] Готово: было ${currentCatalog.length} товаров, стало ${next.length}. Добавлено ${added}, обновлено ${updated}, без изменений ${dedupedProducts.length - added - updated}.`);
 
     const historyEntry = {
@@ -389,10 +428,10 @@ app.post("/api/ozon/sync", async (req, res) => {
       addedSkus: addedItems.map((i) => i.sku), // отдельный список артикулов — для отмены
       undone: false,
     };
-    const history = (await store.get("_ozonSyncHistory")) || [];
+    const history = (await storeGetJSON("_ozonSyncHistory", [])) || [];
     history.unshift(historyEntry); // самая свежая — в начале списка
-    await store.set("_ozonSyncHistory", history.slice(0, 20)); // храним последние 20 запусков
-    await store.set("_ozonLastSync", { timestamp: historyEntry.timestamp, total: historyEntry.total, added, updated });
+    await storeSetJSON("_ozonSyncHistory", history.slice(0, 20)); // храним последние 20 запусков
+    await storeSetJSON("_ozonLastSync", { timestamp: historyEntry.timestamp, total: historyEntry.total, added, updated });
 
     res.json({ timestamp: historyEntry.timestamp, total: historyEntry.total, added, updated });
   } catch (e) {
@@ -404,7 +443,7 @@ app.post("/api/ozon/sync", async (req, res) => {
 // показывать её браузеру безопасно)
 app.get("/api/ozon/history", async (req, res) => {
   try {
-    const history = (await store.get("_ozonSyncHistory")) || [];
+    const history = (await storeGetJSON("_ozonSyncHistory", [])) || [];
     res.json({ history });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -423,12 +462,12 @@ app.get("/api/ozon/history", async (req, res) => {
 // восстановится состояние на момент именно ЭТОЙ отменяемой синхронизации, а не более раннее).
 app.post("/api/ozon/undo/:id", async (req, res) => {
   try {
-    const history = (await store.get("_ozonSyncHistory")) || [];
+    const history = (await storeGetJSON("_ozonSyncHistory", [])) || [];
     const entry = history.find((h) => h.id === req.params.id);
     if (!entry) return res.status(404).json({ error: "Такая синхронизация не найдена в истории" });
     if (entry.undone) return res.status(400).json({ error: "Эта синхронизация уже была отменена ранее" });
 
-    let catalog = (await store.get("catalog")) || [];
+    let catalog = (await storeGetJSON("catalog", [])) || [];
     const addedSet = new Set(entry.addedSkus.map((s) => String(s)));
     catalog = catalog.filter((p) => !addedSet.has(String(p.sku)));
     for (const u of entry.updatedItems) {
@@ -437,13 +476,13 @@ app.post("/api/ozon/undo/:id", async (req, res) => {
         catalog[idx] = { ...catalog[idx], name: u.previousName, barcodes: u.previousBarcodes };
       }
     }
-    await store.set("catalog", catalog);
+    await storeSetJSON("catalog", catalog);
     console.log(`[Ozon sync] Отменена синхронизация от ${new Date(entry.timestamp).toISOString()}: удалено ${entry.addedSkus.length}, возвращено к прежнему виду ${entry.updatedItems.length}.`);
 
     entry.undone = true;
-    await store.set("_ozonSyncHistory", history);
+    await storeSetJSON("_ozonSyncHistory", history);
     const lastActive = history.find((h) => !h.undone);
-    await store.set("_ozonLastSync", lastActive ? { timestamp: lastActive.timestamp, total: lastActive.total, added: lastActive.added, updated: lastActive.updated } : null);
+    await storeSetJSON("_ozonLastSync", lastActive ? { timestamp: lastActive.timestamp, total: lastActive.total, added: lastActive.added, updated: lastActive.updated } : null);
 
     res.json({ ok: true, removedCount: entry.addedSkus.length, restoredCount: entry.updatedItems.length });
   } catch (e) {
