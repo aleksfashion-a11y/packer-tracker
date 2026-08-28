@@ -80374,6 +80374,13 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       }
     }, [search, scanMode, barcodesForSku]);
     const employees = users.filter((u) => u.role === "employee");
+    const [catalogSortMode, setCatalogSortMode] = (0, import_react54.useState)("sku");
+    const sortedCatalog = (0, import_react54.useMemo)(() => {
+      return [...catalog].sort((a2, b) => {
+        if (catalogSortMode === "name") return a2.name.localeCompare(b.name, "ru");
+        return String(a2.sku).localeCompare(String(b.sku), void 0, { numeric: true, sensitivity: "base" });
+      });
+    }, [catalog, catalogSortMode]);
     const chatViewRef = (0, import_react54.useRef)({ onChatTab: false, activeThread: null });
     (0, import_react54.useEffect)(() => {
       chatViewRef.current = {
@@ -81748,7 +81755,14 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
             ] }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, color: "var(--muted-2)", marginBottom: 12, maxWidth: 460 }, children: "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u0435 \u0444\u0430\u0439\u043B \u0432\u044B\u0433\u0440\u0443\u0437\u043A\u0438 Ozon (\u0441\u043E \u0441\u0442\u043E\u043B\u0431\u0446\u0430\u043C\u0438 \xAB\u0410\u0440\u0442\u0438\u043A\u0443\u043B\xBB, \xAB\u0421\u0441\u044B\u043B\u043A\u0430 \u043D\u0430 \u0433\u043B\u0430\u0432\u043D\u043E\u0435 \u0444\u043E\u0442\u043E\xBB, \xAB\u0421\u0441\u044B\u043B\u043A\u0438 \u043D\u0430 \u0434\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0435 \u0444\u043E\u0442\u043E\xBB) \u2014 \u0444\u043E\u0442\u043E \u043F\u043E\u0434\u0441\u0442\u0430\u0432\u044F\u0442\u0441\u044F \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438 \u043F\u043E \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u044E \u0430\u0440\u0442\u0438\u043A\u0443\u043B\u0430." }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: search, onChange: (e) => setSearch(e.target.value), placeholder: "\u041D\u0430\u0439\u0442\u0438 \u0442\u043E\u0432\u0430\u0440 \u0434\u043B\u044F \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0438 \u0446\u0435\u043D\u044B...", style: { width: "100%", padding: "10px 12px", marginBottom: 8, maxWidth: 460 } }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginBottom: 12 }, children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SearchModeToggle, { mode: searchMode, onChange: setSearchMode }) }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginBottom: 12, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SearchModeToggle, { mode: searchMode, onChange: setSearchMode }),
+              !search.trim() && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 6 }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12, color: "var(--muted-2)" }, children: "\u0421\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043A\u0430:" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 12, background: catalogSortMode === "sku" ? "var(--accent)" : "var(--surface)", color: catalogSortMode === "sku" ? "#1a1a1a" : "var(--text)" }, onClick: () => setCatalogSortMode("sku"), children: "\u041F\u043E \u0430\u0440\u0442\u0438\u043A\u0443\u043B\u0443" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 12, background: catalogSortMode === "name" ? "var(--accent)" : "var(--surface)", color: catalogSortMode === "name" ? "#1a1a1a" : "var(--text)" }, onClick: () => setCatalogSortMode("name"), children: "\u041F\u043E \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044E" })
+              ] })
+            ] }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, maxWidth: 640 }, children: [
               search.trim() && searchResults.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "20px 0", textAlign: "center", color: "var(--muted)", fontSize: 13 }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginBottom: showFuzzy || fuzzyResults.length === 0 ? 0 : 10 }, children: "\u041D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u043E" }),
@@ -81757,7 +81771,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                   fuzzyResults.length,
                   ")"
                 ] })
-              ] }) : (search.trim() ? searchResults : catalog.slice(0, 40)).map((p) => {
+              ] }) : (search.trim() ? searchResults : sortedCatalog.slice(0, 40)).map((p) => {
                 const opts = optionsForSku(p.sku);
                 const hasDuplicates = opts.length !== new Set(opts.map((o) => o.price)).size;
                 const img = getProductImage(p.sku);
