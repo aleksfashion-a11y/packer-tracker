@@ -79675,7 +79675,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
           return;
         }
         await loadSharedData();
-        setToast(`Ozon: \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E ${data.added}, \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E ${data.updated} \u0438\u0437 ${data.total}`);
+        setToast(`Ozon: \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E ${data.added}, \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E ${data.updated} \u0438\u0437 ${data.total}${data.photosUpdated ? `, \u0444\u043E\u0442\u043E \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E: ${data.photosUpdated}` : ""}`);
         await loadOzonStatus();
         await loadOzonHistory();
       } catch (e) {
@@ -81669,7 +81669,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mono", style: { fontSize: 12, color: "var(--muted-2)", marginBottom: 10 }, children: [
                   "Client-Id: ",
                   ozonStatus.clientIdHint || "\u2014",
-                  ozonStatus.lastSync && ` \xB7 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F: ${new Date(ozonStatus.lastSync.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} (\u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E ${ozonStatus.lastSync.added}, \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E ${ozonStatus.lastSync.updated} \u0438\u0437 ${ozonStatus.lastSync.total})`
+                  ozonStatus.lastSync && ` \xB7 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F: ${new Date(ozonStatus.lastSync.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} (\u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E ${ozonStatus.lastSync.added}, \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E ${ozonStatus.lastSync.updated} \u0438\u0437 ${ozonStatus.lastSync.total}${ozonStatus.lastSync.photosUpdated ? `, \u0444\u043E\u0442\u043E: ${ozonStatus.lastSync.photosUpdated}` : ""})`
                 ] }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 14px" }, onClick: syncOzonCatalog, disabled: ozonSyncing, children: ozonSyncing ? "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F..." : "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0441\u0435\u0439\u0447\u0430\u0441" }),
@@ -81692,6 +81692,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                       h.updated,
                       " \u0438\u0437 ",
                       h.total,
+                      h.photosUpdated ? `, \u0444\u043E\u0442\u043E: ${h.photosUpdated}` : "",
                       h.undone ? " (\u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E)" : ""
                     ] }),
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6, flexShrink: 0 }, children: [
