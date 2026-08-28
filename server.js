@@ -323,6 +323,22 @@ app.post("/api/ozon/sync", async (req, res) => {
     // одной кнопкой откатить именно эту синхронизацию, не трогая всё остальное.
     const currentCatalog = (await store.get("catalog")) || [];
     console.log(`[Ozon sync] Начало слияния: в каталоге сейчас ${currentCatalog.length} товаров, от Ozon получено ${dedupedProducts.length} товаров (после схлопывания внутренних дублей).`);
+    // Точный "рентген" первых нескольких артикулов с обеих сторон — чтобы увидеть,
+    // почему сравнение не находит совпадений, если это повторится: тип значения
+    // (число/строка) и точное содержимое, символ в символ
+    console.log(`[Ozon sync] Пример из каталога (первые 5): ${JSON.stringify((currentCatalog.slice(0, 5)).map((p) => ({ sku: p.sku, skuType: typeof p.sku })))}`);
+    console.log(`[Ozon sync] Пример от Ozon (первые 5): ${JSON.stringify((dedupedProducts.slice(0, 5)).map((p) => ({ sku: p.sku, skuType: typeof p.sku })))}`);
+    if (currentCatalog.length > 0 && dedupedProducts.length > 0) {
+      const sampleOzonSku = dedupedProducts[0].sku;
+      const matchAttempt = currentCatalog.find((x) => String(x.sku).trim() === String(sampleOzonSku).trim());
+      console.log(`[Ozon sync] Пробное сравнение: ищем артикул от Ozon "${sampleOzonSku}" (${typeof sampleOzonSku}) в каталоге — ${matchAttempt ? "НАЙДЕНО: " + JSON.stringify(matchAttempt) : "не найдено"}`);
+    }
+    // Прицельная проверка конкретного давно известного артикула "1000" — если он
+    // есть с обеих сторон, но не совпадает, это точно покажет разницу в формате
+    const knownCatalogEntry = currentCatalog.find((x) => String(x.sku).trim() === "1000");
+    const knownOzonEntry = dedupedProducts.find((p) => String(p.sku).trim() === "1000");
+    console.log(`[Ozon sync] Артикул "1000" в каталоге: ${knownCatalogEntry ? JSON.stringify(knownCatalogEntry) : "НЕ НАЙДЕН"}`);
+    console.log(`[Ozon sync] Артикул "1000" от Ozon: ${knownOzonEntry ? JSON.stringify(knownOzonEntry) : "НЕ НАЙДЕН"}`);
 
     // Защита от повторения инцидента 27.08.2026: если каталог не пуст, но подозрительно
     // мал по сравнению с тем, что вернул Ozon — похоже на сбой чтения базы в этот момент,
