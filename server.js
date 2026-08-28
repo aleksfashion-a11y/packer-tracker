@@ -322,6 +322,22 @@ app.post("/api/ozon/sync", async (req, res) => {
     // Дополнительно запоминаем, что именно добавили/изменили — чтобы можно было
     // одной кнопкой откатить именно эту синхронизацию, не трогая всё остальное.
     const currentCatalog = (await store.get("catalog")) || [];
+    console.log(`[Ozon sync] Начало слияния: в каталоге сейчас ${currentCatalog.length} товаров, от Ozon получено ${dedupedProducts.length} товаров (после схлопывания внутренних дублей).`);
+
+    // Защита от повторения инцидента 27.08.2026: если каталог не пуст, но подозрительно
+    // мал по сравнению с тем, что вернул Ozon — похоже на сбой чтения базы в этот момент,
+    // а не на реальное состояние каталога. Раньше в такой ситуации код слепо добавлял всё
+    // как "новое", рискуя либо задвоить товары, либо (если бы нумерация Ozon не совпадала
+    // с локальной) молча потерять из вида товары, которых нет на Ozon. Теперь просто
+    // останавливаемся и ничего не меняем, пока не разберёмся, что произошло.
+    const SUSPICIOUSLY_SMALL_RATIO = 0.5;
+    if (currentCatalog.length > 0 && currentCatalog.length < dedupedProducts.length * SUSPICIOUSLY_SMALL_RATIO) {
+      console.error(`[Ozon sync] ОСТАНОВЛЕНО ради безопасности: в каталоге всего ${currentCatalog.length} товаров, а от Ozon пришло ${dedupedProducts.length} — подозрительно мало для уже существующего каталога. Ничего не изменено.`);
+      return res.status(409).json({
+        error: `Синхронизация остановлена для безопасности: сервер сейчас видит в каталоге только ${currentCatalog.length} товаров, а от Ozon получено ${dedupedProducts.length}. Это похоже на временный сбой чтения данных, а не на реальное состояние каталога — продолжать слияние в таком виде рискованно. Ничего не изменено. Обновите страницу (свайп вниз или кнопка ↻) и попробуйте синхронизацию ещё раз через минуту.`,
+      });
+    }
+
     const next = [...currentCatalog];
     let added = 0, updated = 0;
     const addedItems = []; // { sku, name, barcodes } — полная карточка добавленного товара, для отчёта и отмены
@@ -346,6 +362,7 @@ app.post("/api/ozon/sync", async (req, res) => {
       }
     }
     await store.set("catalog", next);
+    console.log(`[Ozon sync] Готово: было ${currentCatalog.length} товаров, стало ${next.length}. Добавлено ${added}, обновлено ${updated}, без изменений ${dedupedProducts.length - added - updated}.`);
 
     const historyEntry = {
       id: Date.now() + "-" + Math.random().toString(36).slice(2, 8),
@@ -382,31 +399,37 @@ app.get("/api/ozon/history", async (req, res) => {
 // изменённым товарам их прежние название/штрихкоды. Отменить можно только самую
 // последнюю ещё не отменённую запись — более старые трогать небезопасно, если
 // после них уже были другие изменения (в т.ч. ручные).
-app.post("/api/ozon/undo-last-sync", async (req, res) => {
+// Отмена ОДНОЙ конкретной синхронизации по её id — не обязательно самой последней.
+// Отменить более старую запись безопасно ровно в том же смысле, что и последнюю: убираем
+// именно то, что добавила ЭТА синхронизация, и возвращаем изменённым ею товарам их
+// прежний вид. Если после неё уже были другие синхронизации/правки того же товара —
+// они не трогаются (кроме случая, когда та же самая позиция была ещё раз изменена, тогда
+// восстановится состояние на момент именно ЭТОЙ отменяемой синхронизации, а не более раннее).
+app.post("/api/ozon/undo/:id", async (req, res) => {
   try {
     const history = (await store.get("_ozonSyncHistory")) || [];
-    const last = history.find((h) => !h.undone);
-    if (!last) return res.status(400).json({ error: "Нет синхронизации для отмены" });
+    const entry = history.find((h) => h.id === req.params.id);
+    if (!entry) return res.status(404).json({ error: "Такая синхронизация не найдена в истории" });
+    if (entry.undone) return res.status(400).json({ error: "Эта синхронизация уже была отменена ранее" });
 
     let catalog = (await store.get("catalog")) || [];
-    // Убираем товары, которые были добавлены этой синхронизацией
-    const addedSet = new Set(last.addedSkus.map((s) => String(s)));
+    const addedSet = new Set(entry.addedSkus.map((s) => String(s)));
     catalog = catalog.filter((p) => !addedSet.has(String(p.sku)));
-    // Возвращаем прежние значения тем, что было обновлено
-    for (const u of last.updatedItems) {
+    for (const u of entry.updatedItems) {
       const idx = catalog.findIndex((p) => String(p.sku) === String(u.sku));
       if (idx !== -1) {
         catalog[idx] = { ...catalog[idx], name: u.previousName, barcodes: u.previousBarcodes };
       }
     }
     await store.set("catalog", catalog);
+    console.log(`[Ozon sync] Отменена синхронизация от ${new Date(entry.timestamp).toISOString()}: удалено ${entry.addedSkus.length}, возвращено к прежнему виду ${entry.updatedItems.length}.`);
 
-    last.undone = true;
+    entry.undone = true;
     await store.set("_ozonSyncHistory", history);
-    const nextLast = history.find((h) => !h.undone);
-    await store.set("_ozonLastSync", nextLast ? { timestamp: nextLast.timestamp, total: nextLast.total, added: nextLast.added, updated: nextLast.updated } : null);
+    const lastActive = history.find((h) => !h.undone);
+    await store.set("_ozonLastSync", lastActive ? { timestamp: lastActive.timestamp, total: lastActive.total, added: lastActive.added, updated: lastActive.updated } : null);
 
-    res.json({ ok: true, removedCount: last.addedSkus.length, restoredCount: last.updatedItems.length });
+    res.json({ ok: true, removedCount: entry.addedSkus.length, restoredCount: entry.updatedItems.length });
   } catch (e) {
     res.status(500).json({ error: "Не удалось отменить синхронизацию: " + e.message });
   }
