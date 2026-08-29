@@ -83399,7 +83399,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       lightbox && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
         "div",
         {
-          style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, flexDirection: "column", padding: 20 },
+          style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, flexDirection: "column", padding: 20, touchAction: "none", overscrollBehavior: "contain" },
           onClick: () => setLightbox(null),
           onTouchStart: (e) => {
             e.stopPropagation();
