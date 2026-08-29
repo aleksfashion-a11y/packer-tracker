@@ -78993,7 +78993,8 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       html, body { height: 100%; overscroll-behavior-y: none; }
-      .btn { cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 10px 14px; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; transition: background .15s, border-color .15s; }
+      .btn { cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 10px 14px; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; transition: background .15s, border-color .15s; text-align: center; }
+      label.btn { display: inline-flex; align-items: center; justify-content: center; }
       .btn:hover { background: var(--surface-2); border-color: var(--border-strong); }
       .btn:active { transform: scale(0.98); }
       .btn-accent { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
@@ -81648,12 +81649,12 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
               ] })
             ] })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, padding: "6px 6px 6px 14px", maxWidth: "100%" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, padding: "6px 6px 6px 12px", maxWidth: "100%" }, children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
               "button",
               {
                 className: "btn",
-                style: { padding: "6px 10px", borderRadius: 999, fontSize: 12 },
+                style: { padding: "6px 8px", borderRadius: 999, fontSize: 12 },
                 onClick: async () => {
                   setRefreshing(true);
                   await loadSharedData();
@@ -81665,15 +81666,15 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 children: refreshing ? "\u27F3" : "\u21BB"
               }
             ),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px", borderRadius: 999, fontSize: 11 }, onClick: toggleLang, title: "\u0422\u0438\u043B / \u042F\u0437\u044B\u043A", children: lang === "ru" ? "UZ" : "RU" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px", borderRadius: 999, fontSize: 12 }, onClick: toggleTheme, title: theme === "dark" ? "\u0421\u0432\u0435\u0442\u043B\u0430\u044F \u0442\u0435\u043C\u0430" : "\u0422\u0451\u043C\u043D\u0430\u044F \u0442\u0435\u043C\u0430", children: theme === "dark" ? "\u2600\uFE0F" : "\u{1F319}" }),
-            (isAdmin || !isAdmin && messagesForMe.length > 0 || chatUnreadTotal > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 1, alignSelf: "stretch", background: "var(--border)", margin: "0 2px" } }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 8px", borderRadius: 999, fontSize: 11 }, onClick: toggleLang, title: "\u0422\u0438\u043B / \u042F\u0437\u044B\u043A", children: lang === "ru" ? "UZ" : "RU" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 8px", borderRadius: 999, fontSize: 12 }, onClick: toggleTheme, title: theme === "dark" ? "\u0421\u0432\u0435\u0442\u043B\u0430\u044F \u0442\u0435\u043C\u0430" : "\u0422\u0451\u043C\u043D\u0430\u044F \u0442\u0435\u043C\u0430", children: theme === "dark" ? "\u2600\uFE0F" : "\u{1F319}" }),
+            (isAdmin || !isAdmin && messagesForMe.length > 0 || chatUnreadTotal > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 1, alignSelf: "stretch", background: "var(--border)", margin: "0 1px" } }),
             isAdmin && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mono", style: { fontSize: 10, color: "var(--accent)", border: "1px solid var(--accent)", borderRadius: 4, padding: "1px 5px" }, children: t("admin") }),
             isAdmin && totalNotifications > 0 && enabledAdminTabs.overview !== false && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
               "button",
               {
                 className: "btn",
-                style: { padding: "6px 10px", borderRadius: 999, fontSize: 12, display: "flex", alignItems: "center", gap: 6, borderColor: "var(--danger)", color: "var(--danger)" },
+                style: { padding: "6px 8px", borderRadius: 999, fontSize: 12, display: "flex", alignItems: "center", gap: 6, borderColor: "var(--danger)", color: "var(--danger)" },
                 onClick: () => setAdminTab("overview"),
                 title: "\u0415\u0441\u0442\u044C \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F",
                 children: [
@@ -81686,7 +81687,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
               "button",
               {
                 className: "btn",
-                style: { padding: "6px 10px", borderRadius: 999, fontSize: 12, display: "flex", alignItems: "center", gap: 6, borderColor: unreadMessagesCount > 0 ? "var(--accent)" : "var(--border)", color: unreadMessagesCount > 0 ? "var(--accent)" : "var(--muted)" },
+                style: { padding: "6px 8px", borderRadius: 999, fontSize: 12, display: "flex", alignItems: "center", gap: 6, borderColor: unreadMessagesCount > 0 ? "var(--accent)" : "var(--border)", color: unreadMessagesCount > 0 ? "var(--accent)" : "var(--muted)" },
                 onClick: () => setShowAnnouncementsModal(true),
                 title: "\u041E\u0431\u044A\u044F\u0432\u043B\u0435\u043D\u0438\u044F",
                 children: [
@@ -81699,7 +81700,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
               "button",
               {
                 className: "btn",
-                style: { padding: "6px 10px", borderRadius: 999, fontSize: 12, display: "flex", alignItems: "center", gap: 6, borderColor: "var(--accent)", color: "var(--accent)" },
+                style: { padding: "6px 8px", borderRadius: 999, fontSize: 12, display: "flex", alignItems: "center", gap: 6, borderColor: "var(--accent)", color: "var(--accent)" },
                 onClick: () => isAdmin ? setAdminTab("chat") : setTab("chat"),
                 title: "\u041D\u043E\u0432\u044B\u0435 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F \u0432 \u0447\u0430\u0442\u0435",
                 children: [
@@ -81708,13 +81709,13 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 ]
               }
             ),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 1, alignSelf: "stretch", background: "var(--border)", margin: "0 2px" } }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 1, alignSelf: "stretch", background: "var(--border)", margin: "0 1px" } }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontWeight: 600, fontSize: 14 }, children: currentUser.name }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
               "button",
               {
                 className: "btn",
-                style: { padding: "6px 10px", borderRadius: 999, fontSize: 12, borderColor: currentUser.secretWordHash ? void 0 : "var(--accent)", color: currentUser.secretWordHash ? void 0 : "var(--accent)" },
+                style: { padding: "6px 8px", borderRadius: 999, fontSize: 12, borderColor: currentUser.secretWordHash ? void 0 : "var(--accent)", color: currentUser.secretWordHash ? void 0 : "var(--accent)" },
                 onClick: () => {
                   setShowMySecretWord(true);
                   setMySecretWordVal("");
@@ -81726,7 +81727,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 ]
               }
             ),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px", borderRadius: 999, fontSize: 12 }, onClick: logout, children: t("logout") })
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 8px", borderRadius: 999, fontSize: 12 }, onClick: logout, children: t("logout") })
           ] })
         ] }),
         isAdmin ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
