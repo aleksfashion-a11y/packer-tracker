@@ -82055,12 +82055,12 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "6px 10px" }, onClick: () => removeUser(e.id), children: "\u2715" })
                 ] }),
-                resetPwId === e.id ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "text", placeholder: "\u041D\u043E\u0432\u044B\u0439 \u043F\u0430\u0440\u043E\u043B\u044C", value: resetPwVal, onChange: (ev) => setResetPwVal(ev.target.value), style: { flex: 1 } }),
+                resetPwId === e.id ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "text", placeholder: "\u041D\u043E\u0432\u044B\u0439 \u043F\u0430\u0440\u043E\u043B\u044C", value: resetPwVal, onChange: (ev) => setResetPwVal(ev.target.value), style: { flex: 1, minWidth: 0 } }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 10px" }, onClick: () => savePwReset(e.id), children: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px" }, onClick: () => setResetPwId(null), children: "\u041E\u0442\u043C\u0435\u043D\u0430" })
-                ] }) : resetSecretId === e.id ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "text", placeholder: "\u041D\u043E\u0432\u043E\u0435 \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E", value: resetSecretVal, onChange: (ev) => setResetSecretVal(ev.target.value), style: { flex: 1 } }),
+                ] }) : resetSecretId === e.id ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "text", placeholder: "\u041D\u043E\u0432\u043E\u0435 \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E", value: resetSecretVal, onChange: (ev) => setResetSecretVal(ev.target.value), style: { flex: 1, minWidth: 0 } }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 10px" }, onClick: () => saveSecretWordReset(e.id), children: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" }),
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px" }, onClick: () => setResetSecretId(null), children: "\u041E\u0442\u043C\u0435\u043D\u0430" })
                 ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
@@ -83402,9 +83402,15 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
           style: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, flexDirection: "column", padding: 20 },
           onClick: () => setLightbox(null),
           onTouchStart: (e) => {
+            e.stopPropagation();
             lightboxTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
           },
+          onTouchMove: (e) => {
+            e.stopPropagation();
+            if (lightboxTouchRef.current) e.preventDefault();
+          },
           onTouchEnd: (e) => {
+            e.stopPropagation();
             const start = lightboxTouchRef.current;
             if (!start) return;
             const dx = e.changedTouches[0].clientX - start.x;
