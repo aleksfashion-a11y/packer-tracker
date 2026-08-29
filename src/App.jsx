@@ -6,6 +6,36 @@ const SEED_CATALOG = [{"sku": 1000, "name": "Держатель для губк�
 const DEFAULT_PACKAGING_OPTIONS = [{"sku": 1000, "price": 4.0, "label": "", "id": "seed0"}, {"sku": 1001, "price": 5.0, "label": "", "id": "seed1"}, {"sku": 1002, "price": 5.0, "label": "", "id": "seed2"}, {"sku": 1005, "price": 4.0, "label": "", "id": "seed3"}, {"sku": 1006, "price": 5.0, "label": "", "id": "seed4"}, {"sku": 1007, "price": 5.0, "label": "", "id": "seed5"}, {"sku": 1010, "price": 4.0, "label": "", "id": "seed6"}, {"sku": 1011, "price": 5.0, "label": "", "id": "seed7"}, {"sku": 1012, "price": 5.0, "label": "", "id": "seed8"}, {"sku": 1020, "price": 4.0, "label": "", "id": "seed9"}, {"sku": 1021, "price": 4.0, "label": "", "id": "seed10"}, {"sku": 1022, "price": 4.0, "label": "", "id": "seed11"}, {"sku": 1025, "price": 2.0, "label": "", "id": "seed12"}, {"sku": 1026, "price": 2.0, "label": "", "id": "seed13"}, {"sku": 1027, "price": 2.0, "label": "", "id": "seed14"}, {"sku": 1030, "price": 2.0, "label": "", "id": "seed15"}, {"sku": 1031, "price": 2.0, "label": "", "id": "seed16"}, {"sku": 1032, "price": 2.0, "label": "", "id": "seed17"}, {"sku": 1061, "price": 4.0, "label": "", "id": "seed18"}, {"sku": 1070, "price": 4.0, "label": "", "id": "seed19"}, {"sku": 1100, "price": 2.0, "label": "", "id": "seed20"}, {"sku": 1101, "price": 2.0, "label": "", "id": "seed21"}, {"sku": 1102, "price": 2.0, "label": "", "id": "seed22"}, {"sku": 1105, "price": 2.0, "label": "", "id": "seed23"}, {"sku": 1110, "price": 4.0, "label": "", "id": "seed24"}, {"sku": 1111, "price": 4.0, "label": "", "id": "seed25"}, {"sku": 1112, "price": 4.0, "label": "", "id": "seed26"}, {"sku": 1120, "price": 3.0, "label": "", "id": "seed27"}, {"sku": 1121, "price": 3.0, "label": "", "id": "seed28"}, {"sku": 1122, "price": 3.0, "label": "", "id": "seed29"}, {"sku": 1123, "price": 3.0, "label": "", "id": "seed30"}, {"sku": 1124, "price": 3.0, "label": "", "id": "seed31"}, {"sku": 1205, "price": 2.0, "label": "", "id": "seed32"}, {"sku": 1206, "price": 4.0, "label": "", "id": "seed33"}, {"sku": 1210, "price": 6.0, "label": "", "id": "seed34"}, {"sku": 1211, "price": 6.0, "label": "", "id": "seed35"}, {"sku": 1215, "price": 6.0, "label": "", "id": "seed36"}, {"sku": 1216, "price": 6.0, "label": "", "id": "seed37"}, {"sku": 1220, "price": 6.0, "label": "", "id": "seed38"}, {"sku": 1221, "price": 6.0, "label": "", "id": "seed39"}, {"sku": 1225, "price": 6.0, "label": "", "id": "seed40"}, {"sku": 1226, "price": 6.0, "label": "", "id": "seed41"}, {"sku": 1228, "price": 6.0, "label": "", "id": "seed42"}, {"sku": 1229, "price": 6.0, "label": "", "id": "seed43"}, {"sku": 1230, "price": 2.0, "label": "", "id": "seed44"}, {"sku": 1231, "price": 2.0, "label": "", "id": "seed45"}, {"sku": 1232, "price": 2.0, "label": "", "id": "seed46"}, {"sku": 1235, "price": 4.0, "label": "", "id": "seed47"}, {"sku": 1236, "price": 4.0, "label": "", "id": "seed48"}, {"sku": 1240, "price": 5.0, "label": "", "id": "seed49"}, {"sku": 1241, "price": 5.0, "label": "", "id": "seed50"}, {"sku": 1242, "price": 5.0, "label": "", "id": "seed51"}, {"sku": 1243, "price": 5.0, "label": "", "id": "seed52"}, {"sku": 1245, "price": 5.0, "label": "", "id": "seed53"}, {"sku": 1246, "price": 5.0, "label": "", "id": "seed54"}, {"sku": 1247, "price": 5.0, "label": "", "id": "seed55"}, {"sku": 1248, "price": 5.0, "label": "", "id": "seed56"}, {"sku": 1250, "price": 6.0, "label": "", "id": "seed57"}, {"sku": 1251, "price": 6.0, "label": "", "id": "seed58"}, {"sku": 1260, "price": 2.0, "label": "Вариант 1", "id": "seed59"}, {"sku": 1260, "price": 8.0, "label": "Вариант 2", "id": "seed60"}, {"sku": 1261, "price": 2.0, "label": "Вариант 1", "id": "seed61"}, {"sku": 1261, "price": 8.0, "label": "Вариант 2", "id": "seed62"}, {"sku": 1262, "price": 8.0, "label": "Вариант 1", "id": "seed63"}, {"sku": 1262, "price": 2.0, "label": "Вариант 2", "id": "seed64"}, {"sku": 1263, "price": 8.0, "label": "Вариант 1", "id": "seed65"}, {"sku": 1263, "price": 2.0, "label": "Вариант 2", "id": "seed66"}, {"sku": 1264, "price": 8.0, "label": "Вариант 1", "id": "seed67"}, {"sku": 1264, "price": 2.0, "label": "Вариант 2", "id": "seed68"}, {"sku": 1265, "price": 2.0, "label": "Вариант 1", "id": "seed69"}, {"sku": 1265, "price": 6.0, "label": "Вариант 2", "id": "seed70"}, {"sku": 1266, "price": 2.0, "label": "Вариант 1", "id": "seed71"}, {"sku": 1266, "price": 6.0, "label": "Вариант 2", "id": "seed72"}, {"sku": 1267, "price": 2.0, "label": "Вариант 1", "id": "seed73"}, {"sku": 1267, "price": 6.0, "label": "Вариант 2", "id": "seed74"}, {"sku": 1268, "price": 2.0, "label": "Вариант 1", "id": "seed75"}, {"sku": 1268, "price": 6.0, "label": "Вариант 2", "id": "seed76"}, {"sku": 1270, "price": 2.0, "label": "", "id": "seed77"}, {"sku": 1275, "price": 2.0, "label": "", "id": "seed78"}, {"sku": 1280, "price": 5.0, "label": "", "id": "seed79"}, {"sku": 1281, "price": 5.0, "label": "", "id": "seed80"}, {"sku": 1282, "price": 5.0, "label": "", "id": "seed81"}, {"sku": 1283, "price": 5.0, "label": "", "id": "seed82"}, {"sku": 1285, "price": 5.0, "label": "", "id": "seed83"}, {"sku": 1286, "price": 5.0, "label": "", "id": "seed84"}, {"sku": 1290, "price": 5.0, "label": "", "id": "seed85"}, {"sku": 1291, "price": 5.0, "label": "", "id": "seed86"}, {"sku": 1292, "price": 5.0, "label": "", "id": "seed87"}, {"sku": 1293, "price": 5.0, "label": "", "id": "seed88"}, {"sku": 1295, "price": 5.0, "label": "", "id": "seed89"}, {"sku": 1296, "price": 5.0, "label": "", "id": "seed90"}, {"sku": 1310, "price": 5.0, "label": "", "id": "seed91"}, {"sku": 1311, "price": 5.0, "label": "", "id": "seed92"}, {"sku": 1315, "price": 5.0, "label": "", "id": "seed93"}, {"sku": 1316, "price": 5.0, "label": "", "id": "seed94"}, {"sku": 1320, "price": 5.0, "label": "", "id": "seed95"}, {"sku": 1321, "price": 5.0, "label": "", "id": "seed96"}, {"sku": 1325, "price": 5.0, "label": "", "id": "seed97"}, {"sku": 1326, "price": 5.0, "label": "", "id": "seed98"}, {"sku": 1330, "price": 5.0, "label": "", "id": "seed99"}, {"sku": 1331, "price": 5.0, "label": "", "id": "seed100"}, {"sku": 1335, "price": 5.0, "label": "", "id": "seed101"}, {"sku": 1336, "price": 5.0, "label": "", "id": "seed102"}, {"sku": 1340, "price": 5.0, "label": "", "id": "seed103"}, {"sku": 1341, "price": 5.0, "label": "", "id": "seed104"}, {"sku": 1345, "price": 5.0, "label": "", "id": "seed105"}, {"sku": 1346, "price": 5.0, "label": "", "id": "seed106"}, {"sku": 1350, "price": 5.0, "label": "", "id": "seed107"}, {"sku": 1355, "price": 5.0, "label": "", "id": "seed108"}, {"sku": 1360, "price": 4.0, "label": "", "id": "seed109"}, {"sku": 1361, "price": 4.0, "label": "", "id": "seed110"}, {"sku": 1400, "price": 3.0, "label": "", "id": "seed111"}, {"sku": 1401, "price": 3.0, "label": "", "id": "seed112"}, {"sku": 1402, "price": 3.0, "label": "", "id": "seed113"}, {"sku": 1450, "price": 4.0, "label": "", "id": "seed114"}, {"sku": 1540, "price": 2.0, "label": "", "id": "seed115"}, {"sku": 1550, "price": 2.0, "label": "", "id": "seed116"}, {"sku": 1600, "price": 2.0, "label": "", "id": "seed117"}, {"sku": 1601, "price": 4.0, "label": "", "id": "seed118"}, {"sku": 1605, "price": 4.0, "label": "", "id": "seed119"}, {"sku": 1606, "price": 2.0, "label": "", "id": "seed120"}, {"sku": 1610, "price": 4.0, "label": "", "id": "seed121"}, {"sku": 1620, "price": 2.0, "label": "", "id": "seed122"}, {"sku": 1625, "price": 4.0, "label": "", "id": "seed123"}, {"sku": 1626, "price": 2.0, "label": "", "id": "seed124"}, {"sku": 1630, "price": 4.0, "label": "", "id": "seed125"}, {"sku": 1635, "price": 4.0, "label": "", "id": "seed126"}, {"sku": 1700, "price": 4.0, "label": "", "id": "seed127"}, {"sku": 1701, "price": 4.0, "label": "", "id": "seed128"}, {"sku": 1705, "price": 4.0, "label": "", "id": "seed129"}, {"sku": 1709, "price": 2.0, "label": "", "id": "seed130"}, {"sku": 1710, "price": 6.0, "label": "", "id": "seed131"}, {"sku": 1711, "price": 6.0, "label": "", "id": "seed132"}, {"sku": 1712, "price": 6.0, "label": "", "id": "seed133"}, {"sku": 1713, "price": 6.0, "label": "", "id": "seed134"}, {"sku": 1715, "price": 6.0, "label": "", "id": "seed135"}, {"sku": 1716, "price": 6.0, "label": "", "id": "seed136"}, {"sku": 1720, "price": 0, "label": "", "id": "seed137"}, {"sku": 1721, "price": 0, "label": "", "id": "seed138"}, {"sku": 1730, "price": 6.0, "label": "", "id": "seed139"}, {"sku": 1731, "price": 6.0, "label": "", "id": "seed140"}, {"sku": 1740, "price": 6.0, "label": "", "id": "seed141"}, {"sku": 1750, "price": 4.0, "label": "", "id": "seed142"}, {"sku": 1755, "price": 4.0, "label": "", "id": "seed143"}, {"sku": 1760, "price": 4.0, "label": "", "id": "seed144"}, {"sku": 1765, "price": 4.0, "label": "", "id": "seed145"}, {"sku": 1770, "price": 4.0, "label": "", "id": "seed146"}, {"sku": 1775, "price": 4.0, "label": "", "id": "seed147"}, {"sku": 1780, "price": 4.0, "label": "", "id": "seed148"}, {"sku": 1784, "price": 4.0, "label": "", "id": "seed149"}, {"sku": 1785, "price": 4.0, "label": "", "id": "seed150"}, {"sku": 1790, "price": 4.0, "label": "", "id": "seed151"}, {"sku": 1800, "price": 2.0, "label": "", "id": "seed152"}, {"sku": 1805, "price": 2.0, "label": "", "id": "seed153"}, {"sku": 1810, "price": 0, "label": "", "id": "seed154"}, {"sku": 1811, "price": 0, "label": "", "id": "seed155"}, {"sku": 1812, "price": 0, "label": "", "id": "seed156"}, {"sku": 1813, "price": 0, "label": "", "id": "seed157"}, {"sku": 1814, "price": 0, "label": "", "id": "seed158"}, {"sku": 1815, "price": 0, "label": "", "id": "seed159"}, {"sku": 1849, "price": 2.0, "label": "", "id": "seed160"}, {"sku": 1850, "price": 2.0, "label": "", "id": "seed161"}, {"sku": 1851, "price": 2.0, "label": "", "id": "seed162"}, {"sku": 1852, "price": 2.0, "label": "", "id": "seed163"}, {"sku": 1855, "price": 2.0, "label": "", "id": "seed164"}, {"sku": 1856, "price": 2.0, "label": "", "id": "seed165"}, {"sku": 1862, "price": 2.0, "label": "", "id": "seed166"}, {"sku": 1870, "price": 5.0, "label": "", "id": "seed167"}, {"sku": 1880, "price": 2.0, "label": "", "id": "seed168"}, {"sku": 1881, "price": 2.0, "label": "", "id": "seed169"}, {"sku": 1882, "price": 2.0, "label": "", "id": "seed170"}, {"sku": 1885, "price": 2.0, "label": "", "id": "seed171"}, {"sku": 1891, "price": 4.0, "label": "", "id": "seed172"}, {"sku": 1895, "price": 0, "label": "", "id": "seed173"}, {"sku": 1900, "price": 0, "label": "", "id": "seed174"}, {"sku": 1901, "price": 2.0, "label": "Вариант 1", "id": "seed175"}, {"sku": 1901, "price": 2.0, "label": "Вариант 2", "id": "seed176"}, {"sku": 1905, "price": 2.0, "label": "", "id": "seed177"}, {"sku": 2000, "price": 2.0, "label": "", "id": "seed178"}, {"sku": 2010, "price": 2.0, "label": "", "id": "seed179"}, {"sku": 2020, "price": 2.0, "label": "", "id": "seed180"}, {"sku": 2100, "price": 2.0, "label": "", "id": "seed181"}, {"sku": 2101, "price": 2.0, "label": "", "id": "seed182"}, {"sku": 2200, "price": 2.0, "label": "", "id": "seed183"}, {"sku": 2201, "price": 4.0, "label": "", "id": "seed184"}, {"sku": 2205, "price": 4.0, "label": "", "id": "seed185"}, {"sku": 2210, "price": 4.0, "label": "", "id": "seed186"}, {"sku": 2215, "price": 4.0, "label": "", "id": "seed187"}, {"sku": 2220, "price": 2.0, "label": "", "id": "seed188"}, {"sku": 2221, "price": 2.0, "label": "", "id": "seed189"}, {"sku": 2400, "price": 2.0, "label": "", "id": "seed190"}, {"sku": 2405, "price": 2.0, "label": "", "id": "seed191"}, {"sku": 2410, "price": 4.0, "label": "", "id": "seed192"}, {"sku": 2415, "price": 4.0, "label": "", "id": "seed193"}, {"sku": 2420, "price": 4.0, "label": "", "id": "seed194"}, {"sku": 2450, "price": 4.0, "label": "", "id": "seed195"}, {"sku": 2460, "price": 4.0, "label": "", "id": "seed196"}, {"sku": 2461, "price": 4.0, "label": "", "id": "seed197"}, {"sku": 2500, "price": 4.0, "label": "", "id": "seed198"}, {"sku": 2600, "price": 2.0, "label": "", "id": "seed199"}, {"sku": 2610, "price": 2.0, "label": "", "id": "seed200"}, {"sku": 2620, "price": 4.0, "label": "", "id": "seed201"}, {"sku": 2621, "price": 4.0, "label": "", "id": "seed202"}, {"sku": 2630, "price": 0, "label": "", "id": "seed203"}, {"sku": 2640, "price": 2.0, "label": "", "id": "seed204"}, {"sku": 2641, "price": 2.0, "label": "", "id": "seed205"}, {"sku": 2642, "price": 2.0, "label": "", "id": "seed206"}, {"sku": 2645, "price": 4.0, "label": "", "id": "seed207"}, {"sku": 2650, "price": 2.0, "label": "", "id": "seed208"}, {"sku": 2651, "price": 2.0, "label": "", "id": "seed209"}, {"sku": 2652, "price": 2.0, "label": "", "id": "seed210"}, {"sku": 2655, "price": 2.0, "label": "", "id": "seed211"}, {"sku": 2656, "price": 2.0, "label": "", "id": "seed212"}, {"sku": 2657, "price": 2.0, "label": "", "id": "seed213"}, {"sku": 2660, "price": 2.0, "label": "", "id": "seed214"}, {"sku": 2661, "price": 2.0, "label": "", "id": "seed215"}, {"sku": 2700, "price": 2.0, "label": "", "id": "seed216"}, {"sku": 2701, "price": 2.0, "label": "", "id": "seed217"}, {"sku": 2709, "price": 2.0, "label": "", "id": "seed218"}, {"sku": 2710, "price": 2.0, "label": "", "id": "seed219"}, {"sku": 2711, "price": 2.0, "label": "", "id": "seed220"}, {"sku": 2720, "price": 2.0, "label": "", "id": "seed221"}, {"sku": 2725, "price": 2.0, "label": "", "id": "seed222"}, {"sku": 2800, "price": 4.0, "label": "", "id": "seed223"}, {"sku": 2801, "price": 4.0, "label": "", "id": "seed224"}, {"sku": 2810, "price": 4.0, "label": "", "id": "seed225"}, {"sku": 2811, "price": 4.0, "label": "", "id": "seed226"}, {"sku": 2820, "price": 2.0, "label": "", "id": "seed227"}, {"sku": 2830, "price": 4.0, "label": "", "id": "seed228"}, {"sku": 2840, "price": 4.0, "label": "", "id": "seed229"}, {"sku": 2900, "price": 4.0, "label": "", "id": "seed230"}, {"sku": 2901, "price": 4.0, "label": "", "id": "seed231"}, {"sku": 2910, "price": 4.0, "label": "", "id": "seed232"}, {"sku": 2912, "price": 4.0, "label": "", "id": "seed233"}, {"sku": 4000, "price": 8.0, "label": "", "id": "seed234"}, {"sku": 4005, "price": 8.0, "label": "", "id": "seed235"}, {"sku": 4006, "price": 8.0, "label": "", "id": "seed236"}, {"sku": 4100, "price": 4.0, "label": "", "id": "seed237"}, {"sku": 4101, "price": 4.0, "label": "", "id": "seed238"}, {"sku": 4102, "price": 4.0, "label": "", "id": "seed239"}, {"sku": 4110, "price": 4.0, "label": "", "id": "seed240"}, {"sku": 4111, "price": 4.0, "label": "", "id": "seed241"}, {"sku": 4200, "price": 2.0, "label": "", "id": "seed242"}, {"sku": 4205, "price": 2.0, "label": "", "id": "seed243"}, {"sku": 4210, "price": 2.0, "label": "", "id": "seed244"}, {"sku": 4215, "price": 8.0, "label": "", "id": "seed245"}, {"sku": 4220, "price": 8.0, "label": "", "id": "seed246"}, {"sku": 4230, "price": 4.0, "label": "", "id": "seed247"}, {"sku": 4235, "price": 4.0, "label": "", "id": "seed248"}, {"sku": 4240, "price": 4.0, "label": "", "id": "seed249"}, {"sku": 4300, "price": 4.0, "label": "", "id": "seed250"}, {"sku": 4400, "price": 2.0, "label": "", "id": "seed251"}, {"sku": 4401, "price": 4.0, "label": "", "id": "seed252"}, {"sku": 4500, "price": 4.0, "label": "", "id": "seed253"}, {"sku": 4505, "price": 4.0, "label": "", "id": "seed254"}, {"sku": 4600, "price": 4.0, "label": "", "id": "seed255"}, {"sku": 4605, "price": 4.0, "label": "", "id": "seed256"}, {"sku": 4700, "price": 4.0, "label": "", "id": "seed257"}, {"sku": 4701, "price": 4.0, "label": "", "id": "seed258"}, {"sku": 4705, "price": 2.0, "label": "", "id": "seed259"}, {"sku": 5000, "price": 2.0, "label": "", "id": "seed260"}, {"sku": 5001, "price": 2.0, "label": "", "id": "seed261"}, {"sku": 5005, "price": 2.0, "label": "", "id": "seed262"}, {"sku": 5006, "price": 2.0, "label": "", "id": "seed263"}, {"sku": 5100, "price": 2.0, "label": "", "id": "seed264"}, {"sku": 5101, "price": 2.0, "label": "", "id": "seed265"}, {"sku": 5102, "price": 2.0, "label": "", "id": "seed266"}, {"sku": 5103, "price": 2.0, "label": "", "id": "seed267"}, {"sku": 5104, "price": 2.0, "label": "", "id": "seed268"}, {"sku": 5105, "price": 2.0, "label": "", "id": "seed269"}, {"sku": 5106, "price": 2.0, "label": "", "id": "seed270"}, {"sku": 5107, "price": 2.0, "label": "", "id": "seed271"}, {"sku": 5108, "price": 2.0, "label": "", "id": "seed272"}, {"sku": 5109, "price": 2.0, "label": "", "id": "seed273"}, {"sku": 5110, "price": 2.0, "label": "", "id": "seed274"}, {"sku": 5111, "price": 2.0, "label": "", "id": "seed275"}, {"sku": 5112, "price": 2.0, "label": "", "id": "seed276"}, {"sku": 5300, "price": 4.0, "label": "", "id": "seed277"}, {"sku": 5301, "price": 4.0, "label": "", "id": "seed278"}, {"sku": 5400, "price": 4.0, "label": "", "id": "seed279"}, {"sku": 6000, "price": 2.0, "label": "", "id": "seed280"}, {"sku": 6003, "price": 2.0, "label": "", "id": "seed281"}, {"sku": 6005, "price": 2.0, "label": "", "id": "seed282"}, {"sku": 6006, "price": 2.0, "label": "", "id": "seed283"}, {"sku": 6020, "price": 2.0, "label": "", "id": "seed284"}, {"sku": 6023, "price": 2.0, "label": "", "id": "seed285"}, {"sku": 6025, "price": 2.0, "label": "", "id": "seed286"}, {"sku": 6027, "price": 2.0, "label": "", "id": "seed287"}, {"sku": 6041, "price": 2.0, "label": "", "id": "seed288"}, {"sku": 6043, "price": 2.0, "label": "", "id": "seed289"}, {"sku": 6047, "price": 2.0, "label": "", "id": "seed290"}, {"sku": 6061, "price": 2.0, "label": "", "id": "seed291"}, {"sku": 6063, "price": 2.0, "label": "", "id": "seed292"}, {"sku": 6067, "price": 2.0, "label": "", "id": "seed293"}, {"sku": 7000, "price": 2.0, "label": "", "id": "seed294"}, {"sku": 7001, "price": 2.0, "label": "", "id": "seed295"}, {"sku": 7002, "price": 2.0, "label": "", "id": "seed296"}, {"sku": 8000, "price": 2.0, "label": "", "id": "seed297"}];
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+// Типы упаковочных материалов — фиксированный список (склад использует только эти виды).
+// Артикул и название упаковки собираются автоматически из типа + размера, чтобы
+// упаковщику/админу не приходилось вручную придумывать и вбивать их самим.
+const PACKAGING_TYPES = [
+  { key: "bopp", label: "Бопп-пакет", prefix: "БП", defaultMultiplicity: 1000 },
+  { key: "courier", label: "Курьерский пакет", prefix: "КП", defaultMultiplicity: 1000 },
+  { key: "courier_clear", label: "Курьерский пакет прозрачный", prefix: "КПП", defaultMultiplicity: 1000 },
+  { key: "bubble", label: "Пупырчатый пакет", prefix: "ПУП", defaultMultiplicity: 1000 },
+  { key: "zip", label: "Зип-пакет", prefix: "ЗП", defaultMultiplicity: 1000 },
+  { key: "box", label: "Коробка", prefix: "КОР", defaultMultiplicity: 100 },
+];
+const packagingTypeLabel = (key) => (PACKAGING_TYPES.find((t) => t.key === key) || {}).label || key;
+// На случай упаковок, созданных до появления кратности — берём кратность по умолчанию для её типа
+const getMultiplicity = (m) => m.multiplicity || packagingDefaultMultiplicity(m.type);
+const packagingDefaultMultiplicity = (key) => (PACKAGING_TYPES.find((t) => t.key === key) || {}).defaultMultiplicity || 1;
+const buildPackagingSkuName = (typeKey, size) => {
+  const t = PACKAGING_TYPES.find((x) => x.key === typeKey);
+  const sizeClean = size.trim().replace(/\s+/g, "");
+  // "см" добавляется только в НАЗВАНИЕ (для удобства чтения — "Бопп-пакет 10х35 см"),
+  // артикул остаётся без единиц измерения (БП10х35), как и раньше
+  return { sku: `${t ? t.prefix : "УП"}${sizeClean}`, name: `${t ? t.label : "Упаковка"} ${size.trim()} см` };
+};
+// Округляет количество вверх до ближайшего кратного числа (например, нужно 250 при
+// кратности 100 → закупить 300). Кратность 1 или меньше — округление не нужно.
+const roundUpToMultiple = (qty, multiplicity) => {
+  const m = Math.max(1, Math.floor(multiplicity) || 1);
+  return Math.ceil(qty / m) * m;
+};
+
 const pad2 = (n) => String(n).padStart(2, "0");
 const localDateStr = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const todayStr = () => localDateStr(new Date());
@@ -140,7 +170,8 @@ function GlobalStyle() {
       }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
       html, body { height: 100%; overscroll-behavior-y: none; }
-      .btn { cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 10px 14px; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; transition: background .15s, border-color .15s; }
+      .btn { cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: 10px 14px; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; transition: background .15s, border-color .15s; text-align: center; }
+      label.btn { display: inline-flex; align-items: center; justify-content: center; }
       .btn:hover { background: var(--surface-2); border-color: var(--border-strong); }
       .btn:active { transform: scale(0.98); }
       .btn-accent { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
@@ -234,14 +265,42 @@ export default function App() {
   const [ozonApiKey, setOzonApiKey] = useState("");
   const [ozonEditingCreds, setOzonEditingCreds] = useState(false);
   const [ozonSyncing, setOzonSyncing] = useState(false);
+  // Состояние раздела "Остатки" (упаковочные материалы)
+  const [stockSearch, setStockSearch] = useState("");
+  const [stockSortMode, setStockSortMode] = useState("sku"); // "sku" | "name" | "size" | "stock"
+  const [stockSortDir, setStockSortDir] = useState("asc"); // "asc" | "desc"
+  const [stockSizeFilter, setStockSizeFilter] = useState("");
+  const [stockAddingNew, setStockAddingNew] = useState(false);
+  const [stockNewType, setStockNewType] = useState(PACKAGING_TYPES[0].key);
+  const [stockNewSize, setStockNewSize] = useState("");
+  const [stockNewStock, setStockNewStock] = useState("");
+  const [stockEditId, setStockEditId] = useState(null);
+  const [stockEditType, setStockEditType] = useState("");
+  const [stockEditSize, setStockEditSize] = useState("");
+  const [stockEditMultiplicity, setStockEditMultiplicity] = useState("");
+  const [stockAddAmountFor, setStockAddAmountFor] = useState(null);
+  const [stockAddAmountVal, setStockAddAmountVal] = useState("");
   const [ozonHistory, setOzonHistory] = useState([]);
   const [ozonUndoing, setOzonUndoing] = useState(null); // id отменяемой записи, либо null
   const [packagingOptions, setPackagingOptions] = useState([]);
+  // Внимание: это ДРУГАЯ сущность, чем packagingOptions выше (это цены за упаковку
+  // товара — "Вариант 1"/"Вариант 2"). packagingMaterials — это физические упаковочные
+  // материалы (пакеты/коробки) с остатками на складе.
+  const [packagingMaterials, setPackagingMaterials] = useState([]);
+  // Заявка на закупку упаковки — список позиций, ожидающих оформления
+  const [packagingPurchaseRequest, setPackagingPurchaseRequest] = useState([]); // [{ materialId, qty }]
+  const [purchaseAddFor, setPurchaseAddFor] = useState(null); // id материала, для которого сейчас вводим количество в заявку
+  const [purchaseAddVal, setPurchaseAddVal] = useState("");
+  // Сверка остатков с поставкой товаров: null, либо { step: "mapping"|"report", headers, dataRows, articleCol, qtyCol, productRows, materialSummary }
+  const [supplyReconcile, setSupplyReconcile] = useState(null);
+  // Какие материалы упаковки привязаны к какому товару (по артикулу товара), и какой
+  // использовался последний раз — чтобы предлагать его по умолчанию при подтверждении
+  const [productPackagingLinks, setProductPackagingLinks] = useState({});
   const [entries, setEntries] = useState([]);
   const [currency, setCurrency] = useState("₽");
   const [showEmployeeTotals, setShowEmployeeTotals] = useState(true);
   const [showTimerTab, setShowTimerTab] = useState(true);
-  const DEFAULT_ADMIN_TABS = { overview: true, log: true, employees: true, products: true, messages: true, chat: true };
+  const DEFAULT_ADMIN_TABS = { overview: true, log: true, employees: true, products: true, stock: true, messages: true, chat: true };
   const [enabledAdminTabs, setEnabledAdminTabs] = useState(DEFAULT_ADMIN_TABS);
   const DEFAULT_ADMIN_QUICK_REPLIES = ["Принято в работу", "Загрузите фото ошибки", "Уточните количество", "Смена подтверждена"];
   const [adminQuickReplies, setAdminQuickReplies] = useState(DEFAULT_ADMIN_QUICK_REPLIES);
@@ -289,6 +348,7 @@ export default function App() {
   const [customBarcodes, setCustomBarcodes] = useState([]);
   const [productImages, setProductImages] = useState({});
   const [loginLog, setLoginLog] = useState([]);
+  const [dismissedInactiveNotices, setDismissedInactiveNotices] = useState({}); // { [employeeId]: lastDate, который отклонили }
   const [messages, setMessages] = useState([]);
   const [chatMessages, setChatMessages] = useState([]);
   const [chatActiveThread, setChatActiveThread] = useState("all"); // "all" | employeeUserId
@@ -300,6 +360,13 @@ export default function App() {
   const [chatMediaType, setChatMediaType] = useState("image");
   const [showAnnouncementsModal, setShowAnnouncementsModal] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState(null); // { message, onConfirm }
+  // Модалка выбора упаковки перед подтверждением количества: { product, opt, qty, selectedMaterialId, showAllPicker, showCreateForm, newType, newSize }
+  const [packagingModal, setPackagingModal] = useState(null);
+  // Привязка в обе стороны, вне обычного потока упаковки количества:
+  // materialLinkModal — открыт со стороны упаковки: "к какому товару её прикрепить"
+  // productLinkModal — открыт со стороны товара: "какую упаковку к нему прикрепить"
+  const [materialLinkModal, setMaterialLinkModal] = useState(null); // { material, query }
+  const [productLinkModal, setProductLinkModal] = useState(null); // { product, query }
   const askConfirm = (message, onConfirm) => setConfirmDialog({ message, onConfirm });
   const [showChatReadReceipts, setShowChatReadReceipts] = useState(true);
   const [chatRecording, setChatRecording] = useState(false);
@@ -385,8 +452,12 @@ export default function App() {
     const cb = await safeGet("customBarcodes", true, []);
     const pi = await safeGet("productImages", true, {});
     const ll = await safeGet("loginLog", true, []);
+    const din = await safeGet("dismissedInactiveNotices", true, {});
     const msgs = await safeGet("messages", true, []);
     const chatMsgs = await safeGet("chatMessages", true, []);
+    const pm = await safeGet("packagingMaterials", true, []);
+    const ppr = await safeGet("packagingPurchaseRequest", true, []);
+    const ppl = await safeGet("productPackagingLinks", true, {});
     const settings = await safeGet("settings", true, { currency: "₽", showEmployeeTotals: true });
     setUsers(u);
     // currentUser — отдельный снимок пользователя, сохранённый при входе; если админ
@@ -398,11 +469,15 @@ export default function App() {
       return fresh || prev;
     });
     setPackagingOptions(po);
+    setPackagingMaterials(pm);
+    setPackagingPurchaseRequest(ppr);
+    setProductPackagingLinks(ppl);
     setEntries(ent);
     setTimerSessions(ts);
     setCustomBarcodes(cb);
     setProductImages(pi);
     setLoginLog(ll);
+    setDismissedInactiveNotices(din);
     setMessages(msgs);
     setChatMessages(chatMsgs);
     setPriceHistory(ph);
@@ -526,16 +601,24 @@ export default function App() {
   }, [showTimerTab, adminTab]);
 
   useEffect(() => {
-    if (adminTab === "products") { loadOzonStatus(); loadOzonHistory(); }
+    if (adminTab === "settings") { loadOzonStatus(); loadOzonHistory(); }
   }, [adminTab]);
 
   useEffect(() => {
-    const toggleable = ["overview", "log", "employees", "products", "messages", "chat"];
+    const toggleable = ["overview", "log", "employees", "products", "stock", "messages", "chat"];
     if (toggleable.includes(adminTab) && enabledAdminTabs[adminTab] === false) {
       const firstEnabled = toggleable.find((k) => enabledAdminTabs[k] !== false);
       setAdminTab(firstEnabled || "settings");
     }
   }, [enabledAdminTabs, adminTab]);
+
+  useEffect(() => {
+    // Если сотруднику как раз сейчас отключили доступ к "Остаткам", а он на ней уже
+    // находится — перекидываем на "Журнал", чтобы не остаться на скрытой вкладке
+    if (currentUser && currentUser.role === "employee" && tab === "stock" && currentUser.stockTabEnabled === false) {
+      setTab("log");
+    }
+  }, [currentUser, tab]);
 
   useEffect(() => {
     if (!printData) return;
@@ -562,6 +645,10 @@ export default function App() {
   const printCatalog = () => {
     const rows = catalog.map((p) => ({ product: p, opts: optionsForSku(p.sku) })).filter((r) => r.opts.length > 0);
     setPrintData({ type: "catalog", rows });
+  };
+  const printPurchaseRequest = () => {
+    if (packagingPurchaseRequest.length === 0) { setToast("Заявка пуста"); return; }
+    setPrintData({ type: "purchaseRequest", rows: packagingPurchaseRequest });
   };
   const exportCatalogToExcel = () => {
     const rows = [];
@@ -814,6 +901,328 @@ export default function App() {
     setOzonSyncing(false);
   };
   const persistPackagingOptions = async (next) => { setPackagingOptions(next); await safeSet("packagingOptions", next, true); };
+  const persistPackagingMaterials = async (next) => { setPackagingMaterials(next); await safeSet("packagingMaterials", next, true); };
+  const persistProductPackagingLinks = async (next) => { setProductPackagingLinks(next); await safeSet("productPackagingLinks", next, true); };
+  const persistPackagingPurchaseRequest = async (next) => { setPackagingPurchaseRequest(next); await safeSet("packagingPurchaseRequest", next, true); };
+
+  // Добавляет позицию в заявку на закупку упаковки (если такая упаковка уже в заявке —
+  // прибавляет к уже указанному количеству, а не создаёт вторую строку)
+  const addToPurchaseRequest = async (materialId, qty) => {
+    const n = Math.max(0, parseInt(qty) || 0);
+    if (n <= 0) { setToast("Укажите положительное количество"); return; }
+    const idx = packagingPurchaseRequest.findIndex((r) => r.materialId === materialId);
+    const next = [...packagingPurchaseRequest];
+    if (idx === -1) next.push({ materialId, qty: n });
+    else next[idx] = { ...next[idx], qty: next[idx].qty + n };
+    await persistPackagingPurchaseRequest(next);
+    setToast(`Добавлено в заявку: ${n}`);
+  };
+  const removeFromPurchaseRequest = async (materialId) => {
+    await persistPackagingPurchaseRequest(packagingPurchaseRequest.filter((r) => r.materialId !== materialId));
+  };
+  const updatePurchaseRequestQty = async (materialId, qty) => {
+    const n = Math.max(0, parseInt(qty) || 0);
+    await persistPackagingPurchaseRequest(packagingPurchaseRequest.map((r) => r.materialId === materialId ? { ...r, qty: n } : r).filter((r) => r.qty > 0));
+  };
+  // "Оформить заявку" — считаем, что упаковка приехала: добавляем количество из заявки
+  // прямо в остаток каждой позиции, и очищаем саму заявку
+  const fulfillPurchaseRequest = () => {
+    if (packagingPurchaseRequest.length === 0) return;
+    askConfirm(`Оформить заявку (${packagingPurchaseRequest.length} поз.) — добавить указанные количества к остаткам и очистить заявку?`, async () => {
+      let next = [...packagingMaterials];
+      for (const r of packagingPurchaseRequest) {
+        next = next.map((m) => m.id === r.materialId ? { ...m, stock: m.stock + r.qty } : m);
+      }
+      await persistPackagingMaterials(next);
+      await persistPackagingPurchaseRequest([]);
+      setToast("Заявка оформлена, остатки пополнены");
+    });
+  };
+  const exportPurchaseRequestToExcel = () => {
+    const rows = packagingPurchaseRequest.map((r) => {
+      const m = packagingMaterials.find((x) => x.id === r.materialId);
+      return {
+        "Артикул": m ? m.sku : "?",
+        "Название": m ? m.name : "?",
+        "Тип": m ? packagingTypeLabel(m.type) : "",
+        "Размер": m ? m.size : "",
+        "Текущий остаток": m ? m.stock : "",
+        "Кратность": m ? getMultiplicity(m) : "",
+        "Количество к заказу": r.qty,
+      };
+    });
+    if (rows.length === 0) { setToast("Заявка пуста"); return; }
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Заявка на упаковку");
+    XLSX.writeFile(wb, `packaging-order_${todayStr()}.xlsx`);
+  };
+
+  // ===== Сверка остатков упаковки с новой поставкой товаров =====
+  // Шаг 1: читаем файл, показываем найденные столбцы для сопоставления
+  const startSupplyReconcile = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: "array" });
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
+        if (rows.length < 2) { setToast("Файл пустой или без данных"); return; }
+        const headers = rows[0].map((h) => String(h || "").trim());
+        const guessRole = (h) => {
+          const s = h.toLowerCase();
+          if (s.includes("артикул")) return "article";
+          if (s.includes("количество") || s.includes("кол-во") || s.includes("кол.во")) return "qty";
+          return "none";
+        };
+        const columnRoles = headers.map(guessRole);
+        setSupplyReconcile({ step: "mapping", headers, dataRows: rows.slice(1), columnRoles });
+      } catch (err) {
+        setToast("Не удалось прочитать файл — проверьте формат");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  // Шаг 2: посчитать, какой упаковки не хватит на эту поставку (по каждому товару и
+  // итогово по каждой упаковке, с учётом кратности при заказе)
+  const computeSupplyReconcile = () => {
+    const { dataRows, columnRoles } = supplyReconcile;
+    const articleCol = columnRoles.indexOf("article");
+    const qtyCol = columnRoles.indexOf("qty");
+    if (articleCol === -1 || qtyCol === -1) { setToast("Укажите, какой столбец — «Артикул», а какой — «Количество»"); return; }
+    const productRows = [];
+    const materialNeed = {}; // materialId -> суммарно нужно упаковки на эту поставку
+    for (const row of dataRows) {
+      const skuRaw = String(row[articleCol] || "").trim();
+      if (!skuRaw) continue;
+      const qty = parseInt(row[qtyCol]) || 0;
+      if (qty <= 0) continue;
+      const skuNorm = /^\d+$/.test(skuRaw) ? parseInt(skuRaw, 10) : skuRaw;
+      const product = catalog.find((p) => String(p.sku) === String(skuNorm));
+      const link = productPackagingLinks[String(skuNorm)];
+      const materialId = link ? link.lastUsedId : null;
+      const material = materialId && materialId !== "none" ? packagingMaterials.find((m) => m.id === materialId) : null;
+      if (material) materialNeed[material.id] = (materialNeed[material.id] || 0) + qty;
+      productRows.push({
+        sku: skuNorm,
+        name: product ? product.name : "(не найден в каталоге)",
+        qty,
+        materialId: material ? material.id : null,
+        materialName: material ? material.name : (materialId === "none" ? "без упаковки" : "упаковка не привязана"),
+      });
+    }
+    const materialSummary = Object.entries(materialNeed).map(([materialId, needed]) => {
+      const m = packagingMaterials.find((x) => x.id === materialId);
+      const stock = m ? m.stock : 0;
+      const shortage = Math.max(0, needed - stock);
+      const orderQty = shortage > 0 ? roundUpToMultiple(shortage, m ? getMultiplicity(m) : 1) : 0;
+      return { materialId, material: m, needed, stock, shortage, orderQty };
+    });
+    setSupplyReconcile({ step: "report", productRows, materialSummary, headers: supplyReconcile.headers, dataRows: supplyReconcile.dataRows, columnRoles: supplyReconcile.columnRoles });
+  };
+  // Шаг 3: из отчёта — сразу в заявку на закупку (с учётом кратности)
+  const createPurchaseRequestFromReconcile = async () => {
+    const toOrder = supplyReconcile.materialSummary.filter((s) => s.orderQty > 0);
+    if (toOrder.length === 0) { setToast("Дефицита не обнаружено — заказывать нечего"); return; }
+    // Считаем весь итоговый список локально и сохраняем ОДНИМ вызовом — если вызывать
+    // addToPurchaseRequest по очереди в цикле, каждый вызов читает ещё не обновлённое
+    // состояние заявки (React обновляет его не мгновенно), и реально сохраняется
+    // только последняя позиция — остальные "теряются" (это и была причина бага).
+    const next = [...packagingPurchaseRequest];
+    for (const s of toOrder) {
+      const idx = next.findIndex((r) => r.materialId === s.materialId);
+      if (idx === -1) next.push({ materialId: s.materialId, qty: s.orderQty });
+      else next[idx] = { ...next[idx], qty: next[idx].qty + s.orderQty };
+    }
+    await persistPackagingPurchaseRequest(next);
+    setToast(`В заявку на закупку добавлено позиций: ${toOrder.length}`);
+    setSupplyReconcile(null);
+  };
+
+  // Создаёт новый упаковочный материал (или возвращает уже существующий с таким же
+  // артикулом, если такой уже есть — чтобы не плодить дубли при повторном создании
+  // "того же" боп-пакета 35х40, например)
+  const exportStockToExcel = () => {
+    const rows = packagingMaterials.map((m) => ({
+      "Артикул": m.sku,
+      "Название": m.name,
+      "Тип": packagingTypeLabel(m.type),
+      "Размер": m.size,
+      "Остаток": m.stock,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Остатки упаковки");
+    XLSX.writeFile(wb, `packaging-stock_${todayStr()}.xlsx`);
+  };
+
+  // Импорт упаковок из Excel: артикул и название не читаются из файла (даже если они
+  // там есть, например из ранее сделанного экспорта) — пересчитываются заново из
+  // "Тип" + "Размер", чтобы не разъезжались с автогенерацией. "Остаток" из файла
+  // ПОЛНОСТЬЮ ЗАМЕНЯЕТ текущий остаток (как обычный импорт — "вот актуальное
+  // состояние", а не "добавить к тому что есть").
+  const downloadStockImportTemplate = () => {
+    const rows = [
+      { "Тип": "Бопп-пакет", "Размер": "35х40", "Остаток": 100 },
+      { "Тип": "Коробка", "Размер": "50х30х30", "Остаток": 20 },
+    ];
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Шаблон");
+    XLSX.writeFile(wb, "packaging-import-template.xlsx");
+  };
+  const importStockFromExcel = (file) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: "array" });
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
+        let typeCol = -1, sizeCol = -1, stockCol = -1, headerRow = -1;
+        for (let r = 0; r < Math.min(rows.length, 10); r++) {
+          rows[r].forEach((cell, ci) => {
+            const s = String(cell || "");
+            if (s.includes("Тип") && typeCol === -1) { typeCol = ci; headerRow = r; }
+            if (s.includes("Размер")) sizeCol = ci;
+            if (s.includes("Остаток")) stockCol = ci;
+          });
+          if (typeCol !== -1 && sizeCol !== -1) break;
+        }
+        if (typeCol === -1 || sizeCol === -1 || headerRow === -1) {
+          setToast("Не удалось распознать таблицу — нужны столбцы «Тип» и «Размер»");
+          return;
+        }
+        let added = 0, updated = 0;
+        const unknownTypes = [];
+        const next = [...packagingMaterials];
+        for (let r = headerRow + 1; r < rows.length; r++) {
+          const row = rows[r];
+          const typeLabelRaw = String(row[typeCol] || "").trim();
+          const sizeRaw = String(row[sizeCol] || "").trim();
+          if (!typeLabelRaw || !sizeRaw) continue;
+          const typeMatch = PACKAGING_TYPES.find((t) => t.label.toLowerCase() === typeLabelRaw.toLowerCase());
+          if (!typeMatch) { unknownTypes.push(typeLabelRaw); continue; }
+          const stockRaw = stockCol !== -1 ? row[stockCol] : "";
+          const stock = Math.max(0, parseInt(stockRaw) || 0);
+          const { sku, name } = buildPackagingSkuName(typeMatch.key, sizeRaw);
+          const idx = next.findIndex((m) => m.sku === sku);
+          if (idx === -1) {
+            next.push({ id: uid(), type: typeMatch.key, size: sizeRaw, sku, name, stock });
+            added++;
+          } else if (next[idx].stock !== stock) {
+            next[idx] = { ...next[idx], stock };
+            updated++;
+          }
+        }
+        await persistPackagingMaterials(next);
+        const unknownNote = unknownTypes.length > 0 ? ` Не распознан тип у ${unknownTypes.length} строк: ${Array.from(new Set(unknownTypes)).slice(0, 3).join(", ")}${unknownTypes.length > 3 ? "…" : ""}` : "";
+        setToast(`Импорт остатков: добавлено ${added}, обновлено ${updated}.${unknownNote}`);
+      } catch (err) {
+        setToast("Не удалось прочитать файл — проверьте формат");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const createPackagingMaterial = async (typeKey, sizeRaw, initialStock) => {
+    const size = sizeRaw.trim();
+    if (!size) { setToast("Укажите размер упаковки"); return null; }
+    const { sku, name } = buildPackagingSkuName(typeKey, size);
+    const existing = packagingMaterials.find((m) => m.sku === sku);
+    if (existing) {
+      // Такая упаковка уже есть — если заодно указали начальный остаток, просто
+      // пополняем существующую, а не создаём дубль
+      const stockToAdd = Math.max(0, parseInt(initialStock) || 0);
+      if (stockToAdd > 0) await addPackagingStock(existing.id, stockToAdd);
+      return existing;
+    }
+    const stock = Math.max(0, parseInt(initialStock) || 0);
+    const material = { id: uid(), type: typeKey, size, sku, name, stock, multiplicity: packagingDefaultMultiplicity(typeKey) };
+    await persistPackagingMaterials([...packagingMaterials, material]);
+    setToast(`Упаковка «${name}» создана${stock > 0 ? `, остаток: ${stock}` : ""}`);
+    return material;
+  };
+  const addPackagingStock = async (materialId, amount) => {
+    const n = Number(amount);
+    if (!n || n <= 0) { setToast("Укажите положительное количество"); return; }
+    const next = packagingMaterials.map((m) => m.id === materialId ? { ...m, stock: m.stock + n } : m);
+    await persistPackagingMaterials(next);
+    setToast(`Остаток пополнен на ${n}`);
+  };
+  const deductPackagingStock = async (materialId, amount) => {
+    const next = packagingMaterials.map((m) => m.id === materialId ? { ...m, stock: Math.max(0, m.stock - amount) } : m);
+    await persistPackagingMaterials(next);
+  };
+  const editPackagingMaterial = async (id, typeKey, sizeRaw, multiplicityRaw) => {
+    const size = sizeRaw.trim();
+    if (!size) { setToast("Укажите размер упаковки"); return; }
+    const { sku, name } = buildPackagingSkuName(typeKey, size);
+    if (packagingMaterials.some((m) => m.id !== id && m.sku === sku)) { setToast("Упаковка с таким артикулом уже есть"); return; }
+    const multiplicity = Math.max(1, parseInt(multiplicityRaw) || 1);
+    const next = packagingMaterials.map((m) => m.id === id ? { ...m, type: typeKey, size, sku, name, multiplicity } : m);
+    await persistPackagingMaterials(next);
+    setToast("Упаковка обновлена");
+  };
+  const removePackagingMaterial = async (id) => {
+    const m = packagingMaterials.find((x) => x.id === id);
+    askConfirm(`Удалить упаковку «${m ? m.name : "?"}»? Если она привязана к товарам, привязку тоже нужно будет настроить заново.`, async () => {
+      await persistPackagingMaterials(packagingMaterials.filter((x) => x.id !== id));
+      // убираем ссылки на удалённый материал из привязок к товарам
+      const nextLinks = {};
+      for (const [sku, link] of Object.entries(productPackagingLinks)) {
+        const linkedIds = link.linkedIds.filter((lid) => lid !== id);
+        nextLinks[sku] = { linkedIds, lastUsedId: link.lastUsedId === id ? (linkedIds[0] || null) : link.lastUsedId };
+      }
+      await persistProductPackagingLinks(nextLinks);
+      setToast("Упаковка удалена");
+    });
+  };
+  // Привязывает материал упаковки к товару и запоминает его как "последний использованный"
+  // (по умолчанию будет предлагаться именно он при следующей упаковке этого товара)
+  const linkPackagingToProduct = async (sku, materialId) => {
+    const key = String(sku);
+    const current = productPackagingLinks[key] || { linkedIds: [], lastUsedId: null };
+    const linkedIds = current.linkedIds.includes(materialId) ? current.linkedIds : [...current.linkedIds, materialId];
+    await persistProductPackagingLinks({ ...productPackagingLinks, [key]: { linkedIds, lastUsedId: materialId } });
+  };
+
+  // Перед тем как подтвердить количество упакованного товара, нужно указать/подтвердить
+  // упаковку — если у товара ещё нет ни одной привязанной упаковки, выбор ОБЯЗАТЕЛЕН
+  // (нельзя пропустить); если уже есть — по умолчанию предлагается последняя
+  // использованная, но можно выбрать другую или создать новую прямо здесь же.
+  const startPackagingFlow = (product, opt, qty) => {
+    const link = productPackagingLinks[String(product.sku)];
+    setPackagingModal({
+      product, opt, qty,
+      selectedMaterialId: link ? link.lastUsedId : null,
+      showAllPicker: false,
+      showCreateForm: false,
+      newType: PACKAGING_TYPES[0].key,
+      newSize: "",
+      newStock: "",
+    });
+  };
+  const NO_PACKAGING = "none"; // специальное значение selectedMaterialId — "этому товару упаковка не нужна"
+  const confirmPackagingSelection = () => {
+    const { product, opt, qty, selectedMaterialId } = packagingModal;
+    if (!selectedMaterialId) { setToast("Выберите упаковку, «Без упаковки» или создайте новую — без этого нельзя подтвердить количество"); return; }
+    const noPackaging = selectedMaterialId === NO_PACKAGING;
+    const material = noPackaging ? null : packagingMaterials.find((m) => m.id === selectedMaterialId);
+    if (!noPackaging) {
+      if (!material) { setToast("Эта упаковка больше не существует, выберите другую"); return; }
+      if (material.stock < qty) {
+        setToast(`Недостаточно остатка «${material.name}»: на складе ${material.stock}, а нужно ${qty}. Сначала пополните остаток.`);
+        return;
+      }
+    }
+    setPackagingModal(null);
+    const label = opt.label ? ` (${opt.label})` : "";
+    const packagingText = noPackaging ? "без упаковки" : `с упаковкой «${material.name}»`;
+    askConfirm(`Добавить ${qty} × ${product.name}${label} ${packagingText}? Дата: ${fmtDate(packDate)}`, async () => {
+      await addPieceEntry(product, qty, opt);
+      await linkPackagingToProduct(product.sku, selectedMaterialId);
+      if (!noPackaging) await deductPackagingStock(selectedMaterialId, qty);
+    });
+  };
+
   const persistCustomBarcodes = async (next) => { setCustomBarcodes(next); await safeSet("customBarcodes", next, true); };
   const persistProductImages = async (next) => { setProductImages(next); await safeSet("productImages", next, true); };
   const getProductImage = (sku) => {
@@ -1421,13 +1830,30 @@ export default function App() {
     setToast(`+${qty} × ${product.name}${opt.label ? " (" + opt.label + ")" : ""}`);
   };
 
+  // Обёртка для быстрых сценариев (сканер, "Недавно упаковано") — там нет пошагового
+  // диалога, поэтому упаковку не спрашиваем каждый раз: если у товара уже есть
+  // привязанная упаковка (пользователь хоть раз её подтверждал), список автоматически
+  // спишется; если привязки ещё нет — просто пропускаем списание (не блокируем быстрый
+  // сценарий), напоминаем про упаковку тостом, чтобы админ/упаковщик настроил её через
+  // обычный ввод количества или через «Остатки»
+  const addPieceEntryWithAutoPackaging = async (product, qty, option) => {
+    await addPieceEntry(product, qty, option);
+    const link = productPackagingLinks[String(product.sku)];
+    if (link && link.lastUsedId && link.lastUsedId !== "none") {
+      await deductPackagingStock(link.lastUsedId, qty);
+    } else if (!link) {
+      setToast(`+${qty} × ${product.name} — упаковка для этого товара ещё не настроена, остаток не списан`);
+    }
+    // link.lastUsedId === "none" — сознательный выбор "без упаковки", ничего списывать не нужно, и предупреждать незачем
+  };
+
   useEffect(() => {
     if (!scanMode) return;
     const q = search.trim();
     if (!q) return;
     const match = catalog.find((p) => (barcodesForSku[p.sku] || []).includes(q));
     if (match) {
-      addPieceEntry(match, 1);
+      addPieceEntryWithAutoPackaging(match, 1);
       setSearch("");
     }
   }, [search, scanMode, barcodesForSku]);
@@ -1445,6 +1871,91 @@ export default function App() {
       return String(a.sku).localeCompare(String(b.sku), undefined, { numeric: true, sensitivity: "base" });
     });
   }, [catalog, catalogSortMode]);
+
+  const filteredStock = useMemo(() => {
+    const q = stockSearch.trim().toLowerCase();
+    const sizeQ = stockSizeFilter.trim().toLowerCase();
+    let list = packagingMaterials.filter((m) => {
+      if (sizeQ && !m.size.toLowerCase().includes(sizeQ)) return false;
+      if (!q) return true;
+      return m.sku.toLowerCase().includes(q) || m.name.toLowerCase().includes(q) || m.size.toLowerCase().includes(q);
+    });
+    const dirMult = stockSortDir === "desc" ? -1 : 1;
+    list = [...list].sort((a, b) => {
+      if (stockSortMode === "name") return a.name.localeCompare(b.name, "ru") * dirMult;
+      if (stockSortMode === "size") return a.size.localeCompare(b.size, undefined, { numeric: true }) * dirMult;
+      if (stockSortMode === "stock") return (a.stock - b.stock) * dirMult;
+      return a.sku.localeCompare(b.sku, undefined, { numeric: true, sensitivity: "base" }) * dirMult;
+    });
+    return list;
+  }, [packagingMaterials, stockSearch, stockSizeFilter, stockSortMode, stockSortDir]);
+  // Клик по уже активной кнопке сортировки — меняет направление; по другой — переключает
+  // режим сортировки и сбрасывает направление на "по возрастанию"
+  const toggleStockSort = (mode) => {
+    if (stockSortMode === mode) setStockSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setStockSortMode(mode); setStockSortDir("asc"); }
+  };
+
+  // Поиск товара для привязки со стороны упаковки ("прикрепить эту упаковку к товару")
+  const materialLinkResults = useMemo(() => {
+    if (!materialLinkModal) return [];
+    const q = materialLinkModal.query.trim().toLowerCase();
+    if (!q) return sortedCatalog.slice(0, 20);
+    return catalog.filter((p) => p.name.toLowerCase().includes(q) || String(p.sku).toLowerCase().includes(q)).slice(0, 20);
+  }, [materialLinkModal, catalog, sortedCatalog]);
+  const linkMaterialToProductConfirm = async (sku, productName) => {
+    await linkPackagingToProduct(sku, materialLinkModal.material.id);
+    setToast(`Упаковка «${materialLinkModal.material.name}» привязана к товару «${productName}»`);
+    setMaterialLinkModal(null);
+  };
+
+  // Поиск упаковки для привязки со стороны товара ("прикрепить к этому товару упаковку")
+  const productLinkResults = useMemo(() => {
+    if (!productLinkModal) return [];
+    const q = productLinkModal.query.trim().toLowerCase();
+    if (!q) return packagingMaterials.slice(0, 20);
+    return packagingMaterials.filter((m) => m.name.toLowerCase().includes(q) || m.sku.toLowerCase().includes(q)).slice(0, 20);
+  }, [productLinkModal, packagingMaterials]);
+  const linkProductToMaterialConfirm = async (materialId, materialName, materialObj) => {
+    const sku = productLinkModal.product.sku;
+    await linkPackagingToProduct(sku, materialId);
+    setToast(`К товару «${productLinkModal.product.name}» привязана упаковка «${materialName}»`);
+    setProductLinkModal(null);
+    // Если сейчас открыт отчёт сверки — сразу обновляем статус в нём на месте, не
+    // дожидаясь повторного нажатия "Сверить" (плюс пересчитываем итог по упаковкам)
+    if (supplyReconcile && supplyReconcile.step === "report") {
+      setSupplyReconcile((prev) => {
+        const isNoPackaging = materialId === NO_PACKAGING;
+        // Если упаковку только что создали "на лету" — она может ещё не попасть в
+        // packagingMaterials из состояния (React обновляет его не мгновенно), поэтому
+        // берём переданный сюда объект напрямую, если он есть, вместо повторного поиска
+        const material = isNoPackaging ? null : (materialObj || packagingMaterials.find((m) => m.id === materialId));
+        const affectedRows = prev.productRows.filter((r) => String(r.sku) === String(sku) && !r.materialId);
+        if (affectedRows.length === 0) return prev;
+        const addedQty = affectedRows.reduce((sum, r) => sum + r.qty, 0);
+        const productRows = prev.productRows.map((r) => (String(r.sku) === String(sku) && !r.materialId)
+          ? { ...r, materialId: isNoPackaging ? null : materialId, materialName: isNoPackaging ? "без упаковки" : (material ? material.name : materialName) }
+          : r);
+        // "Без упаковки" — реального материала нет, добавлять в сводку по упаковкам нечего
+        if (isNoPackaging) return { ...prev, productRows };
+        const materialSummary = [...prev.materialSummary];
+        const idx = materialSummary.findIndex((s) => s.materialId === materialId);
+        if (idx === -1) {
+          const stock = material ? material.stock : 0;
+          const shortage = Math.max(0, addedQty - stock);
+          const orderQty = shortage > 0 ? roundUpToMultiple(shortage, material ? getMultiplicity(material) : 1) : 0;
+          materialSummary.push({ materialId, material, needed: addedQty, stock, shortage, orderQty });
+        } else {
+          const needed = materialSummary[idx].needed + addedQty;
+          const stock = materialSummary[idx].stock;
+          const shortage = Math.max(0, needed - stock);
+          const orderQty = shortage > 0 ? roundUpToMultiple(shortage, material ? getMultiplicity(material) : 1) : 0;
+          materialSummary[idx] = { ...materialSummary[idx], needed, shortage, orderQty };
+        }
+        return { ...prev, productRows, materialSummary };
+      });
+    }
+  };
 
   // Опрос новых сообщений чата раз в несколько секунд (в мокапе нет постоянного соединения,
   // поэтому вместо мгновенной доставки — периодическая проверка). Если пришло новое сообщение
@@ -1727,8 +2238,17 @@ export default function App() {
       const own = activeEntries.filter((e) => e.employeeId === emp.id);
       const lastDate = own.reduce((max, e) => (e.date > max ? e.date : max), "");
       return { emp, lastDate };
-    }).filter((r) => r.lastDate && r.lastDate < cutoffStr);
-  }, [employees, activeEntries]);
+    }).filter((r) => r.lastDate && r.lastDate < cutoffStr)
+      // Скрываем те, что уже отклонили именно для этой даты последней записи — если
+      // сотрудник так и не появился, повторно уведомление не всплывёт. Но если после
+      // отклонения появилась НОВАЯ более поздняя запись, а затем снова наступило
+      // затишье — уведомление появится заново (дата другая)
+      .filter((r) => dismissedInactiveNotices[r.emp.id] !== r.lastDate);
+  }, [employees, activeEntries, dismissedInactiveNotices]);
+  const persistDismissedInactiveNotices = async (next) => { setDismissedInactiveNotices(next); await safeSet("dismissedInactiveNotices", next, true); };
+  const dismissInactiveNotice = async (employeeId, lastDate) => {
+    await persistDismissedInactiveNotices({ ...dismissedInactiveNotices, [employeeId]: lastDate });
+  };
 
   const recentCustomBarcodes = useMemo(() => {
     const cutoff = Date.now() - INACTIVE_DAYS * 24 * 60 * 60 * 1000;
@@ -1951,6 +2471,11 @@ export default function App() {
     const next = users.map((u) => u.id === id ? { ...u, timerEnabled: enabled } : u);
     await persistUsers(next);
     if (currentUser && currentUser.id === id) setCurrentUser({ ...currentUser, timerEnabled: enabled });
+  };
+  const toggleStockTabForUser = async (id, enabled) => {
+    const next = users.map((u) => u.id === id ? { ...u, stockTabEnabled: enabled } : u);
+    await persistUsers(next);
+    if (currentUser && currentUser.id === id) setCurrentUser({ ...currentUser, stockTabEnabled: enabled });
   };
   const toggleBarcodeAddForUser = async (id, enabled) => {
     const next = users.map((u) => u.id === id ? { ...u, barcodeAddEnabled: enabled } : u);
@@ -2234,23 +2759,27 @@ export default function App() {
             </div>
           )}
 
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, padding: "6px 6px 6px 14px", maxWidth: "100%" }}>
-            <button className="btn" style={{ padding: "6px 10px", borderRadius: 999, fontSize: 12 }}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, padding: "6px 6px 6px 12px", maxWidth: "100%" }}>
+            <button className="btn" style={{ padding: "6px 8px", borderRadius: 999, fontSize: 12 }}
               onClick={async () => { setRefreshing(true); await loadSharedData(); setRefreshing(false); setToast("Обновлено"); }}
               disabled={refreshing} title="Обновить данные">
               {refreshing ? "⟳" : "↻"}
             </button>
-            <button className="btn" style={{ padding: "6px 10px", borderRadius: 999, fontSize: 11 }} onClick={toggleLang} title="Тил / Язык">
+            <button className="btn" style={{ padding: "6px 8px", borderRadius: 999, fontSize: 11 }} onClick={toggleLang} title="Тил / Язык">
               {lang === "ru" ? "UZ" : "RU"}
             </button>
-            <button className="btn" style={{ padding: "6px 10px", borderRadius: 999, fontSize: 12 }} onClick={toggleTheme} title={theme === "dark" ? "Светлая тема" : "Тёмная тема"}>
+            <button className="btn" style={{ padding: "6px 8px", borderRadius: 999, fontSize: 12 }} onClick={toggleTheme} title={theme === "dark" ? "Светлая тема" : "Тёмная тема"}>
               {theme === "dark" ? "☀️" : "🌙"}
             </button>
+
+            {(isAdmin || (!isAdmin && messagesForMe.length > 0) || chatUnreadTotal > 0) && (
+              <span style={{ width: 1, alignSelf: "stretch", background: "var(--border)", margin: "0 1px" }} />
+            )}
             {isAdmin && <span className="mono" style={{ fontSize: 10, color: "var(--accent)", border: "1px solid var(--accent)", borderRadius: 4, padding: "1px 5px" }}>{t("admin")}</span>}
             {isAdmin && totalNotifications > 0 && enabledAdminTabs.overview !== false && (
               <button
                 className="btn"
-                style={{ padding: "6px 10px", borderRadius: 999, fontSize: 12, display: "flex", alignItems: "center", gap: 6, borderColor: "var(--danger)", color: "var(--danger)" }}
+                style={{ padding: "6px 8px", borderRadius: 999, fontSize: 12, display: "flex", alignItems: "center", gap: 6, borderColor: "var(--danger)", color: "var(--danger)" }}
                 onClick={() => setAdminTab("overview")}
                 title="Есть уведомления"
               >
@@ -2260,7 +2789,7 @@ export default function App() {
             {!isAdmin && messagesForMe.length > 0 && (
               <button
                 className="btn"
-                style={{ padding: "6px 10px", borderRadius: 999, fontSize: 12, display: "flex", alignItems: "center", gap: 6, borderColor: unreadMessagesCount > 0 ? "var(--accent)" : "var(--border)", color: unreadMessagesCount > 0 ? "var(--accent)" : "var(--muted)" }}
+                style={{ padding: "6px 8px", borderRadius: 999, fontSize: 12, display: "flex", alignItems: "center", gap: 6, borderColor: unreadMessagesCount > 0 ? "var(--accent)" : "var(--border)", color: unreadMessagesCount > 0 ? "var(--accent)" : "var(--muted)" }}
                 onClick={() => setShowAnnouncementsModal(true)}
                 title="Объявления"
               >
@@ -2270,27 +2799,29 @@ export default function App() {
             {chatUnreadTotal > 0 && (isAdmin ? enabledAdminTabs.chat !== false : true) && (
               <button
                 className="btn"
-                style={{ padding: "6px 10px", borderRadius: 999, fontSize: 12, display: "flex", alignItems: "center", gap: 6, borderColor: "var(--accent)", color: "var(--accent)" }}
+                style={{ padding: "6px 8px", borderRadius: 999, fontSize: 12, display: "flex", alignItems: "center", gap: 6, borderColor: "var(--accent)", color: "var(--accent)" }}
                 onClick={() => (isAdmin ? setAdminTab("chat") : setTab("chat"))}
                 title="Новые сообщения в чате"
               >
                 💬 {chatUnreadTotal}
               </button>
             )}
+
+            <span style={{ width: 1, alignSelf: "stretch", background: "var(--border)", margin: "0 1px" }} />
             <span style={{ fontWeight: 600, fontSize: 14 }}>{currentUser.name}</span>
-            <button className="btn" style={{ padding: "6px 10px", borderRadius: 999, fontSize: 12, borderColor: currentUser.secretWordHash ? undefined : "var(--accent)", color: currentUser.secretWordHash ? undefined : "var(--accent)" }}
+            <button className="btn" style={{ padding: "6px 8px", borderRadius: 999, fontSize: 12, borderColor: currentUser.secretWordHash ? undefined : "var(--accent)", color: currentUser.secretWordHash ? undefined : "var(--accent)" }}
               onClick={() => { setShowMySecretWord(true); setMySecretWordVal(""); }}
               title={currentUser.secretWordHash ? "Изменить секретное слово" : "Задать секретное слово — понадобится, если забудете пароль"}>
               🔑{!currentUser.secretWordHash && <span className="header-btn-label"> Задать слово</span>}
             </button>
-            <button className="btn" style={{ padding: "6px 10px", borderRadius: 999, fontSize: 12 }} onClick={logout}>{t("logout")}</button>
+            <button className="btn" style={{ padding: "6px 8px", borderRadius: 999, fontSize: 12 }} onClick={logout}>{t("logout")}</button>
           </div>
         </header>
 
         {isAdmin ? (
           <>
             <div style={{ display: "flex", gap: 6, marginBottom: 22, borderBottom: "1px solid var(--surface)", flexWrap: "wrap" }}>
-              {[["overview", t("tabOverview")], ["log", t("tabJournal")], ...(showTimerTab ? [["timer", t("tabTimer")]] : []), ["employees", t("tabEmployees")], ["products", t("tabProducts")], ["messages", "Объявления"], ["chat", "Чат"], ["settings", t("tabSettings")]].filter(([k]) => k === "timer" || k === "settings" || enabledAdminTabs[k] !== false).map(([k, label]) => (
+              {[["overview", t("tabOverview")], ["log", t("tabJournal")], ...(showTimerTab ? [["timer", t("tabTimer")]] : []), ["employees", t("tabEmployees")], ["products", t("tabProducts")], ["stock", "Остатки"], ["messages", "Объявления"], ["chat", "Чат"], ["settings", t("tabSettings")]].filter(([k]) => k === "timer" || k === "settings" || enabledAdminTabs[k] !== false).map(([k, label]) => (
                 <button key={k} onClick={() => setAdminTab(k)} style={{ background: "none", border: "none", cursor: "pointer", padding: "10px 4px", marginRight: 22, fontSize: 14, fontWeight: 500, color: adminTab === k ? "var(--accent)" : "var(--muted)", borderBottom: adminTab === k ? "2px solid var(--accent)" : "2px solid transparent" }}>
                   {label}{k === "chat" && chatUnreadTotal > 0 && <span className="mono" style={{ marginLeft: 5, fontSize: 10, background: "var(--danger)", color: "#fff", borderRadius: 999, padding: "1px 6px" }}>{chatUnreadTotal}</span>}
                 </button>
@@ -2363,7 +2894,10 @@ export default function App() {
                       {inactiveEmployees.map(({ emp, lastDate }) => (
                         <div key={emp.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--surface-2)", flexWrap: "wrap" }}>
                           <div style={{ fontSize: 14 }}>{emp.name}</div>
-                          <div className="mono" style={{ fontSize: 12, color: "var(--muted-2)" }}>последняя запись {fmtDate(lastDate)} · {daysSince(lastDate)} дн. назад</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div className="mono" style={{ fontSize: 12, color: "var(--muted-2)" }}>последняя запись {fmtDate(lastDate)} · {daysSince(lastDate)} дн. назад</div>
+                            <button className="btn" style={{ padding: "2px 8px", fontSize: 11 }} title="Скрыть это уведомление" onClick={() => dismissInactiveNotice(emp.id, lastDate)}>✕</button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -2653,11 +3187,13 @@ export default function App() {
               <div className="grid-emp">
                 <div>
                   <div style={{ fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Сотрудники ({employees.length})</div>
-                  <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14 }}>
-                    {employees.length === 0 && <div style={{ color: "var(--muted-2)", fontSize: 13 }}>Никто ещё не зарегистрировался. Отправьте сотрудникам ссылку на это приложение — они зарегистрируются сами во вкладке «Я новый».</div>}
+                  {employees.length === 0 && (
+                    <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, color: "var(--muted-2)", fontSize: 13 }}>Никто ещё не зарегистрировался. Отправьте сотрудникам ссылку на это приложение — они зарегистрируются сами во вкладке «Я новый».</div>
+                  )}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {employees.map((e) => (
-                      <div key={e.id} style={{ padding: "10px 0", borderBottom: "1px solid var(--surface-2)" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+                      <div key={e.id} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontSize: 14, fontWeight: 500 }}>{e.name}</div>
                             <div className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>@{e.username}</div>
@@ -2673,31 +3209,39 @@ export default function App() {
                           <button className="btn btn-danger" style={{ padding: "6px 10px" }} onClick={() => removeUser(e.id)}>✕</button>
                         </div>
                         {resetPwId === e.id ? (
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <input type="text" placeholder="Новый пароль" value={resetPwVal} onChange={(ev) => setResetPwVal(ev.target.value)} style={{ flex: 1 }} />
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <input type="text" placeholder="Новый пароль" value={resetPwVal} onChange={(ev) => setResetPwVal(ev.target.value)} style={{ flex: 1, minWidth: 0 }} />
                             <button className="btn btn-accent" style={{ padding: "6px 10px" }} onClick={() => savePwReset(e.id)}>Сохранить</button>
                             <button className="btn" style={{ padding: "6px 10px" }} onClick={() => setResetPwId(null)}>Отмена</button>
                           </div>
                         ) : resetSecretId === e.id ? (
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <input type="text" placeholder="Новое секретное слово" value={resetSecretVal} onChange={(ev) => setResetSecretVal(ev.target.value)} style={{ flex: 1 }} />
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            <input type="text" placeholder="Новое секретное слово" value={resetSecretVal} onChange={(ev) => setResetSecretVal(ev.target.value)} style={{ flex: 1, minWidth: 0 }} />
                             <button className="btn btn-accent" style={{ padding: "6px 10px" }} onClick={() => saveSecretWordReset(e.id)}>Сохранить</button>
                             <button className="btn" style={{ padding: "6px 10px" }} onClick={() => setResetSecretId(null)}>Отмена</button>
                           </div>
                         ) : (
-                          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-                            <button className="btn" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => { setResetPwId(e.id); setResetPwVal(""); }}>Сбросить пароль</button>
-                            <button className="btn" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => { setResetSecretId(e.id); setResetSecretVal(""); }}>{e.secretWordHash ? "Сменить секретное слово" : "Задать секретное слово"}</button>
-                            <button className="btn" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => setShowQrForId(e.id)}>Показать QR</button>
-                            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: e.timerEnabled ? "var(--accent)" : "var(--muted)", cursor: "pointer" }}>
-                              <input type="checkbox" checked={!!e.timerEnabled} onChange={(ev) => toggleTimerForUser(e.id, ev.target.checked)} style={{ width: 15, height: 15, padding: 0 }} />
-                              Секундомер
-                            </label>
-                            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: e.barcodeAddEnabled ? "var(--accent)" : "var(--muted)", cursor: "pointer" }}>
-                              <input type="checkbox" checked={!!e.barcodeAddEnabled} onChange={(ev) => toggleBarcodeAddForUser(e.id, ev.target.checked)} style={{ width: 15, height: 15, padding: 0 }} />
-                              Добавление штрихкодов
-                            </label>
-                          </div>
+                          <>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                              <button className="btn" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => { setResetPwId(e.id); setResetPwVal(""); }}>Сбросить пароль</button>
+                              <button className="btn" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => { setResetSecretId(e.id); setResetSecretVal(""); }}>{e.secretWordHash ? "Сменить секретное слово" : "Задать секретное слово"}</button>
+                              <button className="btn" style={{ padding: "4px 10px", fontSize: 12 }} onClick={() => setShowQrForId(e.id)}>Показать QR</button>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", paddingTop: 8, borderTop: "1px solid var(--surface-2)" }}>
+                              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: e.timerEnabled ? "var(--accent)" : "var(--muted)", cursor: "pointer" }}>
+                                <input type="checkbox" checked={!!e.timerEnabled} onChange={(ev) => toggleTimerForUser(e.id, ev.target.checked)} style={{ width: 15, height: 15, padding: 0 }} />
+                                Секундомер
+                              </label>
+                              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: e.barcodeAddEnabled ? "var(--accent)" : "var(--muted)", cursor: "pointer" }}>
+                                <input type="checkbox" checked={!!e.barcodeAddEnabled} onChange={(ev) => toggleBarcodeAddForUser(e.id, ev.target.checked)} style={{ width: 15, height: 15, padding: 0 }} />
+                                Добавление штрихкодов
+                              </label>
+                              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: e.stockTabEnabled !== false ? "var(--accent)" : "var(--muted)", cursor: "pointer" }}>
+                                <input type="checkbox" checked={e.stockTabEnabled !== false} onChange={(ev) => toggleStockTabForUser(e.id, ev.target.checked)} style={{ width: 15, height: 15, padding: 0 }} />
+                                Доступ к «Остаткам»
+                              </label>
+                            </div>
+                          </>
                         )}
                       </div>
                     ))}
@@ -2706,9 +3250,9 @@ export default function App() {
 
                 <div>
                   <div style={{ fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Администраторы ({admins.length})</div>
-                  <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, marginBottom: 20 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
                     {admins.map((a) => (
-                      <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--surface-2)", flexWrap: "wrap" }}>
+                      <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px", flexWrap: "wrap" }}>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 14 }}>{a.name}{a.id === currentUser.id ? " (вы)" : ""}</div>
                           <div className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>@{a.username}</div>
@@ -2738,86 +3282,28 @@ export default function App() {
 
             {adminTab === "products" && (
               <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
-                  <div style={{ fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Цены товаров ({catalog.length})</div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button className="btn btn-accent" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => { setAddingProduct((v) => !v); setNewProductError(""); }}>+ Добавить товар</button>
-                    <label className="btn btn-accent" style={{ padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>
+                <div style={{ fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>Цены товаров ({catalog.length})</div>
+
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 6, flexWrap: "wrap", paddingBottom: 16, borderBottom: "1px solid var(--surface-2)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <label className="btn" style={{ padding: "6px 14px", fontSize: 12, cursor: "pointer" }}>
                       Импорт каталога (Excel)
                       <input type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) importCatalogFromExcel(e.target.files[0]); e.target.value = ""; }} />
                     </label>
-                    <button className="btn" style={{ padding: "6px 12px", fontSize: 12 }} onClick={exportCatalogToExcel}>Экспорт в Excel</button>
-                    <button className="btn" style={{ padding: "6px 12px", fontSize: 12 }} onClick={printCatalog}>Печать / PDF</button>
-                    <label className="btn btn-accent" style={{ padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>
+                    <button className="btn" style={{ padding: "6px 14px", fontSize: 12 }} onClick={exportCatalogToExcel}>Экспорт в Excel</button>
+                    <button className="btn" style={{ padding: "6px 14px", fontSize: 12 }} onClick={printCatalog}>Печать / PDF</button>
+                    <span style={{ width: 1, alignSelf: "stretch", background: "var(--border)", margin: "0 4px" }} />
+                    <label className="btn" style={{ padding: "6px 14px", fontSize: 12, cursor: "pointer" }}>
                       Импорт фото из Excel
                       <input type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) importImagesFromExcel(e.target.files[0]); e.target.value = ""; }} />
                     </label>
                   </div>
+                  <button className="btn btn-accent" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => { setAddingProduct((v) => !v); setNewProductError(""); }}>{addingProduct ? "Отмена" : "+ Добавить товар"}</button>
+                </div>
+                <div style={{ fontSize: 11, color: "var(--muted-2)", marginBottom: 18 }}>
+                  Для «Импорт фото из Excel» — файл выгрузки Ozon (со столбцами «Артикул», «Ссылка на главное фото», «Ссылки на дополнительные фото»); фото подставятся автоматически по совпадению артикула.
                 </div>
 
-                <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, marginBottom: 14, maxWidth: 640 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                    🔵 Автосинхронизация с Ozon
-                    {ozonStatus && ozonStatus.configured && <span className="mono" style={{ fontSize: 10, background: "rgba(90,200,120,0.15)", color: "#5ac878", border: "1px solid #5ac878", borderRadius: 999, padding: "1px 8px" }}>подключено</span>}
-                  </div>
-                  <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 10 }}>
-                    Подтягивает артикул, название и штрихкоды напрямую из вашего кабинета продавца Ozon — без ручной выгрузки Excel. Ключи возьмите в кабинете Ozon: Настройки → Seller API.
-                  </div>
-
-                  {!ozonStatus || !ozonStatus.configured || ozonEditingCreds ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 420 }}>
-                      <input placeholder="Client-Id" value={ozonClientId} onChange={(e) => setOzonClientId(e.target.value)} />
-                      <input placeholder="Api-Key" type="password" value={ozonApiKey} onChange={(e) => setOzonApiKey(e.target.value)} />
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button className="btn btn-accent" style={{ padding: "6px 14px" }} onClick={saveOzonCredentials}>Сохранить ключи</button>
-                        {ozonEditingCreds && <button className="btn" style={{ padding: "6px 14px" }} onClick={() => setOzonEditingCreds(false)}>Отмена</button>}
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="mono" style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 10 }}>
-                        Client-Id: {ozonStatus.clientIdHint || "—"}
-                        {ozonStatus.lastSync && ` · последняя синхронизация: ${new Date(ozonStatus.lastSync.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} (добавлено ${ozonStatus.lastSync.added}, обновлено ${ozonStatus.lastSync.updated} из ${ozonStatus.lastSync.total}${ozonStatus.lastSync.photosUpdated ? `, фото: ${ozonStatus.lastSync.photosUpdated}` : ""})`}
-                      </div>
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <button className="btn btn-accent" style={{ padding: "6px 14px" }} onClick={syncOzonCatalog} disabled={ozonSyncing}>
-                          {ozonSyncing ? "Синхронизация..." : "Синхронизировать сейчас"}
-                        </button>
-                        {ozonHistory.length > 0 && !ozonHistory[0].undone && (
-                          <button className="btn btn-danger" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => undoOzonSync(ozonHistory[0], true)} disabled={!!ozonUndoing}>
-                            {ozonUndoing === ozonHistory[0].id ? "Отмена..." : "↶ Отменить последнюю синхронизацию"}
-                          </button>
-                        )}
-                        <button className="btn" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => setOzonEditingCreds(true)}>Сменить ключи</button>
-                        <button className="btn btn-danger" style={{ padding: "6px 14px", fontSize: 12 }} onClick={removeOzonCredentials}>Отключить</button>
-                      </div>
-                      {ozonHistory.length > 0 && (
-                        <details style={{ marginTop: 12 }}>
-                          <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--accent)" }}>История синхронизаций ({ozonHistory.length})</summary>
-                          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }}>
-                            {ozonHistory.map((h, i) => (
-                              <div key={h.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", background: "var(--surface-2)", borderRadius: 6, flexWrap: "wrap" }}>
-                                <span className="mono" style={{ fontSize: 11, color: h.undone ? "var(--muted-2)" : "var(--text)", textDecoration: h.undone ? "line-through" : "none" }}>
-                                  {new Date(h.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} — добавлено {h.added}, обновлено {h.updated} из {h.total}{h.photosUpdated ? `, фото: ${h.photosUpdated}` : ""}{h.undone ? " (отменено)" : ""}
-                                </span>
-                                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                                  {(h.added > 0 || h.updated > 0) && (
-                                    <button className="btn" style={{ padding: "3px 8px", fontSize: 10 }} onClick={() => exportOzonSyncToExcel(h)}>Excel</button>
-                                  )}
-                                  {!h.undone && (h.added > 0 || h.updated > 0) && (
-                                    <button className="btn btn-danger" style={{ padding: "3px 8px", fontSize: 10 }} onClick={() => undoOzonSync(h, i === 0)} disabled={!!ozonUndoing}>
-                                      {ozonUndoing === h.id ? "..." : "↶ Отменить"}
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </details>
-                      )}
-                    </div>
-                  )}
-                </div>
                 {importReport && (importReport.skippedRows.length > 0 || importReport.noBarcodeProducts.length > 0) && (
                   <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, marginBottom: 14, maxWidth: 520 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -2863,9 +3349,6 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                <div style={{ fontSize: 11, color: "var(--muted-2)", marginBottom: 12, maxWidth: 460 }}>
-                  Загрузите файл выгрузки Ozon (со столбцами «Артикул», «Ссылка на главное фото», «Ссылки на дополнительные фото») — фото подставятся автоматически по совпадению артикула.
-                </div>
                 <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Найти товар для установки цены..." style={{ width: "100%", padding: "10px 12px", marginBottom: 8, maxWidth: 460 }} />
                 <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
                   <SearchModeToggle mode={searchMode} onChange={setSearchMode} />
@@ -2877,7 +3360,7 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, maxWidth: 640 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {search.trim() && searchResults.length === 0 ? (
                     <div style={{ padding: "20px 0", textAlign: "center", color: "var(--muted)", fontSize: 13 }}>
                       <div style={{ marginBottom: showFuzzy || fuzzyResults.length === 0 ? 0 : 10 }}>Ничего не найдено</div>
@@ -2889,87 +3372,82 @@ export default function App() {
                     const opts = optionsForSku(p.sku);
                     const hasDuplicates = opts.length !== new Set(opts.map((o) => o.price)).size;
                     const img = getProductImage(p.sku);
+                    const link = productPackagingLinks[String(p.sku)];
+                    const linkedNames = link ? link.linkedIds.map((id) => (packagingMaterials.find((m) => m.id === id) || {}).name).filter(Boolean) : [];
                     return (
-                      <div key={p.sku} style={{ padding: "10px 0", borderBottom: "1px solid var(--surface-2)" }}>
-                        <div style={{ display: "flex", gap: 10 }}>
-                          {img && img.main && <ProductThumb src={img.main} size={44} onClick={() => setLightbox({ images: [img.main, ...img.gallery], index: 0, name: p.name })} />}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            {catalogEditSku === p.sku ? (
-                              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8, maxWidth: 380 }}>
-                                <input placeholder="Артикул" className="mono" value={catalogEditSkuValue} onChange={(e) => setCatalogEditSkuValue(e.target.value)} style={{ fontSize: 13 }} />
-                                <input placeholder="Название товара" value={catalogEditName} onChange={(e) => setCatalogEditName(e.target.value)} style={{ fontSize: 13 }} />
-                                <textarea placeholder="Штрихкоды — по одному на строку" value={catalogEditBarcodes} onChange={(e) => setCatalogEditBarcodes(e.target.value)} rows={2}
-                                  style={{ background: "var(--input-bg)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 8, padding: 8, fontFamily: "'Inter', sans-serif", fontSize: 12, resize: "vertical" }} />
-                                <div style={{ display: "flex", gap: 8 }}>
-                                  <button className="btn btn-accent" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => saveProductEdit(p.sku)}>Сохранить</button>
-                                  <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setCatalogEditSku(null)}>Отмена</button>
-                                  <button className="btn btn-danger" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => removeProduct(p.sku)}>Удалить товар</button>
-                                </div>
-                              </div>
-                            ) : (
-                              <>
-                                <div style={{ fontSize: 13, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
-                                  {p.name}
-                                  <button className="btn" style={{ padding: "2px 6px", fontSize: 10 }} onClick={() => { setCatalogEditSku(p.sku); setCatalogEditSkuValue(String(p.sku)); setCatalogEditName(p.name); setCatalogEditBarcodes((p.barcodes || []).join("\n")); }}>✎</button>
-                                </div>
-                                <div className="mono" style={{ fontSize: 11, color: "var(--muted-2)", marginBottom: 4 }}>арт. {p.sku}{img && img.gallery.length > 0 ? ` · ещё ${img.gallery.length} фото` : ""}</div>
-                              </>
-                            )}
-                            {imageEditSku === p.sku ? (
-                              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8, maxWidth: 380 }}>
-                                <input placeholder="Ссылка на главное фото" value={imageEditVal} onChange={(e) => setImageEditVal(e.target.value)} style={{ fontSize: 12 }} />
-                                <textarea placeholder="Доп. фото — по одной ссылке на строку" value={imageEditGalleryVal} onChange={(e) => setImageEditGalleryVal(e.target.value)} rows={2}
-                                  style={{ background: "var(--input-bg)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 8, padding: 8, fontFamily: "'Inter', sans-serif", fontSize: 12, resize: "vertical" }} />
-                                <div style={{ display: "flex", gap: 8 }}>
-                                  <button className="btn btn-accent" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => { setProductImage(p.sku, imageEditVal, imageEditGalleryVal.split("\n")); setImageEditSku(null); }}>Сохранить</button>
-                                  <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setImageEditSku(null)}>Отмена</button>
-                                </div>
-                              </div>
-                            ) : (
-                              <button className="btn" style={{ padding: "3px 8px", fontSize: 11, marginBottom: 8 }} onClick={() => { setImageEditSku(p.sku); setImageEditVal(img ? img.main : ""); setImageEditGalleryVal(img ? img.gallery.join("\n") : ""); }}>
-                                {img ? "Изменить фото" : "+ фото"}
-                              </button>
-                            )}
+                      <div key={p.sku} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "8px 12px" }}>
+                        {catalogEditSku === p.sku ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxWidth: 380 }}>
+                            <input placeholder="Артикул" className="mono" value={catalogEditSkuValue} onChange={(e) => setCatalogEditSkuValue(e.target.value)} style={{ fontSize: 13 }} />
+                            <input placeholder="Название товара" value={catalogEditName} onChange={(e) => setCatalogEditName(e.target.value)} style={{ fontSize: 13 }} />
+                            <textarea placeholder="Штрихкоды — по одному на строку" value={catalogEditBarcodes} onChange={(e) => setCatalogEditBarcodes(e.target.value)} rows={2}
+                              style={{ background: "var(--input-bg)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 8, padding: 8, fontFamily: "'Inter', sans-serif", fontSize: 12, resize: "vertical" }} />
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <button className="btn btn-accent" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => saveProductEdit(p.sku)}>Сохранить</button>
+                              <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setCatalogEditSku(null)}>Отмена</button>
+                              <button className="btn btn-danger" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => removeProduct(p.sku)}>Удалить товар</button>
+                            </div>
                           </div>
-                        </div>
-
-                        {opts.length === 0 && <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 6 }}>Цена не задана.</div>}
-                        {opts.map((opt) => (
-                          <div key={opt.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                            {priceEditOptionId === opt.id ? (
-                              <>
-                                <input placeholder="Название варианта" value={priceEditLabelVal} onChange={(e) => setPriceEditLabelVal(e.target.value)} style={{ width: 130 }} />
-                                <input className="mono" autoFocus value={priceEditVal} onChange={(e) => setPriceEditVal(e.target.value)} style={{ width: 70 }} />
-                                <button className="btn btn-accent" style={{ padding: "6px 10px" }} onClick={() => saveOptionEdit(opt.id)}>OK</button>
-                              </>
-                            ) : (
-                              <>
-                                {opt.label && <span className="mono" style={{ fontSize: 11, color: "var(--muted-2)", minWidth: 90 }}>{opt.label}</span>}
-                                <button className="btn" style={{ padding: "6px 10px", minWidth: 80 }} onClick={() => { setPriceEditOptionId(opt.id); setPriceEditVal(String(opt.price || "")); setPriceEditLabelVal(opt.label || ""); }}>
-                                  {money(opt.price)}
-                                </button>
-                                <button className="btn btn-danger" style={{ padding: "6px 8px" }} onClick={() => removePackagingOption(opt.id)}>✕</button>
-                              </>
-                            )}
-                          </div>
-                        ))}
-
-                        {addingOptionSku === p.sku ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
-                            <input placeholder="Название варианта (необяз.)" value={newOptionLabel} onChange={(e) => setNewOptionLabel(e.target.value)} style={{ width: 160 }} />
-                            <input className="mono" placeholder="Цена" value={newOptionPrice} onChange={(e) => setNewOptionPrice(e.target.value)} style={{ width: 70 }} />
-                            <button className="btn btn-accent" style={{ padding: "6px 10px" }} onClick={() => addPackagingOption(p.sku)}>Добавить</button>
-                            <button className="btn" style={{ padding: "6px 10px" }} onClick={() => { setAddingOptionSku(null); setNewOptionLabel(""); setNewOptionPrice(""); }}>Отмена</button>
+                        ) : imageEditSku === p.sku ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6, maxWidth: 380 }}>
+                            <div style={{ fontSize: 13, marginBottom: 2 }}>{p.name}</div>
+                            <input placeholder="Ссылка на главное фото" value={imageEditVal} onChange={(e) => setImageEditVal(e.target.value)} style={{ fontSize: 12 }} />
+                            <textarea placeholder="Доп. фото — по одной ссылке на строку" value={imageEditGalleryVal} onChange={(e) => setImageEditGalleryVal(e.target.value)} rows={2}
+                              style={{ background: "var(--input-bg)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 8, padding: 8, fontFamily: "'Inter', sans-serif", fontSize: 12, resize: "vertical" }} />
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <button className="btn btn-accent" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => { setProductImage(p.sku, imageEditVal, imageEditGalleryVal.split("\n")); setImageEditSku(null); }}>Сохранить</button>
+                              <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setImageEditSku(null)}>Отмена</button>
+                            </div>
                           </div>
                         ) : (
-                          <button className="btn" style={{ padding: "4px 10px", fontSize: 11, marginTop: 4 }} onClick={() => { setAddingOptionSku(p.sku); setNewOptionLabel(""); setNewOptionPrice(""); }}>
-                            + вариант упаковки
-                          </button>
-                        )}
-                        {hasDuplicates && (
-                          <button className="btn" style={{ padding: "4px 10px", fontSize: 11, marginTop: 4, marginLeft: 8, color: "var(--danger)", borderColor: "var(--danger)" }} onClick={() => mergeDuplicateOptions(p.sku)}>
-                            Объединить дубли
-                          </button>
+                          <>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              {img && img.main && <ProductThumb src={img.main} size={34} onClick={() => setLightbox({ images: [img.main, ...img.gallery], index: 0, name: p.name })} />}
+                              <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
+                                <span style={{ fontSize: 13 }}>{p.name}</span>
+                                <span className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>· арт. {p.sku}{img && img.gallery.length > 0 ? ` · ещё ${img.gallery.length} фото` : ""}{linkedNames.length > 0 ? ` · уп.: ${linkedNames.join(", ")}` : ""}</span>
+                                <button className="btn" style={{ padding: "2px 6px", fontSize: 10 }} onClick={() => { setCatalogEditSku(p.sku); setCatalogEditSkuValue(String(p.sku)); setCatalogEditName(p.name); setCatalogEditBarcodes((p.barcodes || []).join("\n")); }}>✎</button>
+                              </div>
+                            </div>
+
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                              <button className="btn" style={{ padding: "3px 8px", fontSize: 11 }} onClick={() => { setImageEditSku(p.sku); setImageEditVal(img ? img.main : ""); setImageEditGalleryVal(img ? img.gallery.join("\n") : ""); }}>
+                                {img ? "Фото" : "+ фото"}
+                              </button>
+                              <button className="btn" style={{ padding: "3px 8px", fontSize: 11 }} onClick={() => setProductLinkModal({ product: p, query: "" })}>🔗 {linkedNames.length > 0 ? "Ещё уп." : "Упаковка"}</button>
+                              <span style={{ width: 1, alignSelf: "stretch", background: "var(--border)", margin: "0 2px" }} />
+                              {opts.length === 0 && <span style={{ fontSize: 12, color: "var(--muted-2)" }}>Цена не задана</span>}
+                              {opts.map((opt) => (
+                                priceEditOptionId === opt.id ? (
+                                  <span key={opt.id} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                    <input placeholder="Название" value={priceEditLabelVal} onChange={(e) => setPriceEditLabelVal(e.target.value)} style={{ width: 100, padding: "3px 6px" }} />
+                                    <input className="mono" autoFocus value={priceEditVal} onChange={(e) => setPriceEditVal(e.target.value)} style={{ width: 60, padding: "3px 6px" }} />
+                                    <button className="btn btn-accent" style={{ padding: "3px 8px" }} onClick={() => saveOptionEdit(opt.id)}>OK</button>
+                                  </span>
+                                ) : (
+                                  <span key={opt.id} style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                                    <button className="btn" style={{ padding: "3px 8px", fontSize: 12 }} onClick={() => { setPriceEditOptionId(opt.id); setPriceEditVal(String(opt.price || "")); setPriceEditLabelVal(opt.label || ""); }}>
+                                      {money(opt.price)}
+                                    </button>
+                                    <button className="btn btn-danger" style={{ padding: "3px 6px" }} onClick={() => removePackagingOption(opt.id)}>✕</button>
+                                  </span>
+                                )
+                              ))}
+                              {addingOptionSku === p.sku ? (
+                                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                  <input placeholder="Название (необяз.)" value={newOptionLabel} onChange={(e) => setNewOptionLabel(e.target.value)} style={{ width: 120, padding: "3px 6px" }} />
+                                  <input className="mono" placeholder="Цена" value={newOptionPrice} onChange={(e) => setNewOptionPrice(e.target.value)} style={{ width: 60, padding: "3px 6px" }} />
+                                  <button className="btn btn-accent" style={{ padding: "3px 8px" }} onClick={() => addPackagingOption(p.sku)}>OK</button>
+                                  <button className="btn" style={{ padding: "3px 8px" }} onClick={() => { setAddingOptionSku(null); setNewOptionLabel(""); setNewOptionPrice(""); }}>✕</button>
+                                </span>
+                              ) : (
+                                <button className="btn" style={{ padding: "3px 8px", fontSize: 11 }} onClick={() => { setAddingOptionSku(p.sku); setNewOptionLabel(""); setNewOptionPrice(""); }}>+ вариант</button>
+                              )}
+                              {hasDuplicates && (
+                                <button className="btn" style={{ padding: "3px 8px", fontSize: 11, color: "var(--danger)", borderColor: "var(--danger)" }} onClick={() => mergeDuplicateOptions(p.sku)}>Объединить дубли</button>
+                              )}
+                            </div>
+                          </>
                         )}
                       </div>
                     );
@@ -2994,18 +3472,151 @@ export default function App() {
                     <div style={{ fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>История изменения цен</div>
                     <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, maxHeight: 300, overflowY: "auto" }}>
                       {[...priceHistory].sort((a, b) => b.timestamp - a.timestamp).slice(0, 30).map((h) => (
-                        <div key={h.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--surface-2)" }}>
-                          <div style={{ fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.productName}</div>
-                          <div className="mono" style={{ fontSize: 11, color: "var(--muted-2)", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                            <span>{new Date(h.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
-                            <span>{money(h.oldPrice)} → <span style={{ color: "var(--accent)" }}>{money(h.newPrice)}</span></span>
-                            <span>· {h.changedBy}</span>
+                        <div key={h.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--surface-2)", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 13, overflowWrap: "break-word" }}>{h.productName} <span className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>· арт. {h.sku}</span></div>
+                            <div className="mono" style={{ fontSize: 11, color: "var(--muted-2)", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 2 }}>
+                              <span>{new Date(h.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                              <span>{money(h.oldPrice)} → <span style={{ color: "var(--accent)" }}>{money(h.newPrice)}</span></span>
+                              <span>· {h.changedBy}</span>
+                            </div>
                           </div>
+                          <button className="btn" style={{ padding: "2px 8px", fontSize: 11, flexShrink: 0 }} onClick={() => persistPriceHistory(priceHistory.filter((x) => x.id !== h.id))}>✕</button>
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {adminTab === "stock" && (
+              <div>
+                <div style={{ fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>Остатки упаковки ({packagingMaterials.length})</div>
+
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 16, flexWrap: "wrap", paddingBottom: 16, borderBottom: "1px solid var(--surface-2)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <button className="btn" style={{ padding: "6px 14px", fontSize: 12 }} onClick={exportStockToExcel}>Экспорт в Excel</button>
+                    <label className="btn" style={{ padding: "6px 14px", fontSize: 12, cursor: "pointer" }}>
+                      Импорт из Excel
+                      <input type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) importStockFromExcel(e.target.files[0]); e.target.value = ""; }} />
+                    </label>
+                    <button className="btn" style={{ padding: "6px 14px", fontSize: 12 }} onClick={downloadStockImportTemplate}>Скачать шаблон</button>
+                    <span style={{ width: 1, alignSelf: "stretch", background: "var(--border)", margin: "0 4px" }} />
+                    <label className="btn" style={{ padding: "6px 14px", fontSize: 12, cursor: "pointer" }}>
+                      📦 Сверить с поставкой товаров
+                      <input type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) startSupplyReconcile(e.target.files[0]); e.target.value = ""; }} />
+                    </label>
+                  </div>
+                  <button className="btn btn-accent" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => setStockAddingNew(!stockAddingNew)}>{stockAddingNew ? "Отмена" : "+ Добавить упаковку"}</button>
+                </div>
+
+                {stockAddingNew && (
+                  <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, marginBottom: 16, maxWidth: 420, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <select value={stockNewType} onChange={(e) => setStockNewType(e.target.value)}>
+                      {PACKAGING_TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+                    </select>
+                    <input placeholder="Размер, например 35х40" value={stockNewSize} onChange={(e) => setStockNewSize(e.target.value)} />
+                    <input type="text" inputMode="numeric" placeholder="Начальный остаток (необязательно)" value={stockNewStock} onChange={(e) => setStockNewStock(e.target.value)} />
+                    <div style={{ fontSize: 11, color: "var(--muted-2)" }}>
+                      Будет создано: {buildPackagingSkuName(stockNewType, stockNewSize || "…").name} (арт. {buildPackagingSkuName(stockNewType, stockNewSize || "…").sku})
+                    </div>
+                    <button className="btn btn-accent" style={{ padding: "6px 14px" }} onClick={async () => {
+                      const material = await createPackagingMaterial(stockNewType, stockNewSize, stockNewStock);
+                      if (material) { setStockAddingNew(false); setStockNewSize(""); setStockNewStock(""); }
+                    }}>Создать</button>
+                  </div>
+                )}
+
+                {packagingPurchaseRequest.length > 0 && (
+                  <div style={{ background: "var(--surface)", border: "1px solid var(--accent)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>📝 Заявка на закупку упаковки ({packagingPurchaseRequest.length} поз.)</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+                      {packagingPurchaseRequest.map((r) => {
+                        const m = packagingMaterials.find((x) => x.id === r.materialId);
+                        return (
+                          <div key={r.materialId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 12 }}>
+                            <span>{m ? m.name : "?"} <span className="mono" style={{ opacity: 0.7 }}>· арт. {m ? m.sku : "?"}</span></span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <input type="text" inputMode="numeric" value={r.qty} onChange={(e) => updatePurchaseRequestQty(r.materialId, e.target.value)} style={{ width: 70, padding: "3px 6px" }} />
+                              <button className="btn btn-danger" style={{ padding: "2px 8px", fontSize: 11 }} onClick={() => removeFromPurchaseRequest(r.materialId)}>✕</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button className="btn" style={{ padding: "6px 12px", fontSize: 12 }} onClick={exportPurchaseRequestToExcel}>Экспорт в Excel</button>
+                      <button className="btn" style={{ padding: "6px 12px", fontSize: 12 }} onClick={printPurchaseRequest}>Экспорт в PDF</button>
+                      <button className="btn btn-accent" style={{ padding: "6px 12px", fontSize: 12 }} onClick={fulfillPurchaseRequest}>Оформить заявку (пополнить остатки)</button>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+                  <input value={stockSearch} onChange={(e) => setStockSearch(e.target.value)} placeholder="Поиск по артикулу, названию, размеру..." style={{ flex: 1, minWidth: 220 }} />
+                  <input value={stockSizeFilter} onChange={(e) => setStockSizeFilter(e.target.value)} placeholder="Фильтр по размеру, напр. 35х40" style={{ width: 200 }} />
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 12, color: "var(--muted-2)" }}>Сортировка:</span>
+                  {[["sku", "По артикулу"], ["name", "По названию"], ["size", "По размеру"], ["stock", "По остатку"]].map(([k, label]) => (
+                    <button key={k} className="btn" style={{ padding: "4px 10px", fontSize: 12, background: stockSortMode === k ? "var(--accent)" : "var(--surface)", color: stockSortMode === k ? "#1a1a1a" : "var(--text)" }} onClick={() => toggleStockSort(k)}>{label}{stockSortMode === k ? (stockSortDir === "asc" ? " ↑" : " ↓") : ""}</button>
+                  ))}
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {filteredStock.length === 0 && <div style={{ fontSize: 13, color: "var(--muted-2)" }}>Упаковок пока нет.</div>}
+                  {filteredStock.map((m) => (
+                    <div key={m.id} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 12 }}>
+                      {stockEditId === m.id ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 380 }}>
+                          <select value={stockEditType} onChange={(e) => setStockEditType(e.target.value)}>
+                            {PACKAGING_TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+                          </select>
+                          <input value={stockEditSize} onChange={(e) => setStockEditSize(e.target.value)} placeholder="Размер" />
+                          <input type="text" inputMode="numeric" value={stockEditMultiplicity} onChange={(e) => setStockEditMultiplicity(e.target.value)} placeholder="Кратность (напр. 100 или 1000)" />
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button className="btn btn-accent" style={{ padding: "4px 10px", fontSize: 11 }} onClick={async () => { await editPackagingMaterial(m.id, stockEditType, stockEditSize, stockEditMultiplicity); setStockEditId(null); }}>Сохранить</button>
+                            <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setStockEditId(null)}>Отмена</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                          <div>
+                            <div style={{ fontSize: 14 }}>{m.name}</div>
+                            <div className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>арт. {m.sku} · размер {m.size} · кратность {getMultiplicity(m)} · остаток: <span style={{ color: m.stock > 0 ? "var(--text)" : "var(--danger)", fontWeight: 600 }}>{m.stock}</span></div>
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            {stockAddAmountFor === m.id ? (
+                              <>
+                                <input type="text" inputMode="numeric" value={stockAddAmountVal} onChange={(e) => setStockAddAmountVal(e.target.value)} placeholder="Кол-во" style={{ width: 90 }} />
+                                <button className="btn btn-accent" style={{ padding: "4px 10px", fontSize: 11 }} onClick={async () => { await addPackagingStock(m.id, parseInt(stockAddAmountVal) || 0); setStockAddAmountFor(null); setStockAddAmountVal(""); }}>ОК</button>
+                                <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setStockAddAmountFor(null)}>✕</button>
+                              </>
+                            ) : (
+                              <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => { setStockAddAmountFor(m.id); setStockAddAmountVal(""); }}>+ Пополнить</button>
+                            )}
+                            {purchaseAddFor === m.id ? (
+                              <>
+                                <input type="text" inputMode="numeric" value={purchaseAddVal} onChange={(e) => setPurchaseAddVal(e.target.value)} placeholder="Кол-во" style={{ width: 90 }} />
+                                <button className="btn btn-accent" style={{ padding: "4px 10px", fontSize: 11 }} onClick={async () => { await addToPurchaseRequest(m.id, purchaseAddVal); setPurchaseAddFor(null); setPurchaseAddVal(""); }}>ОК</button>
+                                <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setPurchaseAddFor(null)}>✕</button>
+                              </>
+                            ) : (
+                              <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => { setPurchaseAddFor(m.id); setPurchaseAddVal(""); }}>📝 В заявку</button>
+                            )}
+                            <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setMaterialLinkModal({ material: m, query: "" })}>🔗 К товару</button>
+                            <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => { setStockEditId(m.id); setStockEditType(m.type); setStockEditSize(m.size); setStockEditMultiplicity(String(getMultiplicity(m))); }}>✎</button>
+                            {isAdmin && (
+                              <button className="btn btn-danger" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => removePackagingMaterial(m.id)}>Удалить</button>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -3130,7 +3741,72 @@ export default function App() {
 
             {adminTab === "settings" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Интеграции</div>
+                <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, maxWidth: 640, marginTop: -12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                    🔵 Автосинхронизация с Ozon
+                    {ozonStatus && ozonStatus.configured && <span className="mono" style={{ fontSize: 10, background: "rgba(90,200,120,0.15)", color: "#5ac878", border: "1px solid #5ac878", borderRadius: 999, padding: "1px 8px" }}>подключено</span>}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 10 }}>
+                    Подтягивает артикул, название и штрихкоды напрямую из вашего кабинета продавца Ozon — без ручной выгрузки Excel. Ключи возьмите в кабинете Ozon: Настройки → Seller API.
+                  </div>
+
+                  {!ozonStatus || !ozonStatus.configured || ozonEditingCreds ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 420 }}>
+                      <input placeholder="Client-Id" value={ozonClientId} onChange={(e) => setOzonClientId(e.target.value)} />
+                      <input placeholder="Api-Key" type="password" value={ozonApiKey} onChange={(e) => setOzonApiKey(e.target.value)} />
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button className="btn btn-accent" style={{ padding: "6px 14px" }} onClick={saveOzonCredentials}>Сохранить ключи</button>
+                        {ozonEditingCreds && <button className="btn" style={{ padding: "6px 14px" }} onClick={() => setOzonEditingCreds(false)}>Отмена</button>}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="mono" style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 10 }}>
+                        Client-Id: {ozonStatus.clientIdHint || "—"}
+                        {ozonStatus.lastSync && ` · последняя синхронизация: ${new Date(ozonStatus.lastSync.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} (добавлено ${ozonStatus.lastSync.added}, обновлено ${ozonStatus.lastSync.updated} из ${ozonStatus.lastSync.total}${ozonStatus.lastSync.photosUpdated ? `, фото: ${ozonStatus.lastSync.photosUpdated}` : ""})`}
+                      </div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        <button className="btn btn-accent" style={{ padding: "6px 14px" }} onClick={syncOzonCatalog} disabled={ozonSyncing}>
+                          {ozonSyncing ? "Синхронизация..." : "Синхронизировать сейчас"}
+                        </button>
+                        {ozonHistory.length > 0 && !ozonHistory[0].undone && (
+                          <button className="btn btn-danger" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => undoOzonSync(ozonHistory[0], true)} disabled={!!ozonUndoing}>
+                            {ozonUndoing === ozonHistory[0].id ? "Отмена..." : "↶ Отменить последнюю синхронизацию"}
+                          </button>
+                        )}
+                        <button className="btn" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => setOzonEditingCreds(true)}>Сменить ключи</button>
+                        <button className="btn btn-danger" style={{ padding: "6px 14px", fontSize: 12 }} onClick={removeOzonCredentials}>Отключить</button>
+                      </div>
+                      {ozonHistory.length > 0 && (
+                        <details style={{ marginTop: 12 }}>
+                          <summary style={{ cursor: "pointer", fontSize: 12, color: "var(--accent)" }}>История синхронизаций ({ozonHistory.length})</summary>
+                          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }}>
+                            {ozonHistory.map((h, i) => (
+                              <div key={h.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", background: "var(--surface-2)", borderRadius: 6, flexWrap: "wrap" }}>
+                                <span className="mono" style={{ fontSize: 11, color: h.undone ? "var(--muted-2)" : "var(--text)", textDecoration: h.undone ? "line-through" : "none" }}>
+                                  {new Date(h.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} — добавлено {h.added}, обновлено {h.updated} из {h.total}{h.photosUpdated ? `, фото: ${h.photosUpdated}` : ""}{h.undone ? " (отменено)" : ""}
+                                </span>
+                                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                                  {(h.added > 0 || h.updated > 0) && (
+                                    <button className="btn" style={{ padding: "3px 8px", fontSize: 10 }} onClick={() => exportOzonSyncToExcel(h)}>Excel</button>
+                                  )}
+                                  {!h.undone && (h.added > 0 || h.updated > 0) && (
+                                    <button className="btn btn-danger" style={{ padding: "3px 8px", fontSize: 10 }} onClick={() => undoOzonSync(h, i === 0)} disabled={!!ozonUndoing}>
+                                      {ozonUndoing === h.id ? "..." : "↶ Отменить"}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </details>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4, paddingTop: 16, borderTop: "1px solid var(--surface-2)" }}>Основные настройки</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: -12 }}>
                   <span style={{ fontSize: 13, color: "var(--muted)" }}>Валюта</span>
                   <input value={currency} onChange={(e) => persistSettings({ currency: e.target.value })} style={{ width: 48, padding: "6px 8px", textAlign: "center" }} />
                 </div>
@@ -3156,7 +3832,7 @@ export default function App() {
                   <div style={{ fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Вкладки админ-панели</div>
                   <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 12 }}>Выберите, какие разделы показывать в меню. «Настройки» отключить нельзя — иначе не получится вернуться сюда и включить обратно.</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {[["overview", t("tabOverview")], ["log", t("tabJournal")], ["employees", t("tabEmployees")], ["products", t("tabProducts")], ["messages", "Объявления"], ["chat", "Чат"]].map(([k, label]) => (
+                    {[["overview", t("tabOverview")], ["log", t("tabJournal")], ["employees", t("tabEmployees")], ["products", t("tabProducts")], ["stock", "Остатки"], ["messages", "Объявления"], ["chat", "Чат"]].map(([k, label]) => (
                       <label key={k} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, cursor: "pointer" }}>
                         <input type="checkbox" checked={enabledAdminTabs[k] !== false} onChange={(e) => toggleAdminTabEnabled(k, e.target.checked)} style={{ width: 18, height: 18, padding: 0 }} />
                         {label}
@@ -3164,7 +3840,8 @@ export default function App() {
                     ))}
                   </div>
                 </div>
-                <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4, paddingTop: 16, borderTop: "1px solid var(--surface-2)" }}>Чат</div>
+                <div style={{ marginTop: -12 }}>
                   <div style={{ fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Быстрые ответы в чате</div>
                   <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 12 }}>Свой набор кнопок-шаблонов, которые появляются над полем ввода в чате — чтобы не печатать частые фразы каждый раз заново.</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10, maxWidth: 420 }}>
@@ -3216,7 +3893,8 @@ export default function App() {
                     Только для вашей учётной записи — другие не будут видеть, что именно вы прочитали их сообщение (ни в чате, ни в объявлениях). Работает независимо от общей настройки выше — даже если статус прочтения включён для всех, ваше собственное прочтение всё равно останется скрытым. Влияет только на то, что видят другие о вас — сами вы по-прежнему видите статус прочтения своих сообщений другими.
                   </div>
                 </div>
-                <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4, paddingTop: 16, borderTop: "1px solid var(--surface-2)" }}>Обзор</div>
+                <div style={{ marginTop: -12 }}>
                   <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 8 }}>Графики в «Обзоре»</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, cursor: "pointer" }}>
@@ -3242,7 +3920,8 @@ export default function App() {
                   </div>
                 </div>
 
-                <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4, paddingTop: 16, borderTop: "1px solid var(--surface-2)" }}>Данные и безопасность</div>
+                <div style={{ marginTop: -12 }}>
                   <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 8 }}>Резервная копия</div>
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                     <button className="btn btn-accent" onClick={exportFullBackup}>Скачать бэкап (JSON)</button>
@@ -3304,7 +3983,7 @@ export default function App() {
         ) : (
           <>
             <div style={{ display: "flex", gap: 6, marginBottom: 22, borderBottom: "1px solid var(--surface)" }}>
-              {[["log", t("tabLog")], ["history", t("tabHistory")], ["chat", "Чат"]].map(([k, label]) => (
+              {[["log", t("tabLog")], ["history", t("tabHistory")], ["stock", "Остатки"], ["chat", "Чат"]].filter(([k]) => k !== "stock" || currentUser.stockTabEnabled !== false).map(([k, label]) => (
                 <button key={k} onClick={() => setTab(k)} style={{ background: "none", border: "none", cursor: "pointer", padding: "10px 4px", marginRight: 22, fontSize: 14, fontWeight: 500, color: tab === k ? "var(--accent)" : "var(--muted)", borderBottom: tab === k ? "2px solid var(--accent)" : "2px solid transparent" }}>
                   {label}{k === "chat" && chatUnreadTotal > 0 && <span className="mono" style={{ marginLeft: 5, fontSize: 10, background: "var(--danger)", color: "#fff", borderRadius: 999, padding: "1px 6px" }}>{chatUnreadTotal}</span>}
                 </button>
@@ -3360,7 +4039,7 @@ export default function App() {
                       <div className="mono" style={{ fontSize: 11, color: "var(--muted-2)", marginBottom: 6 }}>НЕДАВНО УПАКОВАНО</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                         {recentProducts.map((p) => (
-                          <button key={p.sku} className="btn" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => addPieceEntry(p, 1)}>
+                          <button key={p.sku} className="btn" style={{ padding: "8px 12px", fontSize: 13 }} onClick={() => addPieceEntryWithAutoPackaging(p, 1)}>
                             +1 {p.name.length > 28 ? p.name.slice(0, 28) + "…" : p.name}
                           </button>
                         ))}
@@ -3417,12 +4096,12 @@ export default function App() {
                               <PieceOptionRow key="none" qty={qtyMap[`none-${p.sku}`] ?? 1}
                                 onQtyChange={(v) => setQtyMap((m) => ({ ...m, [`none-${p.sku}`]: v }))}
                                 priceLabel="цена не задана" priceColor="var(--muted-2)"
-                                onAdd={() => { const q = Math.max(1, parseInt(qtyMap[`none-${p.sku}`]) || 1); askConfirm(`Добавить ${q} × ${p.name}? Дата: ${fmtDate(packDate)}`, () => addPieceEntry(p, q, { price: 0, label: "", id: null })); }} />
+                                onAdd={() => { const q = Math.max(1, parseInt(qtyMap[`none-${p.sku}`]) || 1); startPackagingFlow(p, { price: 0, label: "", id: null }, q); }} />
                             ) : opts.map((opt) => (
                               <PieceOptionRow key={opt.id} label={opt.label} qty={qtyMap[opt.id] ?? 1}
                                 onQtyChange={(v) => setQtyMap((m) => ({ ...m, [opt.id]: v }))}
                                 priceLabel={money(opt.price)} priceColor="var(--accent)"
-                                onAdd={() => { const q = Math.max(1, parseInt(qtyMap[opt.id]) || 1); askConfirm(`Добавить ${q} × ${p.name}${opt.label ? " (" + opt.label + ")" : ""}? Дата: ${fmtDate(packDate)}`, () => addPieceEntry(p, q, opt)); }} />
+                                onAdd={() => { const q = Math.max(1, parseInt(qtyMap[opt.id]) || 1); startPackagingFlow(p, opt, q); }} />
                             ))}
 
                             {currentUser.barcodeAddEnabled && (
@@ -3558,6 +4237,128 @@ export default function App() {
               </div>
             )}
 
+            {tab === "stock" && (
+              <div>
+                <div style={{ fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>Остатки упаковки ({packagingMaterials.length})</div>
+
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 16, flexWrap: "wrap", paddingBottom: 16, borderBottom: "1px solid var(--surface-2)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <button className="btn" style={{ padding: "6px 14px", fontSize: 12 }} onClick={exportStockToExcel}>Экспорт в Excel</button>
+                    <label className="btn" style={{ padding: "6px 14px", fontSize: 12, cursor: "pointer" }}>
+                      Импорт из Excel
+                      <input type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) importStockFromExcel(e.target.files[0]); e.target.value = ""; }} />
+                    </label>
+                    <button className="btn" style={{ padding: "6px 14px", fontSize: 12 }} onClick={downloadStockImportTemplate}>Скачать шаблон</button>
+                  </div>
+                  <button className="btn btn-accent" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => setStockAddingNew(!stockAddingNew)}>{stockAddingNew ? "Отмена" : "+ Добавить упаковку"}</button>
+                </div>
+
+                {stockAddingNew && (
+                  <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, marginBottom: 16, maxWidth: 420, display: "flex", flexDirection: "column", gap: 8 }}>
+                    <select value={stockNewType} onChange={(e) => setStockNewType(e.target.value)}>
+                      {PACKAGING_TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+                    </select>
+                    <input placeholder="Размер, например 35х40" value={stockNewSize} onChange={(e) => setStockNewSize(e.target.value)} />
+                    <input type="text" inputMode="numeric" placeholder="Начальный остаток (необязательно)" value={stockNewStock} onChange={(e) => setStockNewStock(e.target.value)} />
+                    <div style={{ fontSize: 11, color: "var(--muted-2)" }}>
+                      Будет создано: {buildPackagingSkuName(stockNewType, stockNewSize || "…").name} (арт. {buildPackagingSkuName(stockNewType, stockNewSize || "…").sku})
+                    </div>
+                    <button className="btn btn-accent" style={{ padding: "6px 14px" }} onClick={async () => {
+                      const material = await createPackagingMaterial(stockNewType, stockNewSize, stockNewStock);
+                      if (material) { setStockAddingNew(false); setStockNewSize(""); setStockNewStock(""); }
+                    }}>Создать</button>
+                  </div>
+                )}
+
+                {packagingPurchaseRequest.length > 0 && (
+                  <div style={{ background: "var(--surface)", border: "1px solid var(--accent)", borderRadius: 10, padding: 14, marginBottom: 16 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>📝 Заявка на закупку упаковки ({packagingPurchaseRequest.length} поз.)</div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+                      {packagingPurchaseRequest.map((r) => {
+                        const m = packagingMaterials.find((x) => x.id === r.materialId);
+                        return (
+                          <div key={r.materialId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: 12 }}>
+                            <span>{m ? m.name : "?"} <span className="mono" style={{ opacity: 0.7 }}>· арт. {m ? m.sku : "?"}</span></span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                              <input type="text" inputMode="numeric" value={r.qty} onChange={(e) => updatePurchaseRequestQty(r.materialId, e.target.value)} style={{ width: 70, padding: "3px 6px" }} />
+                              <button className="btn btn-danger" style={{ padding: "2px 8px", fontSize: 11 }} onClick={() => removeFromPurchaseRequest(r.materialId)}>✕</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button className="btn" style={{ padding: "6px 12px", fontSize: 12 }} onClick={exportPurchaseRequestToExcel}>Экспорт в Excel</button>
+                      <button className="btn" style={{ padding: "6px 12px", fontSize: 12 }} onClick={printPurchaseRequest}>Экспорт в PDF</button>
+                      <button className="btn btn-accent" style={{ padding: "6px 12px", fontSize: 12 }} onClick={fulfillPurchaseRequest}>Оформить заявку (пополнить остатки)</button>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+                  <input value={stockSearch} onChange={(e) => setStockSearch(e.target.value)} placeholder="Поиск по артикулу, названию, размеру..." style={{ flex: 1, minWidth: 220 }} />
+                  <input value={stockSizeFilter} onChange={(e) => setStockSizeFilter(e.target.value)} placeholder="Фильтр по размеру, напр. 35х40" style={{ width: 200 }} />
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 12, color: "var(--muted-2)" }}>Сортировка:</span>
+                  {[["sku", "По артикулу"], ["name", "По названию"], ["size", "По размеру"], ["stock", "По остатку"]].map(([k, label]) => (
+                    <button key={k} className="btn" style={{ padding: "4px 10px", fontSize: 12, background: stockSortMode === k ? "var(--accent)" : "var(--surface)", color: stockSortMode === k ? "#1a1a1a" : "var(--text)" }} onClick={() => toggleStockSort(k)}>{label}{stockSortMode === k ? (stockSortDir === "asc" ? " ↑" : " ↓") : ""}</button>
+                  ))}
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {filteredStock.length === 0 && <div style={{ fontSize: 13, color: "var(--muted-2)" }}>Упаковок пока нет.</div>}
+                  {filteredStock.map((m) => (
+                    <div key={m.id} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 12 }}>
+                      {stockEditId === m.id ? (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 380 }}>
+                          <select value={stockEditType} onChange={(e) => setStockEditType(e.target.value)}>
+                            {PACKAGING_TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+                          </select>
+                          <input value={stockEditSize} onChange={(e) => setStockEditSize(e.target.value)} placeholder="Размер" />
+                          <input type="text" inputMode="numeric" value={stockEditMultiplicity} onChange={(e) => setStockEditMultiplicity(e.target.value)} placeholder="Кратность (напр. 100 или 1000)" />
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button className="btn btn-accent" style={{ padding: "4px 10px", fontSize: 11 }} onClick={async () => { await editPackagingMaterial(m.id, stockEditType, stockEditSize, stockEditMultiplicity); setStockEditId(null); }}>Сохранить</button>
+                            <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setStockEditId(null)}>Отмена</button>
+                          </div>
+                        </div>
+                      ) : (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                        <div>
+                          <div style={{ fontSize: 14 }}>{m.name}</div>
+                          <div className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>арт. {m.sku} · размер {m.size} · кратность {getMultiplicity(m)} · остаток: <span style={{ color: m.stock > 0 ? "var(--text)" : "var(--danger)", fontWeight: 600 }}>{m.stock}</span></div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          {stockAddAmountFor === m.id ? (
+                            <>
+                              <input type="text" inputMode="numeric" value={stockAddAmountVal} onChange={(e) => setStockAddAmountVal(e.target.value)} placeholder="Кол-во" style={{ width: 90 }} />
+                              <button className="btn btn-accent" style={{ padding: "4px 10px", fontSize: 11 }} onClick={async () => { await addPackagingStock(m.id, parseInt(stockAddAmountVal) || 0); setStockAddAmountFor(null); setStockAddAmountVal(""); }}>ОК</button>
+                              <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setStockAddAmountFor(null)}>✕</button>
+                            </>
+                          ) : (
+                            <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => { setStockAddAmountFor(m.id); setStockAddAmountVal(""); }}>+ Пополнить</button>
+                          )}
+                          {purchaseAddFor === m.id ? (
+                            <>
+                              <input type="text" inputMode="numeric" value={purchaseAddVal} onChange={(e) => setPurchaseAddVal(e.target.value)} placeholder="Кол-во" style={{ width: 90 }} />
+                              <button className="btn btn-accent" style={{ padding: "4px 10px", fontSize: 11 }} onClick={async () => { await addToPurchaseRequest(m.id, purchaseAddVal); setPurchaseAddFor(null); setPurchaseAddVal(""); }}>ОК</button>
+                              <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setPurchaseAddFor(null)}>✕</button>
+                            </>
+                          ) : (
+                            <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => { setPurchaseAddFor(m.id); setPurchaseAddVal(""); }}>📝 В заявку</button>
+                          )}
+                          <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setMaterialLinkModal({ material: m, query: "" })}>🔗 К товару</button>
+                          <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => { setStockEditId(m.id); setStockEditType(m.type); setStockEditSize(m.size); setStockEditMultiplicity(String(getMultiplicity(m))); }}>✎</button>
+                        </div>
+                      </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {tab === "chat" && (
               <div className="chat-layout" style={{ flexDirection: "column", maxWidth: 600 }}>
                 <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
@@ -3628,10 +4429,12 @@ export default function App() {
       )}
 
       {lightbox && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, flexDirection: "column", padding: 20 }}
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, flexDirection: "column", padding: 20, touchAction: "none", overscrollBehavior: "contain" }}
           onClick={() => setLightbox(null)}
-          onTouchStart={(e) => { lightboxTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }}
+          onTouchStart={(e) => { e.stopPropagation(); lightboxTouchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; }}
+          onTouchMove={(e) => { e.stopPropagation(); if (lightboxTouchRef.current) e.preventDefault(); }}
           onTouchEnd={(e) => {
+            e.stopPropagation();
             const start = lightboxTouchRef.current;
             if (!start) return;
             const dx = e.changedTouches[0].clientX - start.x;
@@ -3741,6 +4544,114 @@ export default function App() {
         </div>
       )}
 
+      {packagingModal && (() => {
+        const link = productPackagingLinks[String(packagingModal.product.sku)];
+        const linkedMaterials = link ? link.linkedIds.map((id) => packagingMaterials.find((m) => m.id === id)).filter(Boolean) : [];
+        const otherMaterials = packagingMaterials.filter((m) => !linkedMaterials.some((lm) => lm.id === m.id));
+        const pickerQuery = (packagingModal.pickerQuery || "").trim().toLowerCase();
+        const filteredOtherMaterials = pickerQuery
+          ? otherMaterials.filter((m) => m.name.toLowerCase().includes(pickerQuery) || m.sku.toLowerCase().includes(pickerQuery) || m.size.toLowerCase().includes(pickerQuery))
+          : otherMaterials;
+        const selectedMaterial = packagingMaterials.find((m) => m.id === packagingModal.selectedMaterialId);
+        const notEnoughStock = selectedMaterial && selectedMaterial.stock < packagingModal.qty;
+        const patch = (fields) => setPackagingModal((prev) => ({ ...prev, ...fields }));
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }} onClick={() => setPackagingModal(null)}>
+            <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 420, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Упаковка для «{packagingModal.product.name}»</div>
+              {linkedMaterials.length === 0 ? (
+                <div style={{ fontSize: 12, color: "var(--accent)", marginBottom: 12 }}>⚠ У этого товара ещё нет привязанной упаковки — выберите, создайте новую, или укажите, что упаковка не нужна.</div>
+              ) : (
+                <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 12 }}>Обычно используется — можно подтвердить или выбрать другую, если упаковали иначе.</div>
+              )}
+
+              <button className="btn" style={{ padding: "8px 12px", textAlign: "left", marginBottom: 12, width: "100%", background: packagingModal.selectedMaterialId === NO_PACKAGING ? "var(--accent)" : "var(--surface)", color: packagingModal.selectedMaterialId === NO_PACKAGING ? "#1a1a1a" : "var(--text)" }}
+                onClick={() => patch({ selectedMaterialId: NO_PACKAGING, topUpDismissed: false })}>
+                Без упаковки — этому товару упаковка не нужна
+                {link && link.lastUsedId === NO_PACKAGING && <span style={{ marginLeft: 6, fontSize: 11 }}>(обычно так)</span>}
+              </button>
+
+              {linkedMaterials.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+                  {linkedMaterials.map((m) => (
+                    <button key={m.id} className="btn" style={{ padding: "8px 12px", textAlign: "left", background: packagingModal.selectedMaterialId === m.id ? "var(--accent)" : "var(--surface)", color: packagingModal.selectedMaterialId === m.id ? "#1a1a1a" : "var(--text)" }}
+                      onClick={() => patch({ selectedMaterialId: m.id, topUpDismissed: false })}>
+                      {m.name} <span className="mono" style={{ fontSize: 11, opacity: 0.8 }}>· арт. {m.sku}</span> · остаток: {m.stock}
+                      {link && link.lastUsedId === m.id && <span style={{ marginLeft: 6, fontSize: 11 }}>(обычно эта)</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {!packagingModal.showAllPicker ? (
+                <button className="btn" style={{ padding: "6px 12px", fontSize: 12, marginBottom: 10 }} onClick={() => patch({ showAllPicker: true })}>Выбрать другую из уже существующих</button>
+              ) : (
+                <div style={{ marginBottom: 12 }}>
+                  <input autoFocus placeholder="Начните вводить название, размер или артикул..." value={packagingModal.pickerQuery || ""} onChange={(e) => patch({ pickerQuery: e.target.value })} style={{ width: "100%", marginBottom: 6, fontSize: 12 }} />
+                  {pickerQuery && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 160, overflowY: "auto" }}>
+                      {filteredOtherMaterials.length === 0 && <div style={{ fontSize: 12, color: "var(--muted-2)" }}>Ничего не найдено.</div>}
+                      {filteredOtherMaterials.map((m) => (
+                        <button key={m.id} className="btn" style={{ padding: "6px 10px", fontSize: 12, textAlign: "left", background: packagingModal.selectedMaterialId === m.id ? "var(--accent)" : "var(--surface)", color: packagingModal.selectedMaterialId === m.id ? "#1a1a1a" : "var(--text)" }}
+                          onClick={() => patch({ selectedMaterialId: m.id, topUpDismissed: false })}>
+                          {m.name} <span className="mono" style={{ fontSize: 10, opacity: 0.8 }}>· арт. {m.sku}</span> · остаток: {m.stock}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {notEnoughStock && !packagingModal.topUpDismissed && (
+                <div style={{ background: "rgba(226,96,79,0.1)", border: "1px solid var(--danger)", borderRadius: 8, padding: 10, marginBottom: 12 }}>
+                  <div style={{ fontSize: 12, color: "var(--danger)", marginBottom: 8 }}>Недостаточно остатка «{selectedMaterial.name}»: на складе {selectedMaterial.stock}, а нужно {packagingModal.qty}. Можно пополнить прямо здесь:</div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input type="text" inputMode="numeric" placeholder="Кол-во" value={packagingModal.topUpVal || ""} onChange={(e) => patch({ topUpVal: e.target.value })} style={{ width: 100 }} />
+                    <button className="btn btn-accent" style={{ padding: "6px 12px", fontSize: 12 }} onClick={async () => {
+                      const n = parseInt(packagingModal.topUpVal) || 0;
+                      if (n <= 0) { setToast("Укажите положительное количество"); return; }
+                      await addPackagingStock(selectedMaterial.id, n);
+                      patch({ topUpVal: "" });
+                    }}>Пополнить</button>
+                    <button className="btn" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => patch({ topUpDismissed: true, topUpVal: "" })}>Отмена</button>
+                  </div>
+                </div>
+              )}
+              {notEnoughStock && packagingModal.topUpDismissed && (
+                <div style={{ fontSize: 12, color: "var(--danger)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  Недостаточно остатка «{selectedMaterial.name}» ({selectedMaterial.stock} из {packagingModal.qty})
+                  <button className="btn" style={{ padding: "3px 8px", fontSize: 11 }} onClick={() => patch({ topUpDismissed: false })}>Пополнить</button>
+                </div>
+              )}
+
+              {!packagingModal.showCreateForm ? (
+                <button className="btn" style={{ padding: "6px 12px", fontSize: 12, marginBottom: 14 }} onClick={() => patch({ showCreateForm: true })}>+ Создать новую упаковку</button>
+              ) : (
+                <div style={{ background: "var(--surface)", borderRadius: 8, padding: 10, marginBottom: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <select value={packagingModal.newType} onChange={(e) => patch({ newType: e.target.value })}>
+                    {PACKAGING_TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+                  </select>
+                  <input placeholder="Размер, например 35х40" value={packagingModal.newSize} onChange={(e) => patch({ newSize: e.target.value })} />
+                  <input type="text" inputMode="numeric" placeholder="Начальный остаток (укажите сразу, сколько упаковали)" value={packagingModal.newStock} onChange={(e) => patch({ newStock: e.target.value })} />
+                  <div style={{ fontSize: 11, color: "var(--muted-2)" }}>
+                    Будет создано: {buildPackagingSkuName(packagingModal.newType, packagingModal.newSize || "…").name} (арт. {buildPackagingSkuName(packagingModal.newType, packagingModal.newSize || "…").sku})
+                  </div>
+                  <button className="btn btn-accent" style={{ padding: "6px 12px", fontSize: 12 }} onClick={async () => {
+                    const material = await createPackagingMaterial(packagingModal.newType, packagingModal.newSize, packagingModal.newStock);
+                    if (material) patch({ selectedMaterialId: material.id, showCreateForm: false, newSize: "", newStock: "", topUpDismissed: false });
+                  }}>Создать и выбрать</button>
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-accent" onClick={confirmPackagingSelection} disabled={!packagingModal.selectedMaterialId}>Продолжить</button>
+                <button className="btn" onClick={() => setPackagingModal(null)}>Отмена</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {showMySecretWord && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }} onClick={() => setShowMySecretWord(false)}>
           <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
@@ -3751,6 +4662,181 @@ export default function App() {
               <button className="btn btn-accent" onClick={setMySecretWord}>Сохранить</button>
               <button className="btn" onClick={() => setShowMySecretWord(false)}>Отмена</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {supplyReconcile && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }} onClick={() => setSupplyReconcile(null)}>
+          <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 640, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            {supplyReconcile.step === "mapping" ? (
+              <>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Укажите, какие данные содержатся в столбцах</div>
+                <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 14 }}>Найдено строк: {supplyReconcile.dataRows.length}. Над каждым столбцом выберите, что в нём — «Артикул», «Количество», или «Не загружать», если столбец не нужен.</div>
+                <div style={{ overflowX: "auto", border: "1px solid var(--border)", borderRadius: 8, marginBottom: 16 }}>
+                  <table style={{ fontSize: 12, minWidth: "100%" }}>
+                    <thead>
+                      <tr style={{ background: "var(--surface-2)" }}>
+                        {supplyReconcile.headers.map((h, ci) => (
+                          <th key={ci} style={{ padding: 6 }}>
+                            <select
+                              value={supplyReconcile.columnRoles[ci]}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setSupplyReconcile((prev) => {
+                                  // Артикул и Количество — по одному столбцу максимум: если эта роль уже
+                                  // была у другого столбца, снимаем её оттуда (иначе роли задвоятся)
+                                  const roles = prev.columnRoles.map((r, i) => (i === ci ? val : (r === val && val !== "none" ? "none" : r)));
+                                  return { ...prev, columnRoles: roles };
+                                });
+                              }}
+                              style={{ width: "100%", fontSize: 12, padding: "4px 6px" }}>
+                              <option value="none">Не загружать</option>
+                              <option value="article">Артикул</option>
+                              <option value="qty">Количество</option>
+                            </select>
+                          </th>
+                        ))}
+                      </tr>
+                      <tr style={{ borderTop: "1px solid var(--border)" }}>
+                        {supplyReconcile.headers.map((h, ci) => (
+                          <td key={ci} style={{ padding: "6px 8px", color: "var(--muted-2)", fontSize: 11, whiteSpace: "nowrap" }}>{h || `Столбец ${ci + 1}`}</td>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {supplyReconcile.dataRows.slice(0, 5).map((row, ri) => (
+                        <tr key={ri} style={{ borderTop: "1px solid var(--surface-2)" }}>
+                          {supplyReconcile.headers.map((h, ci) => (
+                            <td key={ci} style={{ padding: "5px 8px", whiteSpace: "nowrap", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis" }}>{String(row[ci] ?? "")}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {supplyReconcile.dataRows.length > 5 && (
+                    <div style={{ padding: 8, fontSize: 11, color: "var(--muted-2)", textAlign: "center" }}>Показаны первые 5 из {supplyReconcile.dataRows.length} строк</div>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn btn-accent" onClick={computeSupplyReconcile}>Сверить</button>
+                  <button className="btn" onClick={() => setSupplyReconcile(null)}>Отмена</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Результат сверки</div>
+
+                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--muted)", textTransform: "uppercase" }}>По товарам ({supplyReconcile.productRows.length})</div>
+                <div style={{ maxHeight: 220, overflowY: "auto", marginBottom: 16, border: "1px solid var(--border)", borderRadius: 8 }}>
+                  <table style={{ fontSize: 12 }}>
+                    <thead><tr><th>Артикул</th><th>Название</th><th>Кол-во</th><th>Упаковка</th><th></th></tr></thead>
+                    <tbody>
+                      {supplyReconcile.productRows.map((r, i) => (
+                        <tr key={i}>
+                          <td className="mono">{r.sku}</td>
+                          <td>{r.name}</td>
+                          <td>{r.qty}</td>
+                          <td style={{ color: r.materialId ? "var(--text)" : "var(--danger)" }}>{r.materialName}</td>
+                          <td>
+                            {r.materialName === "упаковка не привязана" && (
+                              <button className="btn" style={{ padding: "2px 8px", fontSize: 11 }} onClick={() => {
+                                const product = catalog.find((p) => String(p.sku) === String(r.sku)) || { sku: r.sku, name: r.name };
+                                setProductLinkModal({ product, query: "" });
+                              }}>Привязать</button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--muted)", textTransform: "uppercase" }}>Итого по упаковкам — чего не хватает</div>
+                <div style={{ maxHeight: 220, overflowY: "auto", marginBottom: 16, border: "1px solid var(--border)", borderRadius: 8 }}>
+                  <table style={{ fontSize: 12 }}>
+                    <thead><tr><th>Упаковка</th><th>Нужно</th><th>Остаток</th><th>Не хватает</th><th>К заказу</th></tr></thead>
+                    <tbody>
+                      {supplyReconcile.materialSummary.length === 0 && <tr><td colSpan={5} style={{ color: "var(--muted-2)" }}>Все товары либо без упаковки, либо не привязаны.</td></tr>}
+                      {supplyReconcile.materialSummary.map((s) => (
+                        <tr key={s.materialId}>
+                          <td>{s.material ? s.material.name : "?"}</td>
+                          <td>{s.needed}</td>
+                          <td>{s.stock}</td>
+                          <td style={{ color: s.shortage > 0 ? "var(--danger)" : "var(--text)", fontWeight: s.shortage > 0 ? 600 : 400 }}>{s.shortage}</td>
+                          <td style={{ color: "var(--accent)", fontWeight: 600 }}>{s.orderQty || "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button className="btn btn-accent" onClick={createPurchaseRequestFromReconcile}>Создать заявку на закупку</button>
+                  <button className="btn" onClick={() => setSupplyReconcile((prev) => ({ ...prev, step: "mapping" }))}>← Назад</button>
+                  <button className="btn" onClick={() => setSupplyReconcile(null)}>Закрыть</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {materialLinkModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }} onClick={() => setMaterialLinkModal(null)}>
+          <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 420, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Прикрепить «{materialLinkModal.material.name}» к товару</div>
+            <input autoFocus placeholder="Поиск товара по названию или артикулу..." value={materialLinkModal.query} onChange={(e) => setMaterialLinkModal((prev) => ({ ...prev, query: e.target.value }))} style={{ width: "100%", marginBottom: 10 }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }}>
+              {materialLinkResults.length === 0 && <div style={{ fontSize: 12, color: "var(--muted-2)" }}>Ничего не найдено.</div>}
+              {materialLinkResults.map((p) => (
+                <button key={p.sku} className="btn" style={{ padding: "8px 10px", fontSize: 13, textAlign: "left" }} onClick={() => linkMaterialToProductConfirm(p.sku, p.name)}>
+                  {p.name} <span className="mono" style={{ fontSize: 11, opacity: 0.8 }}>· арт. {p.sku}</span>
+                </button>
+              ))}
+            </div>
+            <button className="btn" style={{ padding: "6px 14px", marginTop: 12 }} onClick={() => setMaterialLinkModal(null)}>Закрыть</button>
+          </div>
+        </div>
+      )}
+
+      {productLinkModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }} onClick={() => setProductLinkModal(null)}>
+          <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 420, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Прикрепить упаковку к «{productLinkModal.product.name}»</div>
+
+            <button className="btn" style={{ padding: "8px 10px", fontSize: 13, textAlign: "left", width: "100%", marginBottom: 10 }} onClick={() => linkProductToMaterialConfirm(NO_PACKAGING, "без упаковки")}>Без упаковки — этому товару упаковка не нужна</button>
+
+            <input autoFocus placeholder="Поиск упаковки по названию или артикулу..." value={productLinkModal.query} onChange={(e) => setProductLinkModal((prev) => ({ ...prev, query: e.target.value }))} style={{ width: "100%", marginBottom: 10 }} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 240, overflowY: "auto", marginBottom: 12 }}>
+              {productLinkResults.length === 0 && <div style={{ fontSize: 12, color: "var(--muted-2)" }}>Упаковок не найдено — можно создать новую ниже.</div>}
+              {productLinkResults.map((m) => (
+                <button key={m.id} className="btn" style={{ padding: "8px 10px", fontSize: 13, textAlign: "left" }} onClick={() => linkProductToMaterialConfirm(m.id, m.name, m)}>
+                  {m.name} <span className="mono" style={{ fontSize: 11, opacity: 0.8 }}>· арт. {m.sku}</span> · остаток: {m.stock}
+                </button>
+              ))}
+            </div>
+
+            {!productLinkModal.showCreateForm ? (
+              <button className="btn" style={{ padding: "6px 12px", fontSize: 12, marginBottom: 10 }} onClick={() => setProductLinkModal((prev) => ({ ...prev, showCreateForm: true, newType: PACKAGING_TYPES[0].key, newSize: "", newStock: "" }))}>+ Создать новую упаковку</button>
+            ) : (
+              <div style={{ background: "var(--surface)", borderRadius: 8, padding: 10, marginBottom: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                <select value={productLinkModal.newType} onChange={(e) => setProductLinkModal((prev) => ({ ...prev, newType: e.target.value }))}>
+                  {PACKAGING_TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+                </select>
+                <input placeholder="Размер, например 35х40" value={productLinkModal.newSize} onChange={(e) => setProductLinkModal((prev) => ({ ...prev, newSize: e.target.value }))} />
+                <input type="text" inputMode="numeric" placeholder="Начальный остаток (необязательно)" value={productLinkModal.newStock} onChange={(e) => setProductLinkModal((prev) => ({ ...prev, newStock: e.target.value }))} />
+                <div style={{ fontSize: 11, color: "var(--muted-2)" }}>
+                  Будет создано: {buildPackagingSkuName(productLinkModal.newType, productLinkModal.newSize || "…").name} (арт. {buildPackagingSkuName(productLinkModal.newType, productLinkModal.newSize || "…").sku})
+                </div>
+                <button className="btn btn-accent" style={{ padding: "6px 12px", fontSize: 12 }} onClick={async () => {
+                  const material = await createPackagingMaterial(productLinkModal.newType, productLinkModal.newSize, productLinkModal.newStock);
+                  if (material) linkProductToMaterialConfirm(material.id, material.name, material);
+                }}>Создать и привязать</button>
+              </div>
+            )}
+
+            <button className="btn" style={{ padding: "6px 14px", marginTop: 4 }} onClick={() => setProductLinkModal(null)}>Закрыть</button>
           </div>
         </div>
       )}
@@ -3774,7 +4860,27 @@ export default function App() {
 
       {printData && (
         <div id="print-payslip">
-          {printData.type === "catalog" ? (
+          {printData.type === "purchaseRequest" ? (
+            <>
+              <h1>Заявка на закупку упаковки</h1>
+              <div className="print-sub">Сформировано {new Date().toLocaleDateString("ru-RU")} · {printData.rows.length} позиций</div>
+              <table>
+                <thead><tr><th>Артикул</th><th>Название</th><th>Количество</th></tr></thead>
+                <tbody>
+                  {printData.rows.map((r) => {
+                    const m = packagingMaterials.find((x) => x.id === r.materialId);
+                    return (
+                      <tr key={r.materialId}>
+                        <td>{m ? m.sku : "?"}</td>
+                        <td>{m ? m.name : "?"}</td>
+                        <td>{r.qty}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </>
+          ) : printData.type === "catalog" ? (
             <>
               <h1>Каталог — стоимость упаковки</h1>
               <div className="print-sub">Сформировано {new Date().toLocaleDateString("ru-RU")} · {printData.rows.length} товаров</div>
