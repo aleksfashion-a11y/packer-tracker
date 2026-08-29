@@ -79154,6 +79154,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
     const [customBarcodes, setCustomBarcodes] = (0, import_react54.useState)([]);
     const [productImages, setProductImages] = (0, import_react54.useState)({});
     const [loginLog, setLoginLog] = (0, import_react54.useState)([]);
+    const [dismissedInactiveNotices, setDismissedInactiveNotices] = (0, import_react54.useState)({});
     const [messages, setMessages] = (0, import_react54.useState)([]);
     const [chatMessages, setChatMessages] = (0, import_react54.useState)([]);
     const [chatActiveThread, setChatActiveThread] = (0, import_react54.useState)("all");
@@ -79250,6 +79251,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       const cb = await safeGet("customBarcodes", true, []);
       const pi3 = await safeGet("productImages", true, {});
       const ll = await safeGet("loginLog", true, []);
+      const din = await safeGet("dismissedInactiveNotices", true, {});
       const msgs = await safeGet("messages", true, []);
       const chatMsgs = await safeGet("chatMessages", true, []);
       const pm = await safeGet("packagingMaterials", true, []);
@@ -79271,6 +79273,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       setCustomBarcodes(cb);
       setProductImages(pi3);
       setLoginLog(ll);
+      setDismissedInactiveNotices(din);
       setMessages(msgs);
       setChatMessages(chatMsgs);
       setPriceHistory(ph);
@@ -79396,7 +79399,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
       if (!showTimerTab && adminTab === "timer") setAdminTab("overview");
     }, [showTimerTab, adminTab]);
     (0, import_react54.useEffect)(() => {
-      if (adminTab === "products") {
+      if (adminTab === "settings") {
         loadOzonStatus();
         loadOzonHistory();
       }
@@ -81113,8 +81116,15 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
         const own = activeEntries.filter((e) => e.employeeId === emp.id);
         const lastDate = own.reduce((max2, e) => e.date > max2 ? e.date : max2, "");
         return { emp, lastDate };
-      }).filter((r2) => r2.lastDate && r2.lastDate < cutoffStr);
-    }, [employees, activeEntries]);
+      }).filter((r2) => r2.lastDate && r2.lastDate < cutoffStr).filter((r2) => dismissedInactiveNotices[r2.emp.id] !== r2.lastDate);
+    }, [employees, activeEntries, dismissedInactiveNotices]);
+    const persistDismissedInactiveNotices = async (next) => {
+      setDismissedInactiveNotices(next);
+      await safeSet("dismissedInactiveNotices", next, true);
+    };
+    const dismissInactiveNotice = async (employeeId, lastDate) => {
+      await persistDismissedInactiveNotices({ ...dismissedInactiveNotices, [employeeId]: lastDate });
+    };
     const recentCustomBarcodes = (0, import_react54.useMemo)(() => {
       const cutoff = Date.now() - INACTIVE_DAYS * 24 * 60 * 60 * 1e3;
       return customBarcodes.filter((cb) => cb.timestamp >= cutoff).sort((a2, b) => b.timestamp - a2.timestamp);
@@ -81657,6 +81667,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
             ),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px", borderRadius: 999, fontSize: 11 }, onClick: toggleLang, title: "\u0422\u0438\u043B / \u042F\u0437\u044B\u043A", children: lang === "ru" ? "UZ" : "RU" }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px", borderRadius: 999, fontSize: 12 }, onClick: toggleTheme, title: theme === "dark" ? "\u0421\u0432\u0435\u0442\u043B\u0430\u044F \u0442\u0435\u043C\u0430" : "\u0422\u0451\u043C\u043D\u0430\u044F \u0442\u0435\u043C\u0430", children: theme === "dark" ? "\u2600\uFE0F" : "\u{1F319}" }),
+            (isAdmin || !isAdmin && messagesForMe.length > 0 || chatUnreadTotal > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 1, alignSelf: "stretch", background: "var(--border)", margin: "0 2px" } }),
             isAdmin && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mono", style: { fontSize: 10, color: "var(--accent)", border: "1px solid var(--accent)", borderRadius: 4, padding: "1px 5px" }, children: t("admin") }),
             isAdmin && totalNotifications > 0 && enabledAdminTabs.overview !== false && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
               "button",
@@ -81697,6 +81708,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 ]
               }
             ),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 1, alignSelf: "stretch", background: "var(--border)", margin: "0 2px" } }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontWeight: 600, fontSize: 14 }, children: currentUser.name }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
               "button",
@@ -81781,12 +81793,15 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14 }, children: inactiveEmployees.map(({ emp, lastDate }) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--surface-2)", flexWrap: "wrap" }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14 }, children: emp.name }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mono", style: { fontSize: 12, color: "var(--muted-2)" }, children: [
-                  "\u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0437\u0430\u043F\u0438\u0441\u044C ",
-                  fmtDate(lastDate),
-                  " \xB7 ",
-                  daysSince(lastDate),
-                  " \u0434\u043D. \u043D\u0430\u0437\u0430\u0434"
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mono", style: { fontSize: 12, color: "var(--muted-2)" }, children: [
+                    "\u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0437\u0430\u043F\u0438\u0441\u044C ",
+                    fmtDate(lastDate),
+                    " \xB7 ",
+                    daysSince(lastDate),
+                    " \u0434\u043D. \u043D\u0430\u0437\u0430\u0434"
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "2px 8px", fontSize: 11 }, title: "\u0421\u043A\u0440\u044B\u0442\u044C \u044D\u0442\u043E \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0435", onClick: () => dismissInactiveNotice(emp.id, lastDate), children: "\u2715" })
                 ] })
               ] }, emp.id)) })
             ] }),
@@ -82017,38 +82032,38 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 employees.length,
                 ")"
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14 }, children: [
-                employees.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { color: "var(--muted-2)", fontSize: 13 }, children: "\u041D\u0438\u043A\u0442\u043E \u0435\u0449\u0451 \u043D\u0435 \u0437\u0430\u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u043E\u0432\u0430\u043B\u0441\u044F. \u041E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u0441\u043E\u0442\u0440\u0443\u0434\u043D\u0438\u043A\u0430\u043C \u0441\u0441\u044B\u043B\u043A\u0443 \u043D\u0430 \u044D\u0442\u043E \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u2014 \u043E\u043D\u0438 \u0437\u0430\u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u0443\u044E\u0442\u0441\u044F \u0441\u0430\u043C\u0438 \u0432\u043E \u0432\u043A\u043B\u0430\u0434\u043A\u0435 \xAB\u042F \u043D\u043E\u0432\u044B\u0439\xBB." }),
-                employees.map((e) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "10px 0", borderBottom: "1px solid var(--surface-2)" }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }, children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1 }, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 500 }, children: e.name }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mono", style: { fontSize: 11, color: "var(--muted-2)" }, children: [
-                        "@",
-                        e.username
-                      ] })
-                    ] }),
-                    editRateId === e.id ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { className: "mono", autoFocus: true, value: editRateVal, onChange: (ev) => setEditRateVal(ev.target.value), style: { width: 80 } }),
-                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 10px" }, onClick: () => saveRate(e.id), children: "OK" })
-                    ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "btn", style: { padding: "6px 10px" }, onClick: () => {
-                      setEditRateId(e.id);
-                      setEditRateVal(String(e.hourlyRate || 0));
-                    }, children: [
-                      e.hourlyRate || 0,
-                      "/\u0447"
-                    ] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "6px 10px" }, onClick: () => removeUser(e.id), children: "\u2715" })
+              employees.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, color: "var(--muted-2)", fontSize: 13 }, children: "\u041D\u0438\u043A\u0442\u043E \u0435\u0449\u0451 \u043D\u0435 \u0437\u0430\u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u043E\u0432\u0430\u043B\u0441\u044F. \u041E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u0441\u043E\u0442\u0440\u0443\u0434\u043D\u0438\u043A\u0430\u043C \u0441\u0441\u044B\u043B\u043A\u0443 \u043D\u0430 \u044D\u0442\u043E \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u2014 \u043E\u043D\u0438 \u0437\u0430\u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0438\u0440\u0443\u044E\u0442\u0441\u044F \u0441\u0430\u043C\u0438 \u0432\u043E \u0432\u043A\u043B\u0430\u0434\u043A\u0435 \xAB\u042F \u043D\u043E\u0432\u044B\u0439\xBB." }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: 8 }, children: employees.map((e) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 14, fontWeight: 500 }, children: e.name }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mono", style: { fontSize: 11, color: "var(--muted-2)" }, children: [
+                      "@",
+                      e.username
+                    ] })
                   ] }),
-                  resetPwId === e.id ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "text", placeholder: "\u041D\u043E\u0432\u044B\u0439 \u043F\u0430\u0440\u043E\u043B\u044C", value: resetPwVal, onChange: (ev) => setResetPwVal(ev.target.value), style: { flex: 1 } }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 10px" }, onClick: () => savePwReset(e.id), children: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px" }, onClick: () => setResetPwId(null), children: "\u041E\u0442\u043C\u0435\u043D\u0430" })
-                  ] }) : resetSecretId === e.id ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "text", placeholder: "\u041D\u043E\u0432\u043E\u0435 \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E", value: resetSecretVal, onChange: (ev) => setResetSecretVal(ev.target.value), style: { flex: 1 } }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 10px" }, onClick: () => saveSecretWordReset(e.id), children: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px" }, onClick: () => setResetSecretId(null), children: "\u041E\u0442\u043C\u0435\u043D\u0430" })
-                  ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }, children: [
+                  editRateId === e.id ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { className: "mono", autoFocus: true, value: editRateVal, onChange: (ev) => setEditRateVal(ev.target.value), style: { width: 80 } }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 10px" }, onClick: () => saveRate(e.id), children: "OK" })
+                  ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "btn", style: { padding: "6px 10px" }, onClick: () => {
+                    setEditRateId(e.id);
+                    setEditRateVal(String(e.hourlyRate || 0));
+                  }, children: [
+                    e.hourlyRate || 0,
+                    "/\u0447"
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "6px 10px" }, onClick: () => removeUser(e.id), children: "\u2715" })
+                ] }),
+                resetPwId === e.id ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "text", placeholder: "\u041D\u043E\u0432\u044B\u0439 \u043F\u0430\u0440\u043E\u043B\u044C", value: resetPwVal, onChange: (ev) => setResetPwVal(ev.target.value), style: { flex: 1 } }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 10px" }, onClick: () => savePwReset(e.id), children: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px" }, onClick: () => setResetPwId(null), children: "\u041E\u0442\u043C\u0435\u043D\u0430" })
+                ] }) : resetSecretId === e.id ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "text", placeholder: "\u041D\u043E\u0432\u043E\u0435 \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E", value: resetSecretVal, onChange: (ev) => setResetSecretVal(ev.target.value), style: { flex: 1 } }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 10px" }, onClick: () => saveSecretWordReset(e.id), children: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px" }, onClick: () => setResetSecretId(null), children: "\u041E\u0442\u043C\u0435\u043D\u0430" })
+                ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }, children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 12 }, onClick: () => {
                       setResetPwId(e.id);
                       setResetPwVal("");
@@ -82057,7 +82072,9 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                       setResetSecretId(e.id);
                       setResetSecretVal("");
                     }, children: e.secretWordHash ? "\u0421\u043C\u0435\u043D\u0438\u0442\u044C \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E" : "\u0417\u0430\u0434\u0430\u0442\u044C \u0441\u0435\u043A\u0440\u0435\u0442\u043D\u043E\u0435 \u0441\u043B\u043E\u0432\u043E" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 12 }, onClick: () => setShowQrForId(e.id), children: "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C QR" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 12 }, onClick: () => setShowQrForId(e.id), children: "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C QR" })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap", paddingTop: 8, borderTop: "1px solid var(--surface-2)" }, children: [
                     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: e.timerEnabled ? "var(--accent)" : "var(--muted)", cursor: "pointer" }, children: [
                       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "checkbox", checked: !!e.timerEnabled, onChange: (ev) => toggleTimerForUser(e.id, ev.target.checked), style: { width: 15, height: 15, padding: 0 } }),
                       "\u0421\u0435\u043A\u0443\u043D\u0434\u043E\u043C\u0435\u0440"
@@ -82071,8 +82088,8 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                       "\u0414\u043E\u0441\u0442\u0443\u043F \u043A \xAB\u041E\u0441\u0442\u0430\u0442\u043A\u0430\u043C\xBB"
                     ] })
                   ] })
-                ] }, e.id))
-              ] })
+                ] })
+              ] }, e.id)) })
             ] }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }, children: [
@@ -82080,7 +82097,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 admins.length,
                 ")"
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, marginBottom: 20 }, children: admins.map((a2) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "1px solid var(--surface-2)", flexWrap: "wrap" }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }, children: admins.map((a2) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "10px 12px", flexWrap: "wrap" }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1 }, children: [
                   /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 14 }, children: [
                     a2.name,
@@ -82110,86 +82127,37 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
             ] })
           ] }),
           adminTab === "products" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10, marginBottom: 10 }, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em" }, children: [
-                "\u0426\u0435\u043D\u044B \u0442\u043E\u0432\u0430\u0440\u043E\u0432 (",
-                catalog.length,
-                ")"
-              ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 12px", fontSize: 12 }, onClick: () => {
-                  setAddingProduct((v) => !v);
-                  setNewProductError("");
-                }, children: "+ \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0442\u043E\u0432\u0430\u0440" }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "btn btn-accent", style: { padding: "6px 12px", fontSize: 12, cursor: "pointer" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }, children: [
+              "\u0426\u0435\u043D\u044B \u0442\u043E\u0432\u0430\u0440\u043E\u0432 (",
+              catalog.length,
+              ")"
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 6, flexWrap: "wrap", paddingBottom: 16, borderBottom: "1px solid var(--surface-2)" }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "btn", style: { padding: "6px 14px", fontSize: 12, cursor: "pointer" }, children: [
                   "\u0418\u043C\u043F\u043E\u0440\u0442 \u043A\u0430\u0442\u0430\u043B\u043E\u0433\u0430 (Excel)",
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "file", accept: ".xlsx,.xls", style: { display: "none" }, onChange: (e) => {
                     if (e.target.files[0]) importCatalogFromExcel(e.target.files[0]);
                     e.target.value = "";
                   } })
                 ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 12px", fontSize: 12 }, onClick: exportCatalogToExcel, children: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442 \u0432 Excel" }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 12px", fontSize: 12 }, onClick: printCatalog, children: "\u041F\u0435\u0447\u0430\u0442\u044C / PDF" }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "btn btn-accent", style: { padding: "6px 12px", fontSize: 12, cursor: "pointer" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px", fontSize: 12 }, onClick: exportCatalogToExcel, children: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442 \u0432 Excel" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px", fontSize: 12 }, onClick: printCatalog, children: "\u041F\u0435\u0447\u0430\u0442\u044C / PDF" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 1, alignSelf: "stretch", background: "var(--border)", margin: "0 4px" } }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "btn", style: { padding: "6px 14px", fontSize: 12, cursor: "pointer" }, children: [
                   "\u0418\u043C\u043F\u043E\u0440\u0442 \u0444\u043E\u0442\u043E \u0438\u0437 Excel",
                   /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "file", accept: ".xlsx,.xls", style: { display: "none" }, onChange: (e) => {
                     if (e.target.files[0]) importImagesFromExcel(e.target.files[0]);
                     e.target.value = "";
                   } })
                 ] })
-              ] })
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, marginBottom: 14, maxWidth: 640 }, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 13, fontWeight: 600, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }, children: [
-                "\u{1F535} \u0410\u0432\u0442\u043E\u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u0441 Ozon",
-                ozonStatus && ozonStatus.configured && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mono", style: { fontSize: 10, background: "rgba(90,200,120,0.15)", color: "#5ac878", border: "1px solid #5ac878", borderRadius: 999, padding: "1px 8px" }, children: "\u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u043E" })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--muted-2)", marginBottom: 10 }, children: "\u041F\u043E\u0434\u0442\u044F\u0433\u0438\u0432\u0430\u0435\u0442 \u0430\u0440\u0442\u0438\u043A\u0443\u043B, \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0438 \u0448\u0442\u0440\u0438\u0445\u043A\u043E\u0434\u044B \u043D\u0430\u043F\u0440\u044F\u043C\u0443\u044E \u0438\u0437 \u0432\u0430\u0448\u0435\u0433\u043E \u043A\u0430\u0431\u0438\u043D\u0435\u0442\u0430 \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u0430 Ozon \u2014 \u0431\u0435\u0437 \u0440\u0443\u0447\u043D\u043E\u0439 \u0432\u044B\u0433\u0440\u0443\u0437\u043A\u0438 Excel. \u041A\u043B\u044E\u0447\u0438 \u0432\u043E\u0437\u044C\u043C\u0438\u0442\u0435 \u0432 \u043A\u0430\u0431\u0438\u043D\u0435\u0442\u0435 Ozon: \u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u2192 Seller API." }),
-              !ozonStatus || !ozonStatus.configured || ozonEditingCreds ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 8, maxWidth: 420 }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "Client-Id", value: ozonClientId, onChange: (e) => setOzonClientId(e.target.value) }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "Api-Key", type: "password", value: ozonApiKey, onChange: (e) => setOzonApiKey(e.target.value) }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 14px" }, onClick: saveOzonCredentials, children: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043A\u043B\u044E\u0447\u0438" }),
-                  ozonEditingCreds && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px" }, onClick: () => setOzonEditingCreds(false), children: "\u041E\u0442\u043C\u0435\u043D\u0430" })
-                ] })
-              ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mono", style: { fontSize: 12, color: "var(--muted-2)", marginBottom: 10 }, children: [
-                  "Client-Id: ",
-                  ozonStatus.clientIdHint || "\u2014",
-                  ozonStatus.lastSync && ` \xB7 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F: ${new Date(ozonStatus.lastSync.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} (\u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E ${ozonStatus.lastSync.added}, \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E ${ozonStatus.lastSync.updated} \u0438\u0437 ${ozonStatus.lastSync.total}${ozonStatus.lastSync.photosUpdated ? `, \u0444\u043E\u0442\u043E: ${ozonStatus.lastSync.photosUpdated}` : ""})`
-                ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 14px" }, onClick: syncOzonCatalog, disabled: ozonSyncing, children: ozonSyncing ? "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F..." : "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0441\u0435\u0439\u0447\u0430\u0441" }),
-                  ozonHistory.length > 0 && !ozonHistory[0].undone && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "6px 14px", fontSize: 12 }, onClick: () => undoOzonSync(ozonHistory[0], true), disabled: !!ozonUndoing, children: ozonUndoing === ozonHistory[0].id ? "\u041E\u0442\u043C\u0435\u043D\u0430..." : "\u21B6 \u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044E\u044E \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044E" }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px", fontSize: 12 }, onClick: () => setOzonEditingCreds(true), children: "\u0421\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043B\u044E\u0447\u0438" }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "6px 14px", fontSize: 12 }, onClick: removeOzonCredentials, children: "\u041E\u0442\u043A\u043B\u044E\u0447\u0438\u0442\u044C" })
-                ] }),
-                ozonHistory.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("details", { style: { marginTop: 12 }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("summary", { style: { cursor: "pointer", fontSize: 12, color: "var(--accent)" }, children: [
-                    "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u0439 (",
-                    ozonHistory.length,
-                    ")"
-                  ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }, children: ozonHistory.map((h, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", background: "var(--surface-2)", borderRadius: 6, flexWrap: "wrap" }, children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "mono", style: { fontSize: 11, color: h.undone ? "var(--muted-2)" : "var(--text)", textDecoration: h.undone ? "line-through" : "none" }, children: [
-                      new Date(h.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }),
-                      " \u2014 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E ",
-                      h.added,
-                      ", \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E ",
-                      h.updated,
-                      " \u0438\u0437 ",
-                      h.total,
-                      h.photosUpdated ? `, \u0444\u043E\u0442\u043E: ${h.photosUpdated}` : "",
-                      h.undone ? " (\u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E)" : ""
-                    ] }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6, flexShrink: 0 }, children: [
-                      (h.added > 0 || h.updated > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "3px 8px", fontSize: 10 }, onClick: () => exportOzonSyncToExcel(h), children: "Excel" }),
-                      !h.undone && (h.added > 0 || h.updated > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "3px 8px", fontSize: 10 }, onClick: () => undoOzonSync(h, i === 0), disabled: !!ozonUndoing, children: ozonUndoing === h.id ? "..." : "\u21B6 \u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C" })
-                    ] })
-                  ] }, h.id)) })
-                ] })
-              ] })
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 14px", fontSize: 12 }, onClick: () => {
+                setAddingProduct((v) => !v);
+                setNewProductError("");
+              }, children: addingProduct ? "\u041E\u0442\u043C\u0435\u043D\u0430" : "+ \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0442\u043E\u0432\u0430\u0440" })
             ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, color: "var(--muted-2)", marginBottom: 18 }, children: "\u0414\u043B\u044F \xAB\u0418\u043C\u043F\u043E\u0440\u0442 \u0444\u043E\u0442\u043E \u0438\u0437 Excel\xBB \u2014 \u0444\u0430\u0439\u043B \u0432\u044B\u0433\u0440\u0443\u0437\u043A\u0438 Ozon (\u0441\u043E \u0441\u0442\u043E\u043B\u0431\u0446\u0430\u043C\u0438 \xAB\u0410\u0440\u0442\u0438\u043A\u0443\u043B\xBB, \xAB\u0421\u0441\u044B\u043B\u043A\u0430 \u043D\u0430 \u0433\u043B\u0430\u0432\u043D\u043E\u0435 \u0444\u043E\u0442\u043E\xBB, \xAB\u0421\u0441\u044B\u043B\u043A\u0438 \u043D\u0430 \u0434\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0435 \u0444\u043E\u0442\u043E\xBB); \u0444\u043E\u0442\u043E \u043F\u043E\u0434\u0441\u0442\u0430\u0432\u044F\u0442\u0441\u044F \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438 \u043F\u043E \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u044E \u0430\u0440\u0442\u0438\u043A\u0443\u043B\u0430." }),
             importReport && (importReport.skippedRows.length > 0 || importReport.noBarcodeProducts.length > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, marginBottom: 14, maxWidth: 520 }, children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 12, color: "var(--muted)" }, children: [
@@ -82241,7 +82209,6 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px" }, onClick: () => setAddingProduct(false), children: "\u041E\u0442\u043C\u0435\u043D\u0430" })
               ] })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, color: "var(--muted-2)", marginBottom: 12, maxWidth: 460 }, children: "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u0435 \u0444\u0430\u0439\u043B \u0432\u044B\u0433\u0440\u0443\u0437\u043A\u0438 Ozon (\u0441\u043E \u0441\u0442\u043E\u043B\u0431\u0446\u0430\u043C\u0438 \xAB\u0410\u0440\u0442\u0438\u043A\u0443\u043B\xBB, \xAB\u0421\u0441\u044B\u043B\u043A\u0430 \u043D\u0430 \u0433\u043B\u0430\u0432\u043D\u043E\u0435 \u0444\u043E\u0442\u043E\xBB, \xAB\u0421\u0441\u044B\u043B\u043A\u0438 \u043D\u0430 \u0434\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0435 \u0444\u043E\u0442\u043E\xBB) \u2014 \u0444\u043E\u0442\u043E \u043F\u043E\u0434\u0441\u0442\u0430\u0432\u044F\u0442\u0441\u044F \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438 \u043F\u043E \u0441\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u044E \u0430\u0440\u0442\u0438\u043A\u0443\u043B\u0430." }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: search, onChange: (e) => setSearch(e.target.value), placeholder: "\u041D\u0430\u0439\u0442\u0438 \u0442\u043E\u0432\u0430\u0440 \u0434\u043B\u044F \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0438 \u0446\u0435\u043D\u044B...", style: { width: "100%", padding: "10px 12px", marginBottom: 8, maxWidth: 460 } }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginBottom: 12, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }, children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)(SearchModeToggle, { mode: searchMode, onChange: setSearchMode }),
@@ -82251,7 +82218,7 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 12, background: catalogSortMode === "name" ? "var(--accent)" : "var(--surface)", color: catalogSortMode === "name" ? "#1a1a1a" : "var(--text)" }, onClick: () => setCatalogSortMode("name"), children: "\u041F\u043E \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044E" })
               ] })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, maxWidth: 640 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 8 }, children: [
               search.trim() && searchResults.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "20px 0", textAlign: "center", color: "var(--muted)", fontSize: 13 }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginBottom: showFuzzy || fuzzyResults.length === 0 ? 0 : 10 }, children: "\u041D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D\u043E" }),
                 !showFuzzy && fuzzyResults.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "btn", style: { padding: "6px 14px", fontSize: 12 }, onClick: () => setShowFuzzy(true), children: [
@@ -82263,114 +82230,106 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 const opts = optionsForSku(p.sku);
                 const hasDuplicates = opts.length !== new Set(opts.map((o) => o.price)).size;
                 const img = getProductImage(p.sku);
-                return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "10px 0", borderBottom: "1px solid var(--surface-2)" }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 10 }, children: [
-                    img && img.main && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ProductThumb, { src: img.main, size: 44, onClick: () => setLightbox({ images: [img.main, ...img.gallery], index: 0, name: p.name }) }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
-                      catalogEditSku === p.sku ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 8, maxWidth: 380 }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "\u0410\u0440\u0442\u0438\u043A\u0443\u043B", className: "mono", value: catalogEditSkuValue, onChange: (e) => setCatalogEditSkuValue(e.target.value), style: { fontSize: 13 } }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0442\u043E\u0432\u0430\u0440\u0430", value: catalogEditName, onChange: (e) => setCatalogEditName(e.target.value), style: { fontSize: 13 } }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                          "textarea",
-                          {
-                            placeholder: "\u0428\u0442\u0440\u0438\u0445\u043A\u043E\u0434\u044B \u2014 \u043F\u043E \u043E\u0434\u043D\u043E\u043C\u0443 \u043D\u0430 \u0441\u0442\u0440\u043E\u043A\u0443",
-                            value: catalogEditBarcodes,
-                            onChange: (e) => setCatalogEditBarcodes(e.target.value),
-                            rows: 2,
-                            style: { background: "var(--input-bg)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 8, padding: 8, fontFamily: "'Inter', sans-serif", fontSize: 12, resize: "vertical" }
-                          }
-                        ),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
-                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "4px 10px", fontSize: 11 }, onClick: () => saveProductEdit(p.sku), children: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" }),
-                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 11 }, onClick: () => setCatalogEditSku(null), children: "\u041E\u0442\u043C\u0435\u043D\u0430" }),
-                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "4px 10px", fontSize: 11 }, onClick: () => removeProduct(p.sku), children: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0442\u043E\u0432\u0430\u0440" })
-                        ] })
-                      ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 13, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }, children: [
-                          p.name,
-                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "2px 6px", fontSize: 10 }, onClick: () => {
-                            setCatalogEditSku(p.sku);
-                            setCatalogEditSkuValue(String(p.sku));
-                            setCatalogEditName(p.name);
-                            setCatalogEditBarcodes((p.barcodes || []).join("\n"));
-                          }, children: "\u270E" })
-                        ] }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mono", style: { fontSize: 11, color: "var(--muted-2)", marginBottom: 4 }, children: [
-                          "\u0430\u0440\u0442. ",
-                          p.sku,
-                          img && img.gallery.length > 0 ? ` \xB7 \u0435\u0449\u0451 ${img.gallery.length} \u0444\u043E\u0442\u043E` : ""
-                        ] })
+                const link = productPackagingLinks[String(p.sku)];
+                const linkedNames = link ? link.linkedIds.map((id) => (packagingMaterials.find((m) => m.id === id) || {}).name).filter(Boolean) : [];
+                return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: "8px 12px" }, children: catalogEditSku === p.sku ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 6, maxWidth: 380 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "\u0410\u0440\u0442\u0438\u043A\u0443\u043B", className: "mono", value: catalogEditSkuValue, onChange: (e) => setCatalogEditSkuValue(e.target.value), style: { fontSize: 13 } }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0442\u043E\u0432\u0430\u0440\u0430", value: catalogEditName, onChange: (e) => setCatalogEditName(e.target.value), style: { fontSize: 13 } }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    "textarea",
+                    {
+                      placeholder: "\u0428\u0442\u0440\u0438\u0445\u043A\u043E\u0434\u044B \u2014 \u043F\u043E \u043E\u0434\u043D\u043E\u043C\u0443 \u043D\u0430 \u0441\u0442\u0440\u043E\u043A\u0443",
+                      value: catalogEditBarcodes,
+                      onChange: (e) => setCatalogEditBarcodes(e.target.value),
+                      rows: 2,
+                      style: { background: "var(--input-bg)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 8, padding: 8, fontFamily: "'Inter', sans-serif", fontSize: 12, resize: "vertical" }
+                    }
+                  ),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "4px 10px", fontSize: 11 }, onClick: () => saveProductEdit(p.sku), children: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 11 }, onClick: () => setCatalogEditSku(null), children: "\u041E\u0442\u043C\u0435\u043D\u0430" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "4px 10px", fontSize: 11 }, onClick: () => removeProduct(p.sku), children: "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0442\u043E\u0432\u0430\u0440" })
+                  ] })
+                ] }) : imageEditSku === p.sku ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 6, maxWidth: 380 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13, marginBottom: 2 }, children: p.name }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "\u0421\u0441\u044B\u043B\u043A\u0430 \u043D\u0430 \u0433\u043B\u0430\u0432\u043D\u043E\u0435 \u0444\u043E\u0442\u043E", value: imageEditVal, onChange: (e) => setImageEditVal(e.target.value), style: { fontSize: 12 } }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+                    "textarea",
+                    {
+                      placeholder: "\u0414\u043E\u043F. \u0444\u043E\u0442\u043E \u2014 \u043F\u043E \u043E\u0434\u043D\u043E\u0439 \u0441\u0441\u044B\u043B\u043A\u0435 \u043D\u0430 \u0441\u0442\u0440\u043E\u043A\u0443",
+                      value: imageEditGalleryVal,
+                      onChange: (e) => setImageEditGalleryVal(e.target.value),
+                      rows: 2,
+                      style: { background: "var(--input-bg)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 8, padding: 8, fontFamily: "'Inter', sans-serif", fontSize: 12, resize: "vertical" }
+                    }
+                  ),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "4px 10px", fontSize: 11 }, onClick: () => {
+                      setProductImage(p.sku, imageEditVal, imageEditGalleryVal.split("\n"));
+                      setImageEditSku(null);
+                    }, children: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 11 }, onClick: () => setImageEditSku(null), children: "\u041E\u0442\u043C\u0435\u043D\u0430" })
+                  ] })
+                ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 10 }, children: [
+                    img && img.main && /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ProductThumb, { src: img.main, size: 34, onClick: () => setLightbox({ images: [img.main, ...img.gallery], index: 0, name: p.name }) }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { flex: 1, minWidth: 0, display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 13 }, children: p.name }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "mono", style: { fontSize: 11, color: "var(--muted-2)" }, children: [
+                        "\xB7 \u0430\u0440\u0442. ",
+                        p.sku,
+                        img && img.gallery.length > 0 ? ` \xB7 \u0435\u0449\u0451 ${img.gallery.length} \u0444\u043E\u0442\u043E` : "",
+                        linkedNames.length > 0 ? ` \xB7 \u0443\u043F.: ${linkedNames.join(", ")}` : ""
                       ] }),
-                      imageEditSku === p.sku ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 8, maxWidth: 380 }, children: [
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "\u0421\u0441\u044B\u043B\u043A\u0430 \u043D\u0430 \u0433\u043B\u0430\u0432\u043D\u043E\u0435 \u0444\u043E\u0442\u043E", value: imageEditVal, onChange: (e) => setImageEditVal(e.target.value), style: { fontSize: 12 } }),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-                          "textarea",
-                          {
-                            placeholder: "\u0414\u043E\u043F. \u0444\u043E\u0442\u043E \u2014 \u043F\u043E \u043E\u0434\u043D\u043E\u0439 \u0441\u0441\u044B\u043B\u043A\u0435 \u043D\u0430 \u0441\u0442\u0440\u043E\u043A\u0443",
-                            value: imageEditGalleryVal,
-                            onChange: (e) => setImageEditGalleryVal(e.target.value),
-                            rows: 2,
-                            style: { background: "var(--input-bg)", border: "1px solid var(--border)", color: "var(--text)", borderRadius: 8, padding: 8, fontFamily: "'Inter', sans-serif", fontSize: 12, resize: "vertical" }
-                          }
-                        ),
-                        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
-                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "4px 10px", fontSize: 11 }, onClick: () => {
-                            setProductImage(p.sku, imageEditVal, imageEditGalleryVal.split("\n"));
-                            setImageEditSku(null);
-                          }, children: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" }),
-                          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 11 }, onClick: () => setImageEditSku(null), children: "\u041E\u0442\u043C\u0435\u043D\u0430" })
-                        ] })
-                      ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "3px 8px", fontSize: 11, marginBottom: 8 }, onClick: () => {
-                        setImageEditSku(p.sku);
-                        setImageEditVal(img ? img.main : "");
-                        setImageEditGalleryVal(img ? img.gallery.join("\n") : "");
-                      }, children: img ? "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0444\u043E\u0442\u043E" : "+ \u0444\u043E\u0442\u043E" }),
-                      (() => {
-                        const link = productPackagingLinks[String(p.sku)];
-                        const linkedNames = link ? link.linkedIds.map((id) => (packagingMaterials.find((m) => m.id === id) || {}).name).filter(Boolean) : [];
-                        return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginBottom: 4 }, children: [
-                          linkedNames.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 11, color: "var(--muted-2)", marginBottom: 4 }, children: [
-                            "\u0423\u043F\u0430\u043A\u043E\u0432\u043A\u0430: ",
-                            linkedNames.join(", ")
-                          ] }),
-                          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "btn", style: { padding: "3px 8px", fontSize: 11 }, onClick: () => setProductLinkModal({ product: p, query: "" }), children: [
-                            "\u{1F517} ",
-                            linkedNames.length > 0 ? "\u0415\u0449\u0451 \u0443\u043F\u0430\u043A\u043E\u0432\u043A\u0443" : "\u041F\u0440\u0438\u043A\u0440\u0435\u043F\u0438\u0442\u044C \u0443\u043F\u0430\u043A\u043E\u0432\u043A\u0443"
-                          ] })
-                        ] });
-                      })()
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "2px 6px", fontSize: 10 }, onClick: () => {
+                        setCatalogEditSku(p.sku);
+                        setCatalogEditSkuValue(String(p.sku));
+                        setCatalogEditName(p.name);
+                        setCatalogEditBarcodes((p.barcodes || []).join("\n"));
+                      }, children: "\u270E" })
                     ] })
                   ] }),
-                  opts.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--muted-2)", marginBottom: 6 }, children: "\u0426\u0435\u043D\u0430 \u043D\u0435 \u0437\u0430\u0434\u0430\u043D\u0430." }),
-                  opts.map((opt) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }, children: priceEditOptionId === opt.id ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0432\u0430\u0440\u0438\u0430\u043D\u0442\u0430", value: priceEditLabelVal, onChange: (e) => setPriceEditLabelVal(e.target.value), style: { width: 130 } }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { className: "mono", autoFocus: true, value: priceEditVal, onChange: (e) => setPriceEditVal(e.target.value), style: { width: 70 } }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 10px" }, onClick: () => saveOptionEdit(opt.id), children: "OK" })
-                  ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
-                    opt.label && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mono", style: { fontSize: 11, color: "var(--muted-2)", minWidth: 90 }, children: opt.label }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px", minWidth: 80 }, onClick: () => {
-                      setPriceEditOptionId(opt.id);
-                      setPriceEditVal(String(opt.price || ""));
-                      setPriceEditLabelVal(opt.label || "");
-                    }, children: money(opt.price) }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "6px 8px" }, onClick: () => removePackagingOption(opt.id), children: "\u2715" })
-                  ] }) }, opt.id)),
-                  addingOptionSku === p.sku ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 6, flexWrap: "wrap" }, children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0432\u0430\u0440\u0438\u0430\u043D\u0442\u0430 (\u043D\u0435\u043E\u0431\u044F\u0437.)", value: newOptionLabel, onChange: (e) => setNewOptionLabel(e.target.value), style: { width: 160 } }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { className: "mono", placeholder: "\u0426\u0435\u043D\u0430", value: newOptionPrice, onChange: (e) => setNewOptionPrice(e.target.value), style: { width: 70 } }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 10px" }, onClick: () => addPackagingOption(p.sku), children: "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 10px" }, onClick: () => {
-                      setAddingOptionSku(null);
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 6 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "3px 8px", fontSize: 11 }, onClick: () => {
+                      setImageEditSku(p.sku);
+                      setImageEditVal(img ? img.main : "");
+                      setImageEditGalleryVal(img ? img.gallery.join("\n") : "");
+                    }, children: img ? "\u0424\u043E\u0442\u043E" : "+ \u0444\u043E\u0442\u043E" }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "btn", style: { padding: "3px 8px", fontSize: 11 }, onClick: () => setProductLinkModal({ product: p, query: "" }), children: [
+                      "\u{1F517} ",
+                      linkedNames.length > 0 ? "\u0415\u0449\u0451 \u0443\u043F." : "\u0423\u043F\u0430\u043A\u043E\u0432\u043A\u0430"
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 1, alignSelf: "stretch", background: "var(--border)", margin: "0 2px" } }),
+                    opts.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12, color: "var(--muted-2)" }, children: "\u0426\u0435\u043D\u0430 \u043D\u0435 \u0437\u0430\u0434\u0430\u043D\u0430" }),
+                    opts.map((opt) => priceEditOptionId === opt.id ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { display: "flex", alignItems: "center", gap: 4 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", value: priceEditLabelVal, onChange: (e) => setPriceEditLabelVal(e.target.value), style: { width: 100, padding: "3px 6px" } }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { className: "mono", autoFocus: true, value: priceEditVal, onChange: (e) => setPriceEditVal(e.target.value), style: { width: 60, padding: "3px 6px" } }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "3px 8px" }, onClick: () => saveOptionEdit(opt.id), children: "OK" })
+                    ] }, opt.id) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { display: "flex", alignItems: "center", gap: 2 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "3px 8px", fontSize: 12 }, onClick: () => {
+                        setPriceEditOptionId(opt.id);
+                        setPriceEditVal(String(opt.price || ""));
+                        setPriceEditLabelVal(opt.label || "");
+                      }, children: money(opt.price) }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "3px 6px" }, onClick: () => removePackagingOption(opt.id), children: "\u2715" })
+                    ] }, opt.id)),
+                    addingOptionSku === p.sku ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { style: { display: "flex", alignItems: "center", gap: 4 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 (\u043D\u0435\u043E\u0431\u044F\u0437.)", value: newOptionLabel, onChange: (e) => setNewOptionLabel(e.target.value), style: { width: 120, padding: "3px 6px" } }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { className: "mono", placeholder: "\u0426\u0435\u043D\u0430", value: newOptionPrice, onChange: (e) => setNewOptionPrice(e.target.value), style: { width: 60, padding: "3px 6px" } }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "3px 8px" }, onClick: () => addPackagingOption(p.sku), children: "OK" }),
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "3px 8px" }, onClick: () => {
+                        setAddingOptionSku(null);
+                        setNewOptionLabel("");
+                        setNewOptionPrice("");
+                      }, children: "\u2715" })
+                    ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "3px 8px", fontSize: 11 }, onClick: () => {
+                      setAddingOptionSku(p.sku);
                       setNewOptionLabel("");
                       setNewOptionPrice("");
-                    }, children: "\u041E\u0442\u043C\u0435\u043D\u0430" })
-                  ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 11, marginTop: 4 }, onClick: () => {
-                    setAddingOptionSku(p.sku);
-                    setNewOptionLabel("");
-                    setNewOptionPrice("");
-                  }, children: "+ \u0432\u0430\u0440\u0438\u0430\u043D\u0442 \u0443\u043F\u0430\u043A\u043E\u0432\u043A\u0438" }),
-                  hasDuplicates && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 11, marginTop: 4, marginLeft: 8, color: "var(--danger)", borderColor: "var(--danger)" }, onClick: () => mergeDuplicateOptions(p.sku), children: "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0434\u0443\u0431\u043B\u0438" })
-                ] }, p.sku);
+                    }, children: "+ \u0432\u0430\u0440\u0438\u0430\u043D\u0442" }),
+                    hasDuplicates && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "3px 8px", fontSize: 11, color: "var(--danger)", borderColor: "var(--danger)" }, onClick: () => mergeDuplicateOptions(p.sku), children: "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0434\u0443\u0431\u043B\u0438" })
+                  ] })
+                ] }) }, p.sku);
               }),
               !search.trim() && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "mono", style: { fontSize: 11, color: "var(--muted-2)", paddingTop: 8 }, children: "\u041F\u043E\u043A\u0430\u0437\u0430\u043D\u044B \u043F\u0435\u0440\u0432\u044B\u0435 40. \u0418\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u0439\u0442\u0435 \u043F\u043E\u0438\u0441\u043A \u0434\u043B\u044F \u0434\u0440\u0443\u0433\u0438\u0445 \u0442\u043E\u0432\u0430\u0440\u043E\u0432." }),
               showFuzzy && fuzzyResults.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: 12, paddingTop: 12, borderTop: "1px dashed var(--border)" }, children: [
@@ -82397,20 +82356,30 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
             ] }),
             priceHistory.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: 24, maxWidth: 640 }, children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }, children: "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0438\u0437\u043C\u0435\u043D\u0435\u043D\u0438\u044F \u0446\u0435\u043D" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, maxHeight: 300, overflowY: "auto" }, children: [...priceHistory].sort((a2, b) => b.timestamp - a2.timestamp).slice(0, 30).map((h) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "8px 0", borderBottom: "1px solid var(--surface-2)" }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, children: h.productName }),
-                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mono", style: { fontSize: 11, color: "var(--muted-2)", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: new Date(h.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-                    money(h.oldPrice),
-                    " \u2192 ",
-                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--accent)" }, children: money(h.newPrice) })
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, maxHeight: 300, overflowY: "auto" }, children: [...priceHistory].sort((a2, b) => b.timestamp - a2.timestamp).slice(0, 30).map((h) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { padding: "8px 0", borderBottom: "1px solid var(--surface-2)", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { minWidth: 0 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 13, overflowWrap: "break-word" }, children: [
+                    h.productName,
+                    " ",
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "mono", style: { fontSize: 11, color: "var(--muted-2)" }, children: [
+                      "\xB7 \u0430\u0440\u0442. ",
+                      h.sku
+                    ] })
                   ] }),
-                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
-                    "\xB7 ",
-                    h.changedBy
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mono", style: { fontSize: 11, color: "var(--muted-2)", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 2 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: new Date(h.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+                      money(h.oldPrice),
+                      " \u2192 ",
+                      /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { color: "var(--accent)" }, children: money(h.newPrice) })
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { children: [
+                      "\xB7 ",
+                      h.changedBy
+                    ] })
                   ] })
-                ] })
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "2px 8px", fontSize: 11, flexShrink: 0 }, onClick: () => persistPriceHistory(priceHistory.filter((x2) => x2.id !== h.id)), children: "\u2715" })
               ] }, h.id)) })
             ] })
           ] }),
@@ -82420,33 +82389,27 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
               packagingMaterials.length,
               ")"
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: stockSearch, onChange: (e) => setStockSearch(e.target.value), placeholder: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0430\u0440\u0442\u0438\u043A\u0443\u043B\u0443, \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044E, \u0440\u0430\u0437\u043C\u0435\u0440\u0443...", style: { flex: 1, minWidth: 220 } }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: stockSizeFilter, onChange: (e) => setStockSizeFilter(e.target.value), placeholder: "\u0424\u0438\u043B\u044C\u0442\u0440 \u043F\u043E \u0440\u0430\u0437\u043C\u0435\u0440\u0443, \u043D\u0430\u043F\u0440. 35\u044540", style: { width: 200 } })
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12, color: "var(--muted-2)" }, children: "\u0421\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043A\u0430:" }),
-              [["sku", "\u041F\u043E \u0430\u0440\u0442\u0438\u043A\u0443\u043B\u0443"], ["name", "\u041F\u043E \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044E"], ["size", "\u041F\u043E \u0440\u0430\u0437\u043C\u0435\u0440\u0443"], ["stock", "\u041F\u043E \u043E\u0441\u0442\u0430\u0442\u043A\u0443"]].map(([k2, label]) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 12, background: stockSortMode === k2 ? "var(--accent)" : "var(--surface)", color: stockSortMode === k2 ? "#1a1a1a" : "var(--text)" }, onClick: () => toggleStockSort(k2), children: [
-                label,
-                stockSortMode === k2 ? stockSortDir === "asc" ? " \u2191" : " \u2193" : ""
-              ] }, k2)),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px", fontSize: 12 }, onClick: exportStockToExcel, children: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442 \u0432 Excel" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "btn", style: { padding: "6px 14px", fontSize: 12, cursor: "pointer" }, children: [
-                "\u0418\u043C\u043F\u043E\u0440\u0442 \u0438\u0437 Excel",
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "file", accept: ".xlsx,.xls", style: { display: "none" }, onChange: (e) => {
-                  if (e.target.files[0]) importStockFromExcel(e.target.files[0]);
-                  e.target.value = "";
-                } })
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 16, flexWrap: "wrap", paddingBottom: 16, borderBottom: "1px solid var(--surface-2)" }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px", fontSize: 12 }, onClick: exportStockToExcel, children: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442 \u0432 Excel" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "btn", style: { padding: "6px 14px", fontSize: 12, cursor: "pointer" }, children: [
+                  "\u0418\u043C\u043F\u043E\u0440\u0442 \u0438\u0437 Excel",
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "file", accept: ".xlsx,.xls", style: { display: "none" }, onChange: (e) => {
+                    if (e.target.files[0]) importStockFromExcel(e.target.files[0]);
+                    e.target.value = "";
+                  } })
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px", fontSize: 12 }, onClick: downloadStockImportTemplate, children: "\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u0448\u0430\u0431\u043B\u043E\u043D" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { width: 1, alignSelf: "stretch", background: "var(--border)", margin: "0 4px" } }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "btn", style: { padding: "6px 14px", fontSize: 12, cursor: "pointer" }, children: [
+                  "\u{1F4E6} \u0421\u0432\u0435\u0440\u0438\u0442\u044C \u0441 \u043F\u043E\u0441\u0442\u0430\u0432\u043A\u043E\u0439 \u0442\u043E\u0432\u0430\u0440\u043E\u0432",
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "file", accept: ".xlsx,.xls", style: { display: "none" }, onChange: (e) => {
+                    if (e.target.files[0]) startSupplyReconcile(e.target.files[0]);
+                    e.target.value = "";
+                  } })
+                ] })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px", fontSize: 12 }, onClick: downloadStockImportTemplate, children: "\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u0448\u0430\u0431\u043B\u043E\u043D" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "btn", style: { padding: "6px 14px", fontSize: 12, cursor: "pointer" }, children: [
-                "\u{1F4E6} \u0421\u0432\u0435\u0440\u0438\u0442\u044C \u0441 \u043F\u043E\u0441\u0442\u0430\u0432\u043A\u043E\u0439 \u0442\u043E\u0432\u0430\u0440\u043E\u0432",
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "file", accept: ".xlsx,.xls", style: { display: "none" }, onChange: (e) => {
-                  if (e.target.files[0]) startSupplyReconcile(e.target.files[0]);
-                  e.target.value = "";
-                } })
-              ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 14px", fontSize: 12, marginLeft: "auto" }, onClick: () => setStockAddingNew(!stockAddingNew), children: stockAddingNew ? "\u041E\u0442\u043C\u0435\u043D\u0430" : "+ \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u043F\u0430\u043A\u043E\u0432\u043A\u0443" })
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 14px", fontSize: 12 }, onClick: () => setStockAddingNew(!stockAddingNew), children: stockAddingNew ? "\u041E\u0442\u043C\u0435\u043D\u0430" : "+ \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u043F\u0430\u043A\u043E\u0432\u043A\u0443" })
             ] }),
             stockAddingNew && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, marginBottom: 16, maxWidth: 420, display: "flex", flexDirection: "column", gap: 8 }, children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("select", { value: stockNewType, onChange: (e) => setStockNewType(e.target.value), children: PACKAGING_TYPES.map((t2) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: t2.key, children: t2.label }, t2.key)) }),
@@ -82496,6 +82459,17 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 12px", fontSize: 12 }, onClick: printPurchaseRequest, children: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442 \u0432 PDF" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 12px", fontSize: 12 }, onClick: fulfillPurchaseRequest, children: "\u041E\u0444\u043E\u0440\u043C\u0438\u0442\u044C \u0437\u0430\u044F\u0432\u043A\u0443 (\u043F\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u044C \u043E\u0441\u0442\u0430\u0442\u043A\u0438)" })
               ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: stockSearch, onChange: (e) => setStockSearch(e.target.value), placeholder: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0430\u0440\u0442\u0438\u043A\u0443\u043B\u0443, \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044E, \u0440\u0430\u0437\u043C\u0435\u0440\u0443...", style: { flex: 1, minWidth: 220 } }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: stockSizeFilter, onChange: (e) => setStockSizeFilter(e.target.value), placeholder: "\u0424\u0438\u043B\u044C\u0442\u0440 \u043F\u043E \u0440\u0430\u0437\u043C\u0435\u0440\u0443, \u043D\u0430\u043F\u0440. 35\u044540", style: { width: 200 } })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12, color: "var(--muted-2)" }, children: "\u0421\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043A\u0430:" }),
+              [["sku", "\u041F\u043E \u0430\u0440\u0442\u0438\u043A\u0443\u043B\u0443"], ["name", "\u041F\u043E \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044E"], ["size", "\u041F\u043E \u0440\u0430\u0437\u043C\u0435\u0440\u0443"], ["stock", "\u041F\u043E \u043E\u0441\u0442\u0430\u0442\u043A\u0443"]].map(([k2, label]) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 12, background: stockSortMode === k2 ? "var(--accent)" : "var(--surface)", color: stockSortMode === k2 ? "#1a1a1a" : "var(--text)" }, onClick: () => toggleStockSort(k2), children: [
+                label,
+                stockSortMode === k2 ? stockSortDir === "asc" ? " \u2191" : " \u2193" : ""
+              ] }, k2))
             ] }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 8 }, children: [
               filteredStock.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13, color: "var(--muted-2)" }, children: "\u0423\u043F\u0430\u043A\u043E\u0432\u043E\u043A \u043F\u043E\u043A\u0430 \u043D\u0435\u0442." }),
@@ -82713,7 +82687,60 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
             ] })
           ] }),
           adminTab === "settings" && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 20 }, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em" }, children: "\u0418\u043D\u0442\u0435\u0433\u0440\u0430\u0446\u0438\u0438" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, maxWidth: 640, marginTop: -12 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { fontSize: 13, fontWeight: 600, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }, children: [
+                "\u{1F535} \u0410\u0432\u0442\u043E\u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F \u0441 Ozon",
+                ozonStatus && ozonStatus.configured && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "mono", style: { fontSize: 10, background: "rgba(90,200,120,0.15)", color: "#5ac878", border: "1px solid #5ac878", borderRadius: 999, padding: "1px 8px" }, children: "\u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u043E" })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--muted-2)", marginBottom: 10 }, children: "\u041F\u043E\u0434\u0442\u044F\u0433\u0438\u0432\u0430\u0435\u0442 \u0430\u0440\u0442\u0438\u043A\u0443\u043B, \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0438 \u0448\u0442\u0440\u0438\u0445\u043A\u043E\u0434\u044B \u043D\u0430\u043F\u0440\u044F\u043C\u0443\u044E \u0438\u0437 \u0432\u0430\u0448\u0435\u0433\u043E \u043A\u0430\u0431\u0438\u043D\u0435\u0442\u0430 \u043F\u0440\u043E\u0434\u0430\u0432\u0446\u0430 Ozon \u2014 \u0431\u0435\u0437 \u0440\u0443\u0447\u043D\u043E\u0439 \u0432\u044B\u0433\u0440\u0443\u0437\u043A\u0438 Excel. \u041A\u043B\u044E\u0447\u0438 \u0432\u043E\u0437\u044C\u043C\u0438\u0442\u0435 \u0432 \u043A\u0430\u0431\u0438\u043D\u0435\u0442\u0435 Ozon: \u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u2192 Seller API." }),
+              !ozonStatus || !ozonStatus.configured || ozonEditingCreds ? /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 8, maxWidth: 420 }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "Client-Id", value: ozonClientId, onChange: (e) => setOzonClientId(e.target.value) }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { placeholder: "Api-Key", type: "password", value: ozonApiKey, onChange: (e) => setOzonApiKey(e.target.value) }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 14px" }, onClick: saveOzonCredentials, children: "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043A\u043B\u044E\u0447\u0438" }),
+                  ozonEditingCreds && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px" }, onClick: () => setOzonEditingCreds(false), children: "\u041E\u0442\u043C\u0435\u043D\u0430" })
+                ] })
+              ] }) : /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mono", style: { fontSize: 12, color: "var(--muted-2)", marginBottom: 10 }, children: [
+                  "Client-Id: ",
+                  ozonStatus.clientIdHint || "\u2014",
+                  ozonStatus.lastSync && ` \xB7 \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F: ${new Date(ozonStatus.lastSync.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} (\u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E ${ozonStatus.lastSync.added}, \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E ${ozonStatus.lastSync.updated} \u0438\u0437 ${ozonStatus.lastSync.total}${ozonStatus.lastSync.photosUpdated ? `, \u0444\u043E\u0442\u043E: ${ozonStatus.lastSync.photosUpdated}` : ""})`
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 14px" }, onClick: syncOzonCatalog, disabled: ozonSyncing, children: ozonSyncing ? "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044F..." : "\u0421\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0441\u0435\u0439\u0447\u0430\u0441" }),
+                  ozonHistory.length > 0 && !ozonHistory[0].undone && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "6px 14px", fontSize: 12 }, onClick: () => undoOzonSync(ozonHistory[0], true), disabled: !!ozonUndoing, children: ozonUndoing === ozonHistory[0].id ? "\u041E\u0442\u043C\u0435\u043D\u0430..." : "\u21B6 \u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0441\u043B\u0435\u0434\u043D\u044E\u044E \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u044E" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px", fontSize: 12 }, onClick: () => setOzonEditingCreds(true), children: "\u0421\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043B\u044E\u0447\u0438" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "6px 14px", fontSize: 12 }, onClick: removeOzonCredentials, children: "\u041E\u0442\u043A\u043B\u044E\u0447\u0438\u0442\u044C" })
+                ] }),
+                ozonHistory.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("details", { style: { marginTop: 12 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("summary", { style: { cursor: "pointer", fontSize: 12, color: "var(--accent)" }, children: [
+                    "\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0441\u0438\u043D\u0445\u0440\u043E\u043D\u0438\u0437\u0430\u0446\u0438\u0439 (",
+                    ozonHistory.length,
+                    ")"
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }, children: ozonHistory.map((h, i) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "6px 8px", background: "var(--surface-2)", borderRadius: 6, flexWrap: "wrap" }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "mono", style: { fontSize: 11, color: h.undone ? "var(--muted-2)" : "var(--text)", textDecoration: h.undone ? "line-through" : "none" }, children: [
+                      new Date(h.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }),
+                      " \u2014 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043E ",
+                      h.added,
+                      ", \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u043E ",
+                      h.updated,
+                      " \u0438\u0437 ",
+                      h.total,
+                      h.photosUpdated ? `, \u0444\u043E\u0442\u043E: ${h.photosUpdated}` : "",
+                      h.undone ? " (\u043E\u0442\u043C\u0435\u043D\u0435\u043D\u043E)" : ""
+                    ] }),
+                    /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 6, flexShrink: 0 }, children: [
+                      (h.added > 0 || h.updated > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "3px 8px", fontSize: 10 }, onClick: () => exportOzonSyncToExcel(h), children: "Excel" }),
+                      !h.undone && (h.added > 0 || h.updated > 0) && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-danger", style: { padding: "3px 8px", fontSize: 10 }, onClick: () => undoOzonSync(h, i === 0), disabled: !!ozonUndoing, children: ozonUndoing === h.id ? "..." : "\u21B6 \u041E\u0442\u043C\u0435\u043D\u0438\u0442\u044C" })
+                    ] })
+                  ] }, h.id)) })
+                ] })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4, paddingTop: 16, borderTop: "1px solid var(--surface-2)" }, children: "\u041E\u0441\u043D\u043E\u0432\u043D\u044B\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, marginTop: -12 }, children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 13, color: "var(--muted)" }, children: "\u0412\u0430\u043B\u044E\u0442\u0430" }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: currency, onChange: (e) => persistSettings({ currency: e.target.value }), style: { width: 48, padding: "6px 8px", textAlign: "center" } })
             ] }),
@@ -82739,7 +82766,8 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 label
               ] }, k2)) })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4, paddingTop: 16, borderTop: "1px solid var(--surface-2)" }, children: "\u0427\u0430\u0442" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: -12 }, children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }, children: "\u0411\u044B\u0441\u0442\u0440\u044B\u0435 \u043E\u0442\u0432\u0435\u0442\u044B \u0432 \u0447\u0430\u0442\u0435" }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--muted-2)", marginBottom: 12 }, children: "\u0421\u0432\u043E\u0439 \u043D\u0430\u0431\u043E\u0440 \u043A\u043D\u043E\u043F\u043E\u043A-\u0448\u0430\u0431\u043B\u043E\u043D\u043E\u0432, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u043F\u043E\u044F\u0432\u043B\u044F\u044E\u0442\u0441\u044F \u043D\u0430\u0434 \u043F\u043E\u043B\u0435\u043C \u0432\u0432\u043E\u0434\u0430 \u0432 \u0447\u0430\u0442\u0435 \u2014 \u0447\u0442\u043E\u0431\u044B \u043D\u0435 \u043F\u0435\u0447\u0430\u0442\u0430\u0442\u044C \u0447\u0430\u0441\u0442\u044B\u0435 \u0444\u0440\u0430\u0437\u044B \u043A\u0430\u0436\u0434\u044B\u0439 \u0440\u0430\u0437 \u0437\u0430\u043D\u043E\u0432\u043E." }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 10, maxWidth: 420 }, children: [
@@ -82783,7 +82811,8 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
               ] }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 12, color: "var(--muted-2)", marginTop: 4, marginLeft: 28 }, children: "\u0422\u043E\u043B\u044C\u043A\u043E \u0434\u043B\u044F \u0432\u0430\u0448\u0435\u0439 \u0443\u0447\u0451\u0442\u043D\u043E\u0439 \u0437\u0430\u043F\u0438\u0441\u0438 \u2014 \u0434\u0440\u0443\u0433\u0438\u0435 \u043D\u0435 \u0431\u0443\u0434\u0443\u0442 \u0432\u0438\u0434\u0435\u0442\u044C, \u0447\u0442\u043E \u0438\u043C\u0435\u043D\u043D\u043E \u0432\u044B \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u043B\u0438 \u0438\u0445 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 (\u043D\u0438 \u0432 \u0447\u0430\u0442\u0435, \u043D\u0438 \u0432 \u043E\u0431\u044A\u044F\u0432\u043B\u0435\u043D\u0438\u044F\u0445). \u0420\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u043D\u0435\u0437\u0430\u0432\u0438\u0441\u0438\u043C\u043E \u043E\u0442 \u043E\u0431\u0449\u0435\u0439 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0432\u044B\u0448\u0435 \u2014 \u0434\u0430\u0436\u0435 \u0435\u0441\u043B\u0438 \u0441\u0442\u0430\u0442\u0443\u0441 \u043F\u0440\u043E\u0447\u0442\u0435\u043D\u0438\u044F \u0432\u043A\u043B\u044E\u0447\u0451\u043D \u0434\u043B\u044F \u0432\u0441\u0435\u0445, \u0432\u0430\u0448\u0435 \u0441\u043E\u0431\u0441\u0442\u0432\u0435\u043D\u043D\u043E\u0435 \u043F\u0440\u043E\u0447\u0442\u0435\u043D\u0438\u0435 \u0432\u0441\u0451 \u0440\u0430\u0432\u043D\u043E \u043E\u0441\u0442\u0430\u043D\u0435\u0442\u0441\u044F \u0441\u043A\u0440\u044B\u0442\u044B\u043C. \u0412\u043B\u0438\u044F\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u043D\u0430 \u0442\u043E, \u0447\u0442\u043E \u0432\u0438\u0434\u044F\u0442 \u0434\u0440\u0443\u0433\u0438\u0435 \u043E \u0432\u0430\u0441 \u2014 \u0441\u0430\u043C\u0438 \u0432\u044B \u043F\u043E-\u043F\u0440\u0435\u0436\u043D\u0435\u043C\u0443 \u0432\u0438\u0434\u0438\u0442\u0435 \u0441\u0442\u0430\u0442\u0443\u0441 \u043F\u0440\u043E\u0447\u0442\u0435\u043D\u0438\u044F \u0441\u0432\u043E\u0438\u0445 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439 \u0434\u0440\u0443\u0433\u0438\u043C\u0438." })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4, paddingTop: 16, borderTop: "1px solid var(--surface-2)" }, children: "\u041E\u0431\u0437\u043E\u0440" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: -12 }, children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 8 }, children: "\u0413\u0440\u0430\u0444\u0438\u043A\u0438 \u0432 \xAB\u041E\u0431\u0437\u043E\u0440\u0435\xBB" }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 8 }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { style: { display: "flex", alignItems: "center", gap: 10, fontSize: 14, cursor: "pointer" }, children: [
@@ -82808,7 +82837,8 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 ] })
               ] })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4, paddingTop: 16, borderTop: "1px solid var(--surface-2)" }, children: "\u0414\u0430\u043D\u043D\u044B\u0435 \u0438 \u0431\u0435\u0437\u043E\u043F\u0430\u0441\u043D\u043E\u0441\u0442\u044C" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { marginTop: -12 }, children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13, color: "var(--muted)", marginBottom: 8 }, children: "\u0420\u0435\u0437\u0435\u0440\u0432\u043D\u0430\u044F \u043A\u043E\u043F\u0438\u044F" }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }, children: [
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", onClick: exportFullBackup, children: "\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u0431\u044D\u043A\u0430\u043F (JSON)" }),
@@ -83135,26 +83165,19 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
               packagingMaterials.length,
               ")"
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: stockSearch, onChange: (e) => setStockSearch(e.target.value), placeholder: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0430\u0440\u0442\u0438\u043A\u0443\u043B\u0443, \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044E, \u0440\u0430\u0437\u043C\u0435\u0440\u0443...", style: { flex: 1, minWidth: 220 } }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: stockSizeFilter, onChange: (e) => setStockSizeFilter(e.target.value), placeholder: "\u0424\u0438\u043B\u044C\u0442\u0440 \u043F\u043E \u0440\u0430\u0437\u043C\u0435\u0440\u0443, \u043D\u0430\u043F\u0440. 35\u044540", style: { width: 200 } })
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12, color: "var(--muted-2)" }, children: "\u0421\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043A\u0430:" }),
-              [["sku", "\u041F\u043E \u0430\u0440\u0442\u0438\u043A\u0443\u043B\u0443"], ["name", "\u041F\u043E \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044E"], ["size", "\u041F\u043E \u0440\u0430\u0437\u043C\u0435\u0440\u0443"], ["stock", "\u041F\u043E \u043E\u0441\u0442\u0430\u0442\u043A\u0443"]].map(([k2, label]) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 12, background: stockSortMode === k2 ? "var(--accent)" : "var(--surface)", color: stockSortMode === k2 ? "#1a1a1a" : "var(--text)" }, onClick: () => toggleStockSort(k2), children: [
-                label,
-                stockSortMode === k2 ? stockSortDir === "asc" ? " \u2191" : " \u2193" : ""
-              ] }, k2)),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px", fontSize: 12 }, onClick: exportStockToExcel, children: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442 \u0432 Excel" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "btn", style: { padding: "6px 14px", fontSize: 12, cursor: "pointer" }, children: [
-                "\u0418\u043C\u043F\u043E\u0440\u0442 \u0438\u0437 Excel",
-                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "file", accept: ".xlsx,.xls", style: { display: "none" }, onChange: (e) => {
-                  if (e.target.files[0]) importStockFromExcel(e.target.files[0]);
-                  e.target.value = "";
-                } })
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, marginBottom: 16, flexWrap: "wrap", paddingBottom: 16, borderBottom: "1px solid var(--surface-2)" }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px", fontSize: 12 }, onClick: exportStockToExcel, children: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442 \u0432 Excel" }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("label", { className: "btn", style: { padding: "6px 14px", fontSize: 12, cursor: "pointer" }, children: [
+                  "\u0418\u043C\u043F\u043E\u0440\u0442 \u0438\u0437 Excel",
+                  /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { type: "file", accept: ".xlsx,.xls", style: { display: "none" }, onChange: (e) => {
+                    if (e.target.files[0]) importStockFromExcel(e.target.files[0]);
+                    e.target.value = "";
+                  } })
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px", fontSize: 12 }, onClick: downloadStockImportTemplate, children: "\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u0448\u0430\u0431\u043B\u043E\u043D" })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 14px", fontSize: 12 }, onClick: downloadStockImportTemplate, children: "\u0421\u043A\u0430\u0447\u0430\u0442\u044C \u0448\u0430\u0431\u043B\u043E\u043D" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 14px", fontSize: 12, marginLeft: "auto" }, onClick: () => setStockAddingNew(!stockAddingNew), children: stockAddingNew ? "\u041E\u0442\u043C\u0435\u043D\u0430" : "+ \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u043F\u0430\u043A\u043E\u0432\u043A\u0443" })
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 14px", fontSize: 12 }, onClick: () => setStockAddingNew(!stockAddingNew), children: stockAddingNew ? "\u041E\u0442\u043C\u0435\u043D\u0430" : "+ \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u043F\u0430\u043A\u043E\u0432\u043A\u0443" })
             ] }),
             stockAddingNew && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, marginBottom: 16, maxWidth: 420, display: "flex", flexDirection: "column", gap: 8 }, children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("select", { value: stockNewType, onChange: (e) => setStockNewType(e.target.value), children: PACKAGING_TYPES.map((t2) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("option", { value: t2.key, children: t2.label }, t2.key)) }),
@@ -83204,6 +83227,17 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn", style: { padding: "6px 12px", fontSize: 12 }, onClick: printPurchaseRequest, children: "\u042D\u043A\u0441\u043F\u043E\u0440\u0442 \u0432 PDF" }),
                 /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", { className: "btn btn-accent", style: { padding: "6px 12px", fontSize: 12 }, onClick: fulfillPurchaseRequest, children: "\u041E\u0444\u043E\u0440\u043C\u0438\u0442\u044C \u0437\u0430\u044F\u0432\u043A\u0443 (\u043F\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u044C \u043E\u0441\u0442\u0430\u0442\u043A\u0438)" })
               ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: stockSearch, onChange: (e) => setStockSearch(e.target.value), placeholder: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0430\u0440\u0442\u0438\u043A\u0443\u043B\u0443, \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044E, \u0440\u0430\u0437\u043C\u0435\u0440\u0443...", style: { flex: 1, minWidth: 220 } }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", { value: stockSizeFilter, onChange: (e) => setStockSizeFilter(e.target.value), placeholder: "\u0424\u0438\u043B\u044C\u0442\u0440 \u043F\u043E \u0440\u0430\u0437\u043C\u0435\u0440\u0443, \u043D\u0430\u043F\u0440. 35\u044540", style: { width: 200 } })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { style: { fontSize: 12, color: "var(--muted-2)" }, children: "\u0421\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043A\u0430:" }),
+              [["sku", "\u041F\u043E \u0430\u0440\u0442\u0438\u043A\u0443\u043B\u0443"], ["name", "\u041F\u043E \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u044E"], ["size", "\u041F\u043E \u0440\u0430\u0437\u043C\u0435\u0440\u0443"], ["stock", "\u041F\u043E \u043E\u0441\u0442\u0430\u0442\u043A\u0443"]].map(([k2, label]) => /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "btn", style: { padding: "4px 10px", fontSize: 12, background: stockSortMode === k2 ? "var(--accent)" : "var(--surface)", color: stockSortMode === k2 ? "#1a1a1a" : "var(--text)" }, onClick: () => toggleStockSort(k2), children: [
+                label,
+                stockSortMode === k2 ? stockSortDir === "asc" ? " \u2191" : " \u2193" : ""
+              ] }, k2))
             ] }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", flexDirection: "column", gap: 8 }, children: [
               filteredStock.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { style: { fontSize: 13, color: "var(--muted-2)" }, children: "\u0423\u043F\u0430\u043A\u043E\u0432\u043E\u043A \u043F\u043E\u043A\u0430 \u043D\u0435\u0442." }),
@@ -83816,19 +83850,13 @@ Take a look at the reducer(s) handling this action type: ${action.type}.
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("thead", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { children: "\u0410\u0440\u0442\u0438\u043A\u0443\u043B" }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { children: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { children: "\u0420\u0430\u0437\u043C\u0435\u0440" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { children: "\u041A\u0440\u0430\u0442\u043D\u043E\u0441\u0442\u044C" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { children: "\u0422\u0435\u043A\u0443\u0449\u0438\u0439 \u043E\u0441\u0442\u0430\u0442\u043E\u043A" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { children: "\u041A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u043A \u0437\u0430\u043A\u0430\u0437\u0443" })
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", { children: "\u041A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E" })
           ] }) }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("tbody", { children: printData.rows.map((r2) => {
             const m = packagingMaterials.find((x2) => x2.id === r2.materialId);
             return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", { children: [
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { children: m ? m.sku : "?" }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { children: m ? m.name : "?" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { children: m ? m.size : "" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { children: m ? getMultiplicity(m) : "" }),
-              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { children: m ? m.stock : "" }),
               /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", { children: r2.qty })
             ] }, r2.materialId);
           }) })
