@@ -56,6 +56,36 @@ const defaultPayPeriod = () => {
   }
   return { from: `${fy}-${pad2(fm + 1)}-05`, to: `${ty}-${pad2(tm + 1)}-05` };
 };
+// Записи загружаются не за всё время, а начиная с этой даты: с первого числа месяца,
+// предшествующего текущему расчётному периоду (этого хватает для всех экранов по
+// умолчанию, включая сравнение "этот месяц против прошлого"). Более ранние подгружаются
+// сами, когда в любом фильтре выбирают более раннюю дату, или кнопкой.
+const defaultEntriesFrom = () => {
+  const d = new Date(defaultPayPeriod().from + "T00:00:00");
+  d.setDate(1);
+  d.setMonth(d.getMonth() - 1);
+  return localDateStr(d);
+};
+const shiftMonths = (dateStr, months) => {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setMonth(d.getMonth() + months);
+  return localDateStr(d);
+};
+const shiftDays = (dateStr, days) => {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + days);
+  return localDateStr(d);
+};
+// Чат загружается за последние 30 дней (с начала суток — чтобы адрес запроса не менялся
+// каждую секунду), более ранние сообщения — по кнопке
+const DAY_MS = 24 * 60 * 60 * 1000;
+const defaultChatFromTs = () => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime() - 30 * DAY_MS;
+};
+const PAGE_ROWS = 100; // сколько строк таблицы показывать за раз
+
 const defaultLast7Days = () => {
   const now = new Date();
   const to = localDateStr(now);
@@ -343,6 +373,16 @@ export default function App() {
   // использовался последний раз — чтобы предлагать его по умолчанию при подтверждении
   const [productPackagingLinks, setProductPackagingLinks] = useState({});
   const [entries, setEntries] = useState([]);
+  // С какой даты загружены записи (null — загружены все) и с какого момента — чат.
+  // Ref-копии нужны функциям загрузки, которые вызываются из "старых" замыканий.
+  const [entriesFrom, setEntriesFrom] = useState(() => defaultEntriesFrom());
+  const entriesFromRef = useRef(entriesFrom);
+  const [entriesLoadingMore, setEntriesLoadingMore] = useState(false);
+  const [chatFromTs, setChatFromTs] = useState(() => defaultChatFromTs());
+  const chatFromTsRef = useRef(chatFromTs);
+  const [chatHasOlder, setChatHasOlder] = useState(false);
+  const [logVisible, setLogVisible] = useState(PAGE_ROWS);
+  const [histVisible, setHistVisible] = useState(PAGE_ROWS);
   const [currency, setCurrency] = useState("₽");
   const [showEmployeeTotals, setShowEmployeeTotals] = useState(true);
   const [showTimerTab, setShowTimerTab] = useState(true);
@@ -483,6 +523,66 @@ export default function App() {
   const [msgTarget, setMsgTarget] = useState("all");
   const searchInputRef = useRef(null);
 
+  // Записи за загруженный период. null — не удалось получить (ошибка сервера).
+  const entriesPath = (from, to) => {
+    const q = [];
+    if (from) q.push("from=" + from);
+    if (to) q.push("to=" + to);
+    return "/api/entries" + (q.length ? "?" + q.join("&") : "");
+  };
+  const loadEntriesWindow = async () => {
+    try {
+      const r = await window.storage.getCached(entriesPath(entriesFromRef.current), "entries-window");
+      return Array.isArray(r.data.rows) ? r.data.rows : null;
+    } catch (e) { return null; }
+  };
+  const loadChatWindow = async () => {
+    try {
+      const r = await window.storage.getCached(`/api/chat?fromTs=${chatFromTsRef.current}`, "chat-window");
+      if (!Array.isArray(r.data.rows)) return null;
+      setChatHasOlder(!!r.data.hasOlder);
+      return r.data.rows;
+    } catch (e) { return null; }
+  };
+  // Догрузить более ранние записи: newFrom — новая начальная дата, null — все записи
+  const extendEntriesWindow = async (newFrom) => {
+    const cur = entriesFromRef.current;
+    if (cur === null || (newFrom !== null && newFrom >= cur)) return;
+    entriesFromRef.current = newFrom; // сразу, чтобы повторные вызовы не запускали вторую загрузку
+    setEntriesLoadingMore(true);
+    try {
+      const data = await window.storage.api(entriesPath(newFrom, shiftDays(cur, -1)));
+      const older = Array.isArray(data.rows) ? data.rows : [];
+      setEntries((prev) => {
+        const have = new Set(prev.map((e) => e.id));
+        return [...older.filter((e) => !have.has(e.id)), ...prev];
+      });
+      setEntriesFrom(newFrom);
+    } catch (e) {
+      entriesFromRef.current = cur;
+      setToast("Не удалось загрузить более ранние записи: " + (e.message || "нет связи"));
+    }
+    setEntriesLoadingMore(false);
+  };
+  const loadOlderChat = async () => {
+    const prevTs = chatFromTsRef.current;
+    const nextTs = Math.max(0, prevTs - 90 * DAY_MS);
+    chatFromTsRef.current = nextTs;
+    const rows = await loadChatWindow();
+    if (rows === null) { chatFromTsRef.current = prevTs; setToast("Не удалось загрузить более ранние сообщения"); return; }
+    setChatFromTs(nextTs);
+    setChatMessages(rows);
+  };
+  // Строка "с какой даты загружены записи" + кнопки подгрузки (в журнале и в истории)
+  const renderEntriesWindowNotice = () => (entriesFrom === null ? null : (
+    <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+      <span>Загружены записи с {new Date(entriesFrom + "T00:00:00").toLocaleDateString("ru-RU")}. Более ранние подгрузятся сами, если выбрать дату раньше, или кнопкой:</span>
+      <button className="btn" style={{ padding: "3px 10px", fontSize: 11 }} disabled={entriesLoadingMore} onClick={() => extendEntriesWindow(shiftMonths(entriesFrom, -3))}>Ещё 3 месяца</button>
+      <button className="btn" style={{ padding: "3px 10px", fontSize: 11 }} disabled={entriesLoadingMore} onClick={() => extendEntriesWindow(null)}>Все записи</button>
+      {entriesLoadingMore && <span className="mono">загрузка…</span>}
+    </div>
+  ));
+
   // userHint — кто сейчас вошёл (передаётся сразу после входа, когда состояние
   // currentUser ещё не успело обновиться)
   const loadSharedData = async (userHint) => {
@@ -494,7 +594,7 @@ export default function App() {
       safeGet("users", true, []),
       safeGet("catalog", true, null),
       safeGet("packagingOptions", true, null),
-      safeGet("entries", true, []),
+      loadEntriesWindow().then((rows) => rows || []),
       safeGet("timerSessions", true, []),
       adminOnly("priceHistory", []),
       safeGet("customBarcodes", true, []),
@@ -502,7 +602,7 @@ export default function App() {
       adminOnly("loginLog", []),
       adminOnly("dismissedInactiveNotices", {}),
       safeGet("messages", true, []),
-      safeGet("chatMessages", true, []),
+      loadChatWindow().then((rows) => rows || []),
       safeGet("packagingMaterials", true, []),
       safeGet("packagingPurchaseRequest", true, []),
       safeGet("productPackagingLinks", true, {}),
@@ -789,16 +889,31 @@ export default function App() {
       setToast("Не удалось получить данные для бэкапа: " + e.message);
       return;
     }
+    // В приложении загружена только часть записей и чата (за последнее время, чат — без
+    // звука голосовых) — для бэкапа запрашиваем всё целиком
+    let allEntries, fullChat;
+    try {
+      allEntries = (await api("/api/entries")).rows;
+      try { fullChat = JSON.parse((await window.storage.get("chatMessages", true)).value); }
+      catch (e) { if (e && e.status === 404) fullChat = []; else throw e; }
+    } catch (e) {
+      setToast("Не удалось получить данные для бэкапа: " + (e.message || "нет связи"));
+      return;
+    }
     const backup = {
       exportedAt: new Date().toISOString(),
-      users: usersForBackup, packagingOptions, entries, timerSessions, priceHistory, customBarcodes,
-      catalog, productImages, packagingMaterials, productPackagingLinks, packagingPurchaseRequest, messages, chatMessages,
+      users: usersForBackup, packagingOptions, entries: allEntries, timerSessions, priceHistory, customBarcodes,
+      catalog, productImages, packagingMaterials, productPackagingLinks, packagingPurchaseRequest, messages, chatMessages: fullChat,
       settings: { currency, showEmployeeTotals, showTimerTab, showChartDaily, showChartEmployees, showChartTopProducts, showChartComparison, showChartHeatmap, enabledAdminTabs, adminQuickReplies, employeeQuickReplies, showChatReadReceipts, registrationOpen },
     };
     downloadJson(backup, `backup_${todayStr()}.json`);
     setToast("Резервная копия скачана");
   };
 
+  const replaceShared = async (key, value) => {
+    try { await window.storage.set(key, JSON.stringify(value), true); }
+    catch (e) { setToast(`Раздел «${key}» не восстановлен: ${e.message || "нет связи"}`); }
+  };
   const importFullBackup = (file) => {
     const reader = new FileReader();
     reader.onload = async (e) => {
@@ -808,7 +923,8 @@ export default function App() {
         askConfirm("Восстановить данные из этого файла? Текущие данные (сотрудники, записи, цены) будут заменены.", async () => {
           await persistUsers(data.users || []);
           await persistPackagingOptions(data.packagingOptions || []);
-          await persistEntries(data.entries || []);
+          // Записи и чат заменяются на сервере целиком (в приложении загружена только их часть)
+          await replaceShared("entries", data.entries || []);
           await persistTimerSessions(data.timerSessions || []);
           await persistPriceHistory(data.priceHistory || []);
           await persistCustomBarcodes(data.customBarcodes || []);
@@ -819,7 +935,7 @@ export default function App() {
           if (data.productPackagingLinks) await persistProductPackagingLinks(data.productPackagingLinks);
           if (Array.isArray(data.packagingPurchaseRequest)) await persistPackagingPurchaseRequest(data.packagingPurchaseRequest);
           if (Array.isArray(data.messages)) await persistMessages(data.messages);
-          if (Array.isArray(data.chatMessages)) await persistChatMessages(data.chatMessages);
+          if (Array.isArray(data.chatMessages)) await replaceShared("chatMessages", data.chatMessages);
           if (data.settings) await persistSettings(data.settings);
           await loadSharedData();
           setToast("Данные восстановлены из бэкапа");
@@ -1637,30 +1753,24 @@ export default function App() {
     const queue = loadOfflineQueue();
     if (queue.length === 0 || !navigator.onLine) return;
     try {
-      // Читаем напрямую с сервера: если связи всё ещё нет (вернулись данные из кэша
-      // устройства) — выходим и пробуем позже
-      let res;
-      try { res = await window.storage.get("entries", true); } catch (e) { return; }
-      if (!res || res.offline) return;
-      const serverEntries = JSON.parse(res.value);
-      const existingIds = new Set(serverEntries.map((e) => e.id));
-      const toAdd = queue.filter((e) => !existingIds.has(e.id));
-      const merged = [...serverEntries, ...toAdd];
-      const ok = await safeSet("entries", merged, true, serverEntries);
-      if (!ok && safeSet.lastFailure && !safeSet.lastFailure.offline) {
+      // Отправляем только сами записи из очереди. Те, что сервер уже получил раньше
+      // (связь оборвалась на ответе), он узнает по ключу и второй раз не добавит.
+      await window.storage.api("/api/kv/entries/patch", { ops: { kind: "array", keyField: "id", remove: [], patch: [], upsert: queue.map((item) => ({ item })) } });
+    } catch (e) {
+      if (e && typeof e.status === "number" && e.status !== 401) {
         // Сервер отклонил эти записи — убираем их из очереди, иначе они будут
         // пытаться отправиться вечно
         saveOfflineQueue([]);
         setPendingSyncCount(0);
-        return;
+        setToast("Офлайн-записи не приняты сервером: " + e.message);
       }
-      if (ok) {
-        setEntries(merged);
-        saveOfflineQueue([]);
-        setPendingSyncCount(0);
-        if (queue.length > 0) setToast(`Отправлено офлайн-записей: ${queue.length}`);
-      }
-    } catch (e) { /* всё ещё нет сети — попробуем ещё раз позже */ }
+      return; // нет связи — попробуем позже
+    }
+    saveOfflineQueue([]);
+    setPendingSyncCount(0);
+    const rows = await loadEntriesWindow();
+    if (rows) setEntries(rows);
+    setToast(`Отправлено офлайн-записей: ${queue.length}`);
   };
 
   // Следим за появлением/пропажей сети: обновляем баннер и пытаемся досослать
@@ -2148,12 +2258,15 @@ export default function App() {
       // Сервер отвечает "ничего не изменилось", если новых сообщений нет, — тогда сам чат
       // не скачивается и не разбирается. Если связи нет — просто пропускаем этот раз.
       let res;
-      try { res = await window.storage.get("chatMessages", true); } catch (e) { return; }
+      try { res = await window.storage.getCached(`/api/chat?fromTs=${chatFromTsRef.current}`, "chat-window"); } catch (e) { return; }
       if (!res || res.notModified || res.offline) return;
-      let next;
-      try { next = JSON.parse(res.value); } catch (e) { return; }
-      if (!Array.isArray(next)) return;
+      const fresh = res.data && res.data.rows;
+      if (!Array.isArray(fresh)) return;
+      setChatHasOlder(!!res.data.hasOlder);
       setChatMessages((prev) => {
+        // Звук голосовых в списке не приходит — для уже известных сообщений сохраняем тот, что есть на устройстве
+        const knownAudio = new Map(prev.filter((m) => m.audio && m.audio.dataUrl).map((m) => [m.id, m.audio]));
+        const next = fresh.map((m) => (m.audio && m.audio.lazy && knownAudio.has(m.id) ? { ...m, audio: knownAudio.get(m.id) } : m));
         // Ничего не изменилось с прошлой проверки — не трогаем состояние вообще,
         // иначе React будет перерисовывать часть интерфейса каждые 4 секунды впустую
         // (это и вызывало периодическое "дёргание" на iPhone)
@@ -2762,6 +2875,17 @@ export default function App() {
     setToast("Дубли объединены");
   };
 
+  // При смене фильтров/сортировки таблицы снова показываются с первой порции строк
+  useEffect(() => { setLogVisible(PAGE_ROWS); }, [logEmployeeFilter, logTypeFilter, logSkuFilter, logOptionFilter, logDateFrom, logDateTo, sortKey, sortDir, showDeleted]);
+  useEffect(() => { setHistVisible(PAGE_ROWS); }, [empFilterType, empFilterSku, empFilterDateFrom, empFilterDateTo, empSortKey, empSortDir]);
+  // В любом фильтре выбрали дату раньше загруженного периода — догружаем записи с этой даты
+  useEffect(() => {
+    if (!currentUser || entriesFrom === null) return;
+    const wanted = [logDateFrom, overviewDateFrom, dailyChartFrom, empFilterDateFrom]
+      .filter((d) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= "2020-01-01").sort()[0];
+    if (wanted && wanted < entriesFrom) extendEntriesWindow(wanted);
+  }, [logDateFrom, overviewDateFrom, dailyChartFrom, empFilterDateFrom, entriesFrom, currentUser]);
+
   const styles = { page: { minHeight: "100dvh", background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter', sans-serif", overflowX: "hidden" } };
 
   if (loading) {
@@ -3282,6 +3406,7 @@ export default function App() {
                   )}
                   <div className="mono" style={{ marginLeft: "auto", fontSize: 13, color: "var(--accent)" }}>{fullLog.length} записей · {money(logFilteredTotal)}</div>
                 </div>
+                {renderEntriesWindowNotice()}
 
                 <div style={{ overflowX: "auto" }}>
                   <table>
@@ -3296,7 +3421,7 @@ export default function App() {
                       <th>Статус</th>
                     </tr></thead>
                     <tbody>
-                      {fullLog.map((r) => (
+                      {fullLog.slice(0, logVisible).map((r) => (
                         <tr key={r.id} style={r.deletedAt ? { opacity: 0.5, textDecoration: "line-through" } : undefined}>
                           <td className="mono">{fmtDate(r.date)}</td>
                           <td>{r.employeeName}</td>
@@ -3325,6 +3450,11 @@ export default function App() {
                     </tbody>
                   </table>
                 </div>
+                {fullLog.length > logVisible && (
+                  <div style={{ textAlign: "center", marginTop: 12 }}>
+                    <button className="btn" onClick={() => setLogVisible((n) => n + PAGE_ROWS)}>Показать ещё {Math.min(PAGE_ROWS, fullLog.length - logVisible)} (осталось {fullLog.length - logVisible})</button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -3883,7 +4013,8 @@ export default function App() {
                     {chatActiveThread === "all" ? "Общий чат (видят все сотрудники)" : chatUserName(chatActiveThread)}
                   </div>
                   <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-                    {chatMessagesInActiveThread.length === 0 && <div style={{ fontSize: 13, color: "var(--muted-2)" }}>Сообщений пока нет.</div>}
+                    {chatHasOlder && <button className="btn" style={{ alignSelf: "center", padding: "4px 12px", fontSize: 12 }} onClick={loadOlderChat}>Показать более ранние сообщения</button>}
+                    {chatMessagesInActiveThread.length === 0 && <div style={{ fontSize: 13, color: "var(--muted-2)" }}>{chatHasOlder ? "За последнее время сообщений нет." : "Сообщений пока нет."}</div>}
                     {chatMessagesInActiveThread.map((m) => {
                       const mine = m.from === currentUser.id;
                       return (
@@ -3891,7 +4022,7 @@ export default function App() {
                           {!mine && <div className="mono" style={{ fontSize: 10, color: "var(--muted-2)", marginBottom: 2 }}>{chatUserName(m.from)}</div>}
                           {m.attachedSku != null && <ChatProductCard sku={m.attachedSku} catalog={catalog} getProductImage={getProductImage} setLightbox={setLightbox} />}
                           {m.media && <ChatMediaCard media={m.media} setLightbox={setLightbox} />}
-                          {m.audio && <audio controls src={m.audio.dataUrl} style={{ maxWidth: 220, height: 32 }} />}
+                          {m.audio && <ChatAudio message={m} />}
                           {m.text && (
                             <div style={{ background: mine ? "var(--accent)" : "var(--surface-2)", color: mine ? "#1a1a1a" : "var(--text)", padding: "8px 12px", borderRadius: 12, fontSize: 13, wordBreak: "break-word", marginTop: m.attachedSku != null ? 4 : 0 }}>
                               {m.text}
@@ -4409,6 +4540,7 @@ export default function App() {
                   <div className="mono" style={{ marginLeft: "auto", fontSize: 13, color: "var(--accent)" }}>{filteredMyHistory.length} записей{showEmployeeTotals ? ` · ${money(filteredMyHistoryTotal)}` : ""}</div>
                 </div>
 
+                {renderEntriesWindowNotice()}
                 <div style={{ overflowX: "auto" }}>
                   <table>
                     <thead><tr>
@@ -4421,7 +4553,7 @@ export default function App() {
                       <th></th>
                     </tr></thead>
                     <tbody>
-                      {sortedMyHistory.map((e) => (
+                      {sortedMyHistory.slice(0, histVisible).map((e) => (
                         <tr key={e.id}>
                           <td className="mono">{fmtDate(e.date)}</td>
                           <td>
@@ -4440,6 +4572,11 @@ export default function App() {
                     </tbody>
                   </table>
                 </div>
+                {sortedMyHistory.length > histVisible && (
+                  <div style={{ textAlign: "center", marginTop: 12 }}>
+                    <button className="btn" onClick={() => setHistVisible((n) => n + PAGE_ROWS)}>Показать ещё {Math.min(PAGE_ROWS, sortedMyHistory.length - histVisible)} (осталось {sortedMyHistory.length - histVisible})</button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -4581,7 +4718,8 @@ export default function App() {
                 </div>
                 <div className="chat-panel" style={{ display: "flex", flexDirection: "column", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
                   <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-                    {chatMessagesInActiveThread.length === 0 && <div style={{ fontSize: 13, color: "var(--muted-2)" }}>Сообщений пока нет.</div>}
+                    {chatHasOlder && <button className="btn" style={{ alignSelf: "center", padding: "4px 12px", fontSize: 12 }} onClick={loadOlderChat}>Показать более ранние сообщения</button>}
+                    {chatMessagesInActiveThread.length === 0 && <div style={{ fontSize: 13, color: "var(--muted-2)" }}>{chatHasOlder ? "За последнее время сообщений нет." : "Сообщений пока нет."}</div>}
                     {chatMessagesInActiveThread.map((m) => {
                       const mine = m.from === currentUser.id;
                       return (
@@ -4589,7 +4727,7 @@ export default function App() {
                           {!mine && <div className="mono" style={{ fontSize: 10, color: "var(--muted-2)", marginBottom: 2 }}>{chatUserName(m.from)}</div>}
                           {m.attachedSku != null && <ChatProductCard sku={m.attachedSku} catalog={catalog} getProductImage={getProductImage} setLightbox={setLightbox} />}
                           {m.media && <ChatMediaCard media={m.media} setLightbox={setLightbox} />}
-                          {m.audio && <audio controls src={m.audio.dataUrl} style={{ maxWidth: 220, height: 32 }} />}
+                          {m.audio && <ChatAudio message={m} />}
                           {m.text && (
                             <div style={{ background: mine ? "var(--accent)" : "var(--surface-2)", color: mine ? "#1a1a1a" : "var(--text)", padding: "8px 12px", borderRadius: 12, fontSize: 13, wordBreak: "break-word", marginTop: m.attachedSku != null ? 4 : 0 }}>
                               {m.text}
@@ -5231,6 +5369,30 @@ export default function App() {
 function proxiedImageUrl(url) {
   const bare = url.replace(/^https?:\/\//, "");
   return `https://images.weserv.nl/?url=${encodeURIComponent(bare)}`;
+}
+
+// Голосовое сообщение: звук загружается с сервера только когда его включают
+const chatAudioCache = new Map();
+function ChatAudio({ message }) {
+  const [src, setSrc] = useState(() => message.audio.dataUrl || chatAudioCache.get(message.id) || null);
+  const [state, setState] = useState("idle"); // idle | loading | error
+  const [autoPlay, setAutoPlay] = useState(false);
+  useEffect(() => { if (message.audio.dataUrl) setSrc(message.audio.dataUrl); }, [message.audio.dataUrl]);
+  if (src) return <audio controls autoPlay={autoPlay} src={src} style={{ maxWidth: 220, height: 32 }} />;
+  const load = async () => {
+    setState("loading");
+    try {
+      const data = await window.storage.api("/api/chat/audio/" + encodeURIComponent(message.id));
+      chatAudioCache.set(message.id, data.dataUrl);
+      setAutoPlay(true);
+      setSrc(data.dataUrl);
+    } catch (e) { setState("error"); }
+  };
+  return (
+    <button className="btn chat-icon-btn" style={{ padding: "6px 12px", fontSize: 13 }} disabled={state === "loading"} onClick={load}>
+      {state === "loading" ? "Загрузка…" : state === "error" ? "Не удалось загрузить — повторить" : `▶ Голосовое${message.audio.duration ? " · " + message.audio.duration + " с" : ""}`}
+    </button>
+  );
 }
 
 function ChatMediaCard({ media, setLightbox }) {

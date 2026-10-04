@@ -924,6 +924,66 @@ app.delete("/api/kv/:key", requireAdmin, wrap(async (req, res) => {
   res.json({ key, deleted: existed, shared: true });
 }));
 
+// ===================== Загрузка по частям =====================
+// Записи и чат приложение больше не скачивает целиком: записи — за нужный период,
+// чат — за последнее время (более ранее подгружается по кнопке). Время открытия
+// приложения теперь не зависит от того, сколько данных накопилось за всё время.
+
+const isDateStr = (v) => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
+
+// Записи (упаковка и смены) за период: ?from=ГГГГ-ММ-ДД&to=ГГГГ-ММ-ДД (обе границы
+// включительно, любую можно не указывать). Сотрудник получает только свои.
+app.get("/api/entries", requireUser, wrap(async (req, res) => {
+  const from = isDateStr(req.query.from) ? req.query.from : null;
+  const to = isDateStr(req.query.to) ? req.query.to : null;
+  let rows;
+  if (usesTables("entries")) {
+    const etag = `"e${await tables.version("entries")}-${req.user.id}-${from}-${to}"`;
+    if (req.headers["if-none-match"] === etag) return res.status(304).end();
+    const filter = { gte: from ? { entry_date: from } : {}, lte: to ? { entry_date: to } : {} };
+    if (!access.isAdmin(req.user)) filter.eq = { employee_id: req.user.id };
+    rows = (await tables.query("entries", filter)).map((r) => r.data);
+    res.set("ETag", etag);
+  } else {
+    const all = access.viewFor("entries", (await storeGetJSON("entries", [])) || [], req.user);
+    rows = all.filter((e) => e && (!from || e.date >= from) && (!to || e.date <= to));
+  }
+  sendJSON(req, res, { rows, from, to });
+}));
+
+// Голосовые сообщения в списке чата не передаются (они тяжёлые, а список перечитывается
+// при каждом изменении) — вместо звука приходит отметка lazy, сам звук запрашивается
+// отдельно, когда его включают
+const stripAudio = (m) => (m && m.audio && m.audio.dataUrl ? { ...m, audio: { duration: m.audio.duration, lazy: true } } : m);
+const chatVisible = (m, user) => access.isAdmin(user) || m.threadId === "all" || m.threadId === user.id;
+
+// Сообщения чата начиная с момента fromTs (мс). hasOlder — есть ли более ранние.
+app.get("/api/chat", requireUser, wrap(async (req, res) => {
+  const fromTs = Math.max(0, Math.trunc(Number(req.query.fromTs) || 0));
+  let rows, hasOlder = false;
+  if (usesTables("chatMessages")) {
+    const etag = `"c${await tables.version("chatMessages")}-${req.user.id}-${fromTs}"`;
+    if (req.headers["if-none-match"] === etag) return res.status(304).end();
+    const scope = access.isAdmin(req.user) ? {} : { in: { thread_id: ["all", req.user.id] } };
+    rows = (await tables.query("chatMessages", { ...scope, gte: { ts: fromTs } })).map((r) => r.data);
+    if (fromTs > 0) hasOlder = (await tables.count("chatMessages", { ...scope, lte: { ts: fromTs - 1 } })) > 0;
+    res.set("ETag", etag);
+  } else {
+    const all = ((await storeGetJSON("chatMessages", [])) || []).filter((m) => m && chatVisible(m, req.user));
+    rows = all.filter((m) => (Number(m.timestamp) || 0) >= fromTs);
+    hasOlder = rows.length < all.length;
+  }
+  sendJSON(req, res, { rows: rows.map(stripAudio), fromTs, hasOlder });
+}));
+
+app.get("/api/chat/audio/:id", requireUser, wrap(async (req, res) => {
+  let m;
+  if (usesTables("chatMessages")) m = ((await tables.byIds("chatMessages", [req.params.id]))[0] || {}).data;
+  else m = ((await storeGetJSON("chatMessages", [])) || []).find((x) => x && String(x.id) === req.params.id);
+  if (!m || !chatVisible(m, req.user) || !m.audio || !m.audio.dataUrl) throw new HttpError(404, "Голосовое сообщение не найдено");
+  sendJSON(req, res, { dataUrl: m.audio.dataUrl, duration: m.audio.duration });
+}));
+
 // ===================== Ежедневные снимки данных =====================
 // Раньше снимок делало первое устройство, открывшее приложение за день. Теперь его
 // делает сам сервер — раз в сутки, хранит последние 14.

@@ -76,7 +76,11 @@ export function createStorage({ fetchFn, ls, onAuthExpired }) {
       if (ops === null) return { key, shared: true, unchanged: true };
       await request(`/api/kv/${encodeURIComponent(key)}/patch`, { method: "POST", body: JSON.stringify({ ops }) });
       cache.delete(key); // на сервере теперь новая версия — при следующем чтении скачаем её
-      mirrorSet(key, { key, value: JSON.stringify(next), shared: true });
+      // Копию "на случай без связи" обновляем только для небольших разделов, которые
+      // приложение читает целиком; записи и чат читаются выборками (см. getCached)
+      if (key === "entries") mirrorSet("api:entries-window", { rows: next });
+      else if (key === "chatMessages") mirrorSet("api:chat-window", { rows: next });
+      else mirrorSet(key, { key, value: JSON.stringify(next), shared: true });
       return { key, shared: true };
     },
 
@@ -117,6 +121,30 @@ export function createStorage({ fetchFn, ls, onAuthExpired }) {
       const qs = prefix ? `?prefix=${encodeURIComponent(prefix)}` : "";
       const res = await request(`/api/kv${qs}`);
       return res.json();
+    },
+
+    // Чтение по адресу сервера с теми же удобствами, что и у get(): ответ "не изменилось"
+    // (304) и запасная копия на устройстве на случай отсутствия связи.
+    // mirrorKey — под каким именем хранить запасную копию (адрес может меняться, например
+    // из-за даты в параметрах, а копия нужна одна).
+    async getCached(path, mirrorKey) {
+      const cacheKey = "api:" + path;
+      const cached = cache.get(cacheKey);
+      try {
+        const res = await request(path, cached ? { headers: { "If-None-Match": cached.etag } } : {});
+        if (res.status === 304 && cached) return { data: cached.result, notModified: true };
+        const data = await res.json();
+        const etag = res.headers.get("ETag");
+        if (etag) cache.set(cacheKey, { etag, result: data }); else cache.delete(cacheKey);
+        if (mirrorKey) mirrorSet("api:" + mirrorKey, data);
+        return { data };
+      } catch (err) {
+        if (isNetworkError(err) && mirrorKey) {
+          const mirrored = ls.getItem(MIRROR_PREFIX + "api:" + mirrorKey);
+          if (mirrored !== null) return { data: JSON.parse(mirrored), offline: true };
+        }
+        throw err;
+      }
     },
 
     // Запрос к остальным адресам сервера (вход, регистрация, Ozon и т.д.)
