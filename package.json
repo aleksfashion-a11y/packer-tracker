@@ -1,16 +1,23 @@
 {
   "name": "packer-tracker-server",
-  "version": "2.0.0",
-  "description": "Складской учёт — сервер (Node.js/Express) с key-value хранилищем",
+  "version": "3.0.0",
+  "description": "Складской учёт — сервер (Node.js/Express) + интерфейс, который сервер собирает сам при запуске",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "node lib/build.js"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
+    "esbuild": "^0.25.0",
     "express": "^4.22.2",
-    "pg": "^8.13.1"
+    "pg": "^8.13.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-is": "^19.2.0",
+    "recharts": "^3.0.0",
+    "xlsx": "^0.18.5"
   }
 }

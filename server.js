@@ -2,9 +2,17 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const zlib = require("zlib");
+
+const { applyOps, validateOps, PatchError } = require("./lib/patch");
+const auth = require("./lib/auth");
+const access = require("./lib/access");
+const { ensureBundle } = require("./lib/build");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+app.set("trust proxy", true); // приложение стоит за прокси Timeweb — настоящий IP и https берём из его заголовков
+app.disable("x-powered-by");
 
 // Имя текущего проекта в общей базе данных. Если вы подключите эту же
 // PostgreSQL к другому проекту — просто задайте там другой PROJECT_NAME,
@@ -19,7 +27,12 @@ const DATABASE_URL =
       )}@${process.env.PGHOST}:${process.env.PGPORT || 5432}/${process.env.PGDATABASE}`
     : null);
 
-let store; // объект с методами list/get/set/del — реализация ниже зависит от режима
+// ===================== Хранилище =====================
+// store.get/set всегда оперируют JSON-ТЕКСТОМ (строкой). store.version(key) —
+// короткая "метка версии" значения: меняется при каждой записи. По ней сервер
+// отвечает браузеру "ничего не изменилось" (304), не пересылая само значение.
+
+let store;
 
 function makeFileStore() {
   function resolveDataDir() {
@@ -48,37 +61,57 @@ function makeFileStore() {
     "(будут стёрты при следующем деплое)"
   );
 
+  let cache = null;
   function load() {
-    if (!fs.existsSync(STORE_FILE)) return {};
+    if (cache) return cache;
+    if (!fs.existsSync(STORE_FILE)) { cache = {}; return cache; }
     try {
-      return JSON.parse(fs.readFileSync(STORE_FILE, "utf-8"));
+      cache = JSON.parse(fs.readFileSync(STORE_FILE, "utf-8"));
     } catch (e) {
-      return {};
+      cache = {};
     }
+    return cache;
   }
-  function save(obj) {
-    fs.writeFileSync(STORE_FILE, JSON.stringify(obj));
+  function save() {
+    fs.writeFileSync(STORE_FILE, JSON.stringify(cache));
   }
+  const boot = Date.now().toString(36);
+  const versions = new Map();
+  let counter = 0;
+  const versionOf = (key) => {
+    if (!versions.has(key)) versions.set(key, `${boot}.${++counter}`);
+    return versions.get(key);
+  };
+  const asText = (v) => (typeof v === "string" ? v : JSON.stringify(v));
 
   return {
     async list(prefix) {
-      const obj = load();
-      return Object.keys(obj).filter((k) => k.startsWith(prefix));
+      return Object.keys(load()).filter((k) => k.startsWith(prefix));
     },
     async get(key) {
       const obj = load();
-      return key in obj ? obj[key] : undefined;
+      return key in obj ? asText(obj[key]) : undefined;
+    },
+    async getWithVersion(key) {
+      const obj = load();
+      if (!(key in obj)) return undefined;
+      return { value: asText(obj[key]), version: versionOf(key) };
+    },
+    async version(key) {
+      return key in load() ? versionOf(key) : undefined;
     },
     async set(key, value) {
-      const obj = load();
-      obj[key] = value;
-      save(obj);
+      load();
+      cache[key] = asText(value);
+      versions.set(key, `${boot}.${++counter}`);
+      save();
     },
     async del(key) {
-      const obj = load();
-      const existed = key in obj;
-      delete obj[key];
-      save(obj);
+      load();
+      const existed = key in cache;
+      delete cache[key];
+      versions.delete(key);
+      save();
       return existed;
     },
   };
@@ -90,6 +123,7 @@ function makePgStore() {
     connectionString: DATABASE_URL,
     ssl: { rejectUnauthorized: false },
   });
+  pool.on("error", (err) => console.error("❌ Ошибка соединения с PostgreSQL:", err.message));
 
   const ready = pool.query(`
     CREATE TABLE IF NOT EXISTS kv_store (
@@ -105,43 +139,62 @@ function makePgStore() {
     console.error("❌ Не удалось подключиться к PostgreSQL:", err.message);
   });
 
+  // Значение читаем сразу как текст (value::text) — без лишнего разбора и повторной
+  // сборки JSON на каждом запросе. Историческая особенность: часть старых значений
+  // лежит в базе "дважды обёрнутой" (JSON-строка, внутри которой JSON-текст) — такие
+  // распаковываем один раз здесь, чтобы наружу всегда выходил обычный JSON-текст.
+  const normalize = (text) => {
+    if (typeof text === "string" && text.startsWith('"')) {
+      try {
+        const inner = JSON.parse(text);
+        if (typeof inner === "string") return inner;
+      } catch (e) { /* оставляем как есть */ }
+    }
+    return text;
+  };
+  // Метка версии строки: xmin меняется при ЛЮБОМ изменении строки (в том числе при
+  // ручной правке через pgAdmin), updated_at — при записи из приложения.
+  const VERSION_SQL = "xmin::text || '.' || (extract(epoch from updated_at) * 1000)::bigint::text";
+
   return {
     async list(prefix) {
       await ready;
       const { rows } = await pool.query(
-        "SELECT key FROM kv_store WHERE project = $1 AND key LIKE $2",
-        [PROJECT_NAME, prefix + "%"]
+        "SELECT key FROM kv_store WHERE project = $1 AND left(key, $3) = $2",
+        [PROJECT_NAME, prefix, prefix.length]
       );
       return rows.map((r) => r.key);
     },
     async get(key) {
       await ready;
       const { rows } = await pool.query(
-        "SELECT value FROM kv_store WHERE project = $1 AND key = $2",
+        "SELECT value::text AS v FROM kv_store WHERE project = $1 AND key = $2",
         [PROJECT_NAME, key]
       );
       if (!rows.length) return undefined;
-      const raw = rows[0].value;
-      // Историческая особенность: браузер (App.jsx/entry.jsx) сам оборачивает
-      // значение в JSON.stringify перед отправкой, а затем сам же один раз
-      // распаковывает его при чтении — так исторически сложился протокол между
-      // клиентом и этим хранилищем. Чтобы всё работало ОДИНАКОВО что для браузера,
-      // что для прямого серверного кода (как синхронизация с Ozon), get() всегда
-      // возвращает значение как JSON-текст (строку) — если Postgres уже отдал
-      // готовый разобранный объект/массив (когда значение туда записал сам сервер
-      // напрямую, не через двойное оборачивание), досериализуем его один раз здесь.
-      return typeof raw === "string" ? raw : JSON.stringify(raw);
+      return normalize(rows[0].v);
+    },
+    async getWithVersion(key) {
+      await ready;
+      const { rows } = await pool.query(
+        `SELECT value::text AS v, ${VERSION_SQL} AS ver FROM kv_store WHERE project = $1 AND key = $2`,
+        [PROJECT_NAME, key]
+      );
+      if (!rows.length) return undefined;
+      return { value: normalize(rows[0].v), version: rows[0].ver };
+    },
+    async version(key) {
+      await ready;
+      const { rows } = await pool.query(
+        `SELECT ${VERSION_SQL} AS ver FROM kv_store WHERE project = $1 AND key = $2`,
+        [PROJECT_NAME, key]
+      );
+      return rows.length ? rows[0].ver : undefined;
     },
     async set(key, value) {
       await ready;
-      // Если пришла уже готовая JSON-строка (обычный путь от браузера, который
-      // сам делает JSON.stringify перед отправкой) — записываем её КАК ЕСТЬ, без
-      // повторного оборачивания: Postgres сам корректно распознает и сохранит её
-      // как настоящий JSONB-массив/объект. Раньше здесь стоял JSON.stringify(value)
-      // БЕЗУСЛОВНО, что при значении-строке заворачивало его ВТОРОЙ раз — из-за
-      // этого при прямом серверном чтении (минуя браузерную "обёртку") значение
-      // выглядело как одна большая строка, а не как список товаров — это и стало
-      // причиной сбоя синхронизации с Ozon 27-28 августа 2026.
+      // Пришла готовая JSON-строка — записываем её КАК ЕСТЬ, без повторного
+      // оборачивания: Postgres сам сохранит её как настоящий JSONB-массив/объект.
       const jsonText = typeof value === "string" ? value : JSON.stringify(value);
       await pool.query(
         `INSERT INTO kv_store (project, key, value, updated_at)
@@ -164,13 +217,10 @@ function makePgStore() {
 
 store = DATABASE_URL ? makePgStore() : makeFileStore();
 
-// Удобные обёртки для СЕРВЕРНОГО кода (не браузера), которому нужно работать с
-// НАСТОЯЩИМИ объектами/массивами, а не с "сырым" JSON-текстом, который хранит store.
-// store.get/set всегда оперируют JSON-текстом (строкой) — это исторически сложившийся
-// протокол, совместимый с тем, что уже делает браузерный App.jsx/entry.jsx. Любой
-// НОВЫЙ серверный код (как интеграция с Ozon ниже) должен пользоваться именно этими
-// обёртками, а не store.get/set напрямую — иначе будет тот самый баг с "текстом вместо
-// списка товаров", из-за которого сломалась синхронизация 27-28 августа 2026.
+// Обёртки для СЕРВЕРНОГО кода, которому нужны настоящие объекты/массивы.
+// storeGetJSON — "мягкое" чтение: если значение не читается, возвращает fallback.
+// storeGetJSONStrict — для случаев "прочитать → изменить → записать": если значение
+// есть, но не читается, бросает ошибку — чтобы не записать поверх него пустоту.
 async function storeGetJSON(key, fallback) {
   const raw = await store.get(key);
   if (raw === undefined || raw === null) return fallback;
@@ -180,72 +230,603 @@ async function storeGetJSON(key, fallback) {
     return fallback;
   }
 }
+async function storeGetJSONStrict(key, fallback) {
+  const raw = await store.get(key);
+  if (raw === undefined || raw === null) return fallback;
+  return JSON.parse(raw);
+}
 async function storeSetJSON(key, value) {
   await store.set(key, JSON.stringify(value));
 }
 
+// Очередь на каждый ключ: "прочитать → изменить → записать" для одного и того же
+// ключа выполняется строго по одному, чтобы два одновременных запроса не затёрли
+// результат друг друга.
+const keyLocks = new Map();
+function acquireKeyLock(key) {
+  const prev = keyLocks.get(key) || Promise.resolve();
+  let release;
+  const mine = new Promise((resolve) => { release = resolve; });
+  const tail = prev.then(() => mine);
+  keyLocks.set(key, tail);
+  tail.then(() => { if (keyLocks.get(key) === tail) keyLocks.delete(key); });
+  return prev.then(() => release);
+}
+async function withKeyLock(key, fn) {
+  const release = await acquireKeyLock(key);
+  try {
+    return await fn();
+  } finally {
+    release();
+  }
+}
+
+// ===================== Общие помощники =====================
+
+class HttpError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
+// Оборачивает обработчик: любая ошибка превращается в понятный JSON-ответ
+const wrap = (fn) => (req, res) => {
+  Promise.resolve(fn(req, res)).catch((e) => {
+    const status = e && e.status ? e.status : 500;
+    if (status >= 500) console.error(`[${req.method} ${req.path}]`, e);
+    if (!res.headersSent) res.status(status).json({ error: status >= 500 ? "Ошибка сервера: " + e.message : e.message });
+  });
+};
+
+// JSON-ответ со сжатием: списки записей/каталог/чат сжимаются в 5-10 раз — на
+// мобильном интернете это заметно ускоряет загрузку
+function sendJSON(req, res, obj) {
+  const body = Buffer.from(JSON.stringify(obj), "utf-8");
+  res.set("Content-Type", "application/json; charset=utf-8");
+  const accepts = String(req.headers["accept-encoding"] || "");
+  if (body.length < 1024 || !/\bgzip\b/.test(accepts)) return res.send(body);
+  zlib.gzip(body, { level: 6 }, (err, zipped) => {
+    if (err) return res.send(body);
+    res.set("Content-Encoding", "gzip");
+    res.set("Vary", "Accept-Encoding");
+    res.send(zipped);
+  });
+}
+
+app.use((req, res, next) => {
+  res.set("X-Content-Type-Options", "nosniff");
+  if (req.path.startsWith("/api/")) res.set("Cache-Control", "no-store");
+  next();
+});
 app.use(express.json({ limit: "15mb" }));
+
+// ===================== Интерфейс: сборка и раздача =====================
+// bundle.js собирается самим сервером при запуске (см. lib/build.js)
+
+const bundlePromise = ensureBundle(__dirname, console.log).catch((e) => {
+  console.error("❌ Не удалось собрать интерфейс:", e.message);
+  return { error: e.message };
+});
+
+app.get("/bundle.js", wrap(async (req, res) => {
+  const bundle = await bundlePromise;
+  res.set("Content-Type", "application/javascript; charset=utf-8");
+  if (bundle.error) {
+    res.set("Cache-Control", "no-store");
+    const text = "Приложение не удалось собрать на сервере. Сообщите администратору — подробности в логах приложения.";
+    return res.send(`document.getElementById("root").innerHTML = '<div style="padding:24px;font-family:sans-serif">' + ${JSON.stringify(text)} + '</div>';`);
+  }
+  const etag = `"${bundle.hash}"`;
+  res.set("ETag", etag);
+  res.set("Cache-Control", "no-cache"); // каждый раз короткая сверка с сервером; качается заново только после обновления
+  res.set("Vary", "Accept-Encoding");
+  if (req.headers["if-none-match"] === etag) return res.status(304).end();
+  const accepts = String(req.headers["accept-encoding"] || "");
+  if (bundle.br && /\bbr\b/.test(accepts)) { res.set("Content-Encoding", "br"); return res.send(bundle.br); }
+  if (bundle.gz && /\bgzip\b/.test(accepts)) { res.set("Content-Encoding", "gzip"); return res.send(bundle.gz); }
+  res.send(bundle.js);
+}));
+
+// Номер версии кэша в service worker подставляется автоматически (по номеру сборки
+// интерфейса) — вручную менять v4 → v5 при каждом обновлении больше не нужно
+app.get("/sw.js", wrap(async (req, res) => {
+  const bundle = await bundlePromise;
+  let text = fs.readFileSync(path.join(__dirname, "public", "sw.js"), "utf-8");
+  if (bundle.hash) text = text.replace(/packer-tracker-shell-[\w-]+/, "packer-tracker-shell-" + bundle.hash);
+  res.set("Content-Type", "application/javascript; charset=utf-8");
+  res.set("Cache-Control", "no-cache");
+  res.send(text);
+}));
+
 app.use(express.static(path.join(__dirname, "public")));
 
-// Ключи с префиксом "_" — служебные/секретные (например, учётные данные Ozon).
-// Общий публичный /api/kv, которым пользуется браузерное приложение, к ним доступа
-// не имеет вообще — ни на чтение, ни на запись. Работать с ними может только сам
-// сервер, через отдельные защищённые ниже маршруты /api/ozon/...
+// ===================== Пользователи и сессии =====================
+
+let usersCache = null; // { at, users }
+const USERS_CACHE_MS = 10 * 1000;
+async function getUsers() {
+  if (usersCache && Date.now() - usersCache.at < USERS_CACHE_MS) return usersCache.users;
+  const users = (await storeGetJSON("users", [])) || [];
+  usersCache = { at: Date.now(), users: Array.isArray(users) ? users : [] };
+  return usersCache.users;
+}
+function invalidateUsers() { usersCache = null; }
+
+// Изменение списка сотрудников на сервере: fn получает актуальный список и возвращает новый
+async function mutateUsers(fn) {
+  return withKeyLock("users", async () => {
+    const users = (await storeGetJSONStrict("users", [])) || [];
+    const result = await fn(users);
+    if (result && result.users) {
+      await storeSetJSON("users", result.users);
+      invalidateUsers();
+    }
+    return result;
+  });
+}
+
+// Сессии: в браузере лежит только случайный ключ (cookie, недоступная скриптам),
+// на сервере — его хеш и кому он принадлежит. Хранятся в базе под служебным ключом,
+// поэтому переживают перезапуск и обновление приложения — заново входить не нужно.
+const SESSION_COOKIE = "pt_sid";
+const sessions = new Map(); // хеш ключа → { userId, createdAt, lastSeenAt }
+let sessionsDirty = false;
+const sessionsReady = (async () => {
+  try {
+    const saved = (await storeGetJSON("_sessions", {})) || {};
+    const now = Date.now();
+    for (const [h, s] of Object.entries(saved)) {
+      if (s && s.userId && now - (s.lastSeenAt || s.createdAt || 0) < auth.SESSION_TTL_MS) sessions.set(h, s);
+    }
+  } catch (e) {
+    console.error("Не удалось загрузить сессии:", e.message);
+  }
+})();
+async function saveSessions() {
+  sessionsDirty = false;
+  try {
+    await withKeyLock("_sessions", () => storeSetJSON("_sessions", Object.fromEntries(sessions)));
+  } catch (e) {
+    sessionsDirty = true;
+    console.error("Не удалось сохранить сессии:", e.message);
+  }
+}
+const sessionsTimer = setInterval(() => { if (sessionsDirty) saveSessions(); }, 10 * 60 * 1000);
+if (sessionsTimer.unref) sessionsTimer.unref();
+
+const isHttps = (req) => req.secure || String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim() === "https";
+function setSessionCookie(req, res, token) {
+  const parts = [`${SESSION_COOKIE}=${token}`, "Path=/", "HttpOnly", "SameSite=Lax", `Max-Age=${Math.floor(auth.SESSION_TTL_MS / 1000)}`];
+  if (isHttps(req)) parts.push("Secure");
+  res.set("Set-Cookie", parts.join("; "));
+}
+function clearSessionCookie(req, res) {
+  const parts = [`${SESSION_COOKIE}=`, "Path=/", "HttpOnly", "SameSite=Lax", "Max-Age=0"];
+  if (isHttps(req)) parts.push("Secure");
+  res.set("Set-Cookie", parts.join("; "));
+}
+async function startSession(req, res, user) {
+  await sessionsReady;
+  const token = auth.newToken();
+  const now = Date.now();
+  sessions.set(auth.sha256hex(token), { userId: user.id, createdAt: now, lastSeenAt: now });
+  await saveSessions();
+  setSessionCookie(req, res, token);
+}
+async function dropSessionsOf(userIds, exceptHash) {
+  const ids = new Set(userIds.map(String));
+  let changed = false;
+  for (const [h, s] of sessions) {
+    if (ids.has(String(s.userId)) && h !== exceptHash) { sessions.delete(h); changed = true; }
+  }
+  if (changed) await saveSessions();
+}
+
+// Определяет, кто делает запрос (req.user), для всех /api/...
+app.use("/api", (req, res, next) => {
+  (async () => {
+    // Защита от подделки запросов с чужих сайтов: всё, что что-то меняет, должно
+    // прийти с заголовком, который умеет выставить только само приложение
+    if (req.method !== "GET" && req.method !== "HEAD" && !req.headers["x-requested-with"]) {
+      throw new HttpError(403, "Запрос отклонён");
+    }
+    await sessionsReady;
+    req.user = null;
+    const token = auth.parseCookies(req.headers.cookie)[SESSION_COOKIE];
+    if (token) {
+      const hash = auth.sha256hex(token);
+      const session = sessions.get(hash);
+      const now = Date.now();
+      if (session && now - session.lastSeenAt < auth.SESSION_TTL_MS) {
+        const user = (await getUsers()).find((u) => u && u.id === session.userId);
+        if (user) {
+          req.user = user;
+          req.sessionHash = hash;
+          if (now - session.lastSeenAt > 12 * 60 * 60 * 1000) {
+            session.lastSeenAt = now;
+            sessionsDirty = true;
+            setSessionCookie(req, res, token); // продлеваем срок жизни cookie у тех, кто пользуется
+          }
+        } else {
+          sessions.delete(hash); // сотрудника удалили — сессия больше недействительна
+          sessionsDirty = true;
+        }
+      } else if (session) {
+        sessions.delete(hash);
+        sessionsDirty = true;
+      }
+    }
+  })().then(() => next(), (e) => res.status(e.status || 500).json({ error: e.message }));
+});
+
+const requireUser = (req, res, next) => {
+  if (!req.user) return res.status(401).json({ error: "Нужно войти в систему" });
+  next();
+};
+const requireAdmin = (req, res, next) => {
+  if (!req.user) return res.status(401).json({ error: "Нужно войти в систему" });
+  if (!access.isAdmin(req.user)) return res.status(403).json({ error: "Доступно только администратору" });
+  next();
+};
+
+// Защита от перебора: не больше 10 неудачных попыток на один логин и 60 — с одного
+// адреса за 10 минут (порог по адресу выше, потому что весь склад обычно выходит в
+// интернет с одного адреса — чужая ошибка при вводе не должна блокировать остальных)
+const userLimiter = auth.makeRateLimiter({ max: 10, windowMs: 10 * 60 * 1000 });
+const ipLimiter = auth.makeRateLimiter({ max: 60, windowMs: 10 * 60 * 1000 });
+function checkLimit(req, username) {
+  if (ipLimiter.blocked(req.ip || "?") || (username && userLimiter.blocked(username))) {
+    throw new HttpError(429, "Слишком много неудачных попыток. Подождите 10 минут и попробуйте снова");
+  }
+}
+function failLimit(req, username) {
+  ipLimiter.fail(req.ip || "?");
+  if (username) userLimiter.fail(username);
+}
+function okLimit(req, username) {
+  if (username) userLimiter.reset(username);
+}
+
+async function logLogin(req, user, method) {
+  try {
+    await withKeyLock("loginLog", async () => {
+      const log = (await storeGetJSON("loginLog", [])) || [];
+      log.push({ id: auth.newId(), userId: user.id, userName: user.name, method, device: auth.parseDevice(req.headers["user-agent"]), timestamp: Date.now() });
+      await storeSetJSON("loginLog", log.slice(-500));
+    });
+  } catch (e) { /* журнал входов — не критично */ }
+}
+
+const normUsername = (s) => String(s || "").trim().toLowerCase();
+const normSecretWord = (s) => String(s || "").trim().toLowerCase();
+function checkNewPassword(password) {
+  if (typeof password !== "string" || password.length < auth.MIN_PASSWORD_LENGTH) {
+    throw new HttpError(400, `Пароль должен быть не короче ${auth.MIN_PASSWORD_LENGTH} символов`);
+  }
+  if (password.length > 200) throw new HttpError(400, "Слишком длинный пароль");
+}
+async function isRegistrationOpen() {
+  const settings = (await storeGetJSON("settings", {})) || {};
+  return settings.registrationOpen !== false;
+}
+
+// ---------- Вход / регистрация / восстановление ----------
+
+app.get("/api/auth/state", wrap(async (req, res) => {
+  const users = await getUsers();
+  res.json({
+    hasAdmin: users.some((u) => u && u.role === "admin"),
+    registrationOpen: await isRegistrationOpen(),
+    user: req.user ? access.userForSelf(req.user) : null,
+  });
+}));
+
+// Самый первый запуск: создание первого администратора. Работает, только пока
+// в системе нет ни одного администратора.
+app.post("/api/auth/setup", wrap(async (req, res) => {
+  const { name, username, password } = req.body || {};
+  const uname = normUsername(username);
+  if (!uname || !String(name || "").trim()) throw new HttpError(400, "Заполните все поля");
+  checkNewPassword(password);
+  const result = await mutateUsers(async (users) => {
+    if (users.some((u) => u && u.role === "admin")) throw new HttpError(403, "Администратор уже создан — войдите под его логином");
+    if (users.some((u) => u && u.username === uname)) throw new HttpError(400, "Такой логин уже занят");
+    const admin = { id: auth.newId(), username: uname, passwordHash: await auth.hashSecret(password), role: "admin", name: String(name).trim(), qrToken: auth.newToken() };
+    return { users: [...users, admin], user: admin };
+  });
+  await startSession(req, res, result.user);
+  await logLogin(req, result.user, "первый запуск");
+  res.json({ user: access.userForSelf(result.user) });
+}));
+
+app.post("/api/auth/login", wrap(async (req, res) => {
+  const uname = normUsername((req.body || {}).username);
+  const password = String((req.body || {}).password || "");
+  checkLimit(req, uname);
+  const user = (await getUsers()).find((u) => u && u.username === uname);
+  if (!user) { failLimit(req, null); throw new HttpError(400, "Пользователь не найден"); }
+  const check = await auth.verifySecret(user.passwordHash, password);
+  if (!check.ok) { failLimit(req, uname); throw new HttpError(400, "Неверный пароль"); }
+  okLimit(req, uname);
+  if (check.legacy) {
+    // Старый формат хеша — тихо переводим на новый, раз уж знаем правильный пароль
+    const newHash = await auth.hashSecret(password);
+    await mutateUsers(async (users) => ({ users: users.map((u) => (u.id === user.id ? { ...u, passwordHash: newHash } : u)) }));
+  }
+  await startSession(req, res, user);
+  await logLogin(req, user, "пароль");
+  res.json({ user: access.userForSelf(user) });
+}));
+
+app.post("/api/auth/qr", wrap(async (req, res) => {
+  const token = String((req.body || {}).token || "").trim();
+  checkLimit(req, null);
+  const user = token ? (await getUsers()).find((u) => u && u.qrToken && u.qrToken === token) : null;
+  if (!user) { failLimit(req, null); throw new HttpError(400, "QR-код не распознан"); }
+  await startSession(req, res, user);
+  await logLogin(req, user, "QR");
+  res.json({ user: access.userForSelf(user) });
+}));
+
+app.post("/api/auth/register", wrap(async (req, res) => {
+  const { name, username, password, secretWord } = req.body || {};
+  const uname = normUsername(username);
+  const word = normSecretWord(secretWord);
+  if (!(await isRegistrationOpen())) throw new HttpError(403, "Регистрация закрыта — обратитесь к администратору");
+  if (!uname || !String(name || "").trim() || !word) throw new HttpError(400, "Заполните все поля, включая секретное слово");
+  checkNewPassword(password);
+  checkLimit(req, null);
+  const result = await mutateUsers(async (users) => {
+    if (!users.some((u) => u && u.role === "admin")) throw new HttpError(403, "Сначала нужно создать администратора");
+    if (users.some((u) => u && u.username === uname)) throw new HttpError(400, "Такой логин уже занят");
+    const user = {
+      id: auth.newId(), username: uname,
+      passwordHash: await auth.hashSecret(password), secretWordHash: await auth.hashSecret(word),
+      role: "employee", name: String(name).trim().slice(0, 100), hourlyRate: 0, timerEnabled: false, barcodeAddEnabled: false,
+      qrToken: auth.newToken(),
+    };
+    return { users: [...users, user], user };
+  });
+  await startSession(req, res, result.user);
+  await logLogin(req, result.user, "регистрация");
+  res.json({ user: access.userForSelf(result.user) });
+}));
+
+// Подтверждение личности для восстановления пароля: по QR-коду или по логину + секретному слову
+async function findUserForRecovery(req) {
+  const body = req.body || {};
+  if (body.method === "qr") {
+    const token = String(body.token || "").trim();
+    checkLimit(req, null);
+    const user = token ? (await getUsers()).find((u) => u && u.qrToken && u.qrToken === token) : null;
+    if (!user) { failLimit(req, null); throw new HttpError(400, "QR-код не распознан"); }
+    return { user, method: "восстановление пароля по QR" };
+  }
+  const uname = normUsername(body.username);
+  const word = normSecretWord(body.secretWord);
+  checkLimit(req, uname);
+  const user = (await getUsers()).find((u) => u && u.username === uname);
+  if (!user) { failLimit(req, null); throw new HttpError(400, "Такой логин не найден"); }
+  if (!user.secretWordHash) throw new HttpError(400, "У этого аккаунта не задано секретное слово — используйте QR-код или обратитесь к администратору");
+  const check = await auth.verifySecret(user.secretWordHash, word);
+  if (!check.ok) { failLimit(req, uname); throw new HttpError(400, "Секретное слово не подошло"); }
+  okLimit(req, uname);
+  return { user, method: "восстановление пароля по секретному слову" };
+}
+
+app.post("/api/auth/recover/check", wrap(async (req, res) => {
+  const { user } = await findUserForRecovery(req);
+  res.json({ ok: true, name: user.name });
+}));
+
+app.post("/api/auth/recover", wrap(async (req, res) => {
+  const password = (req.body || {}).newPassword;
+  checkNewPassword(password);
+  const { user, method } = await findUserForRecovery(req);
+  const newHash = await auth.hashSecret(password);
+  await mutateUsers(async (users) => ({ users: users.map((u) => (u.id === user.id ? { ...u, passwordHash: newHash } : u)) }));
+  await dropSessionsOf([user.id]); // пароль сменён — на остальных устройствах нужно войти заново
+  await startSession(req, res, user);
+  await logLogin(req, user, method);
+  res.json({ user: access.userForSelf(user) });
+}));
+
+app.post("/api/auth/logout", wrap(async (req, res) => {
+  if (req.sessionHash) {
+    sessions.delete(req.sessionHash);
+    await saveSessions();
+  }
+  clearSessionCookie(req, res);
+  res.json({ ok: true });
+}));
+
+// Сотрудник задаёт/меняет своё секретное слово
+app.post("/api/auth/secret", requireUser, wrap(async (req, res) => {
+  const word = normSecretWord((req.body || {}).secretWord);
+  if (!word) throw new HttpError(400, "Укажите секретное слово");
+  const hash = await auth.hashSecret(word);
+  await mutateUsers(async (users) => ({ users: users.map((u) => (u.id === req.user.id ? { ...u, secretWordHash: hash } : u)) }));
+  res.json({ ok: true });
+}));
+
+// ---------- Действия администратора над учётными записями ----------
+
+app.post("/api/admin/users/:id/password", requireAdmin, wrap(async (req, res) => {
+  const password = (req.body || {}).password;
+  checkNewPassword(password);
+  const hash = await auth.hashSecret(password);
+  await mutateUsers(async (users) => {
+    if (!users.some((u) => u.id === req.params.id)) throw new HttpError(404, "Сотрудник не найден");
+    return { users: users.map((u) => (u.id === req.params.id ? { ...u, passwordHash: hash } : u)) };
+  });
+  await dropSessionsOf([req.params.id], req.sessionHash);
+  res.json({ ok: true });
+}));
+
+app.post("/api/admin/users/:id/secret", requireAdmin, wrap(async (req, res) => {
+  const word = normSecretWord((req.body || {}).secretWord);
+  if (!word) throw new HttpError(400, "Укажите секретное слово");
+  const hash = await auth.hashSecret(word);
+  await mutateUsers(async (users) => {
+    if (!users.some((u) => u.id === req.params.id)) throw new HttpError(404, "Сотрудник не найден");
+    return { users: users.map((u) => (u.id === req.params.id ? { ...u, secretWordHash: hash } : u)) };
+  });
+  res.json({ ok: true });
+}));
+
+app.post("/api/admin/admins", requireAdmin, wrap(async (req, res) => {
+  const { name, username, password } = req.body || {};
+  const uname = normUsername(username);
+  if (!uname || !String(name || "").trim()) throw new HttpError(400, "Заполните все поля");
+  checkNewPassword(password);
+  await mutateUsers(async (users) => {
+    if (users.some((u) => u && u.username === uname)) throw new HttpError(400, "Логин занят");
+    const admin = { id: auth.newId(), username: uname, passwordHash: await auth.hashSecret(password), role: "admin", name: String(name).trim(), qrToken: auth.newToken() };
+    return { users: [...users, admin] };
+  });
+  res.json({ ok: true });
+}));
+
+// Хеши паролей и секретных слов — только для файла резервной копии (чтобы после
+// восстановления из бэкапа на чистой базе сотрудники могли войти со своими паролями)
+app.get("/api/admin/user-secrets", requireAdmin, wrap(async (req, res) => {
+  const out = {};
+  for (const u of await getUsers()) {
+    out[u.id] = { passwordHash: u.passwordHash || null, secretWordHash: u.secretWordHash || null };
+  }
+  res.json({ secrets: out });
+}));
+
+// ===================== Общее хранилище данных приложения =====================
+// Ключи с префиксом "_" — служебные/секретные (учётные данные Ozon, сессии).
+// Через общий API к ним доступа нет ни у кого — с ними работает только сам сервер.
 function isPrivateKey(key) {
   return key.startsWith("_");
 }
 
-// GET /api/kv?prefix=xxx  -> список ключей
-// GET /api/kv/:key        -> получить одно значение
-app.get("/api/kv", async (req, res) => {
-  try {
-    const prefix = req.query.prefix || "";
-    const keys = (await store.list(prefix)).filter((k) => !isPrivateKey(k));
-    res.json({ keys, prefix, shared: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+app.get("/api/kv", requireUser, wrap(async (req, res) => {
+  const prefix = String(req.query.prefix || "");
+  const keys = (await store.list(prefix)).filter((k) => !isPrivateKey(k) && access.canRead(k, req.user));
+  res.json({ keys, prefix, shared: true });
+}));
 
-app.get("/api/kv/:key", async (req, res) => {
-  try {
-    const key = req.params.key;
-    if (isPrivateKey(key)) return res.status(403).json({ error: "forbidden" });
-    const value = await store.get(key);
-    if (value === undefined) return res.status(404).json({ error: "not found" });
-    res.json({ key, value, shared: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+app.get("/api/kv/:key", requireUser, wrap(async (req, res) => {
+  const key = req.params.key;
+  if (isPrivateKey(key) || !access.canRead(key, req.user)) throw new HttpError(403, "Недостаточно прав");
+  const filtered = access.needsView(key, req.user);
+  const tag = (ver) => `"${ver}-${filtered ? req.user.id : "all"}"`;
 
-app.put("/api/kv/:key", async (req, res) => {
-  try {
-    const key = req.params.key;
-    if (isPrivateKey(key)) return res.status(403).json({ error: "forbidden" });
-    await store.set(key, req.body.value);
-    res.json({ key, value: req.body.value, shared: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+  // Сначала спрашиваем только "метку версии" — если у браузера уже есть эта версия,
+  // само значение из базы даже не читаем (важно для чата: он опрашивается каждые 4 сек)
+  const ifNoneMatch = req.headers["if-none-match"];
+  if (ifNoneMatch) {
+    const ver = await store.version(key);
+    if (ver === undefined) throw new HttpError(404, "not found");
+    if (ifNoneMatch === tag(ver)) return res.status(304).end();
   }
-});
 
-app.delete("/api/kv/:key", async (req, res) => {
+  const found = await store.getWithVersion(key);
+  if (!found) throw new HttpError(404, "not found");
+  let value = found.value;
+  if (filtered) value = JSON.stringify(access.viewFor(key, JSON.parse(value), req.user));
+  res.set("ETag", tag(found.version));
+  sendJSON(req, res, { key, value, shared: true });
+}));
+
+// Применение изменений к ключу — общий путь и для точечных изменений, и для замены целиком
+async function writeKey(req, key, ops) {
+  if (isPrivateKey(key)) throw new HttpError(403, "Недостаточно прав");
+  validateOps(ops);
+  await withKeyLock(key, async () => {
+    const currentText = await store.get(key);
+    const current = currentText === undefined ? undefined : JSON.parse(currentText);
+    // Защита от порчи данных: списку нельзя прислать изменения "как для словаря" и наоборот
+    if (current !== undefined && current !== null) {
+      if (ops.kind === "array" && !Array.isArray(current)) throw new HttpError(409, "Формат данных не совпадает с сохранённым");
+      if (ops.kind === "object" && (Array.isArray(current) || typeof current !== "object")) throw new HttpError(409, "Формат данных не совпадает с сохранённым");
+    }
+    const guarded = await access.guardWrite(key, ops, current, req.user, { getJSON: storeGetJSON });
+    const next = applyOps(current, guarded, access.MERGE_RULES[key]);
+    if (next === undefined) throw new PatchError("Некорректное значение");
+    access.checkResult(key, current, next);
+    await store.set(key, JSON.stringify(next));
+    if (key === "users") {
+      invalidateUsers();
+      const alive = new Set(next.map((u) => String(u.id)));
+      const gone = [...new Set([...sessions.values()].map((s) => String(s.userId)))].filter((id) => !alive.has(id));
+      if (gone.length) await dropSessionsOf(gone);
+    }
+  });
+}
+
+app.post("/api/kv/:key/patch", requireUser, wrap(async (req, res) => {
+  await writeKey(req, req.params.key, (req.body || {}).ops);
+  res.json({ ok: true });
+}));
+
+// Замена значения целиком (старый способ записи) — оставлен для совместимости
+app.put("/api/kv/:key", requireUser, wrap(async (req, res) => {
+  const raw = (req.body || {}).value;
+  let value;
   try {
-    const key = req.params.key;
-    if (isPrivateKey(key)) return res.status(403).json({ error: "forbidden" });
-    const existed = await store.del(key);
-    res.json({ key, deleted: existed, shared: true });
+    value = typeof raw === "string" ? JSON.parse(raw) : raw;
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    throw new HttpError(400, "Некорректное значение");
   }
-});
+  if (value === undefined) throw new HttpError(400, "Некорректное значение");
+  await writeKey(req, req.params.key, { kind: "replace", value });
+  res.json({ key: req.params.key, shared: true });
+}));
+
+app.delete("/api/kv/:key", requireAdmin, wrap(async (req, res) => {
+  const key = req.params.key;
+  if (isPrivateKey(key) || key === "users") throw new HttpError(403, "Недостаточно прав");
+  const existed = await withKeyLock(key, () => store.del(key));
+  res.json({ key, deleted: existed, shared: true });
+}));
+
+// ===================== Ежедневные снимки данных =====================
+// Раньше снимок делало первое устройство, открывшее приложение за день. Теперь его
+// делает сам сервер — раз в сутки, хранит последние 14.
+const SNAPSHOT_KEYS = [
+  "users", "packagingOptions", "entries", "timerSessions", "priceHistory", "customBarcodes", "settings",
+  "catalog", "productImages", "packagingMaterials", "productPackagingLinks", "packagingPurchaseRequest", "messages",
+];
+function moscowDateStr() {
+  // en-CA даёт формат ГГГГ-ММ-ДД
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+}
+async function ensureDailySnapshot() {
+  try {
+    const key = `snapshot:${moscowDateStr()}`;
+    if ((await store.version(key)) !== undefined) return;
+    const users = await storeGetJSON("users", []);
+    if (!Array.isArray(users) || users.length === 0) return; // приложение ещё пустое — снимать нечего
+    const snapshot = { exportedAt: new Date().toISOString() };
+    for (const k of SNAPSHOT_KEYS) {
+      const v = await storeGetJSON(k, undefined);
+      if (v !== undefined) snapshot[k] = v;
+    }
+    await storeSetJSON(key, snapshot);
+    const keys = (await store.list("snapshot:")).sort();
+    for (const old of keys.slice(0, Math.max(0, keys.length - 14))) await store.del(old);
+    console.log(`📦 Сделан ежедневный снимок данных: ${key}`);
+  } catch (e) {
+    console.error("Не удалось сделать ежедневный снимок:", e.message);
+  }
+}
+const snapshotTimer = setInterval(ensureDailySnapshot, 30 * 60 * 1000);
+if (snapshotTimer.unref) snapshotTimer.unref();
+setTimeout(ensureDailySnapshot, 15 * 1000);
 
 // ===================== Синхронизация каталога с Ozon =====================
 // Учётные данные (Client-Id + Api-Key от Ozon Seller API) хранятся под "приватным"
 // ключом _ozonCredentials — недоступным через общий /api/kv (см. isPrivateKey выше).
 // Наружу (в браузер) сами ключи никогда не возвращаются — только факт "настроено/нет"
 // и последние 4 символа Client-Id для узнавания.
+
+app.use("/api/ozon", requireAdmin);
 
 app.get("/api/ozon/status", async (req, res) => {
   try {
@@ -282,6 +863,7 @@ app.delete("/api/ozon/credentials", async (req, res) => {
 });
 
 app.post("/api/ozon/sync", async (req, res) => {
+  let releaseCatalog = null;
   try {
     const creds = await storeGetJSON("_ozonCredentials", null);
     if (!creds || !creds.clientId || !creds.apiKey) {
@@ -367,7 +949,10 @@ app.post("/api/ozon/sync", async (req, res) => {
     //
     // Дополнительно запоминаем, что именно добавили/изменили — чтобы можно было
     // одной кнопкой откатить именно эту синхронизацию, не трогая всё остальное.
-    const currentCatalog = (await storeGetJSON("catalog", [])) || [];
+    // На время слияния "запираем" каталог, чтобы одновременная правка товара из
+    // приложения не потерялась и не затёрла результат синхронизации
+    releaseCatalog = await acquireKeyLock("catalog");
+    const currentCatalog = (await storeGetJSONStrict("catalog", [])) || [];
     console.log(`[Ozon sync] Начало слияния: в каталоге сейчас ${currentCatalog.length} товаров, от Ozon получено ${dedupedProducts.length} товаров (после схлопывания внутренних дублей).`);
     // Точный "рентген" первых нескольких артикулов с обеих сторон — чтобы увидеть,
     // почему сравнение не находит совпадений, если это повторится: тип значения
@@ -473,6 +1058,8 @@ app.post("/api/ozon/sync", async (req, res) => {
     res.json({ timestamp: historyEntry.timestamp, total: historyEntry.total, added, updated, photosUpdated });
   } catch (e) {
     res.status(500).json({ error: "Ошибка синхронизации с Ozon: " + e.message });
+  } finally {
+    if (releaseCatalog) releaseCatalog();
   }
 });
 
@@ -498,13 +1085,15 @@ app.get("/api/ozon/history", async (req, res) => {
 // они не трогаются (кроме случая, когда та же самая позиция была ещё раз изменена, тогда
 // восстановится состояние на момент именно ЭТОЙ отменяемой синхронизации, а не более раннее).
 app.post("/api/ozon/undo/:id", async (req, res) => {
+  let releaseCatalog = null;
   try {
     const history = (await storeGetJSON("_ozonSyncHistory", [])) || [];
     const entry = history.find((h) => h.id === req.params.id);
     if (!entry) return res.status(404).json({ error: "Такая синхронизация не найдена в истории" });
     if (entry.undone) return res.status(400).json({ error: "Эта синхронизация уже была отменена ранее" });
 
-    let catalog = (await storeGetJSON("catalog", [])) || [];
+    releaseCatalog = await acquireKeyLock("catalog");
+    let catalog = (await storeGetJSONStrict("catalog", [])) || [];
     const addedSet = new Set(entry.addedSkus.map((s) => String(s)));
     catalog = catalog.filter((p) => !addedSet.has(String(p.sku)));
     for (const u of entry.updatedItems) {
@@ -524,14 +1113,25 @@ app.post("/api/ozon/undo/:id", async (req, res) => {
     res.json({ ok: true, removedCount: entry.addedSkus.length, restoredCount: entry.updatedItems.length });
   } catch (e) {
     res.status(500).json({ error: "Не удалось отменить синхронизацию: " + e.message });
+  } finally {
+    if (releaseCatalog) releaseCatalog();
   }
 });
 
+
+app.use("/api", (req, res) => res.status(404).json({ error: "not found" }));
 
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`Сервер запущен на порту ${PORT}`);
+});
+
+// При остановке контейнера (каждый деплой) — досохраняем отметки сессий
+process.on("SIGTERM", () => {
+  const done = () => server.close(() => process.exit(0));
+  if (sessionsDirty) saveSessions().then(done, done); else done();
+  setTimeout(() => process.exit(0), 5000).unref();
 });

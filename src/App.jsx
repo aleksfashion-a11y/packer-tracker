@@ -96,10 +96,19 @@ const daysSince = (dateStr) => {
   return Math.round((d2 - d1) / (1000 * 60 * 60 * 24));
 };
 
-async function hashPassword(pw) {
-  const enc = new TextEncoder().encode(pw);
-  const buf = await crypto.subtle.digest("SHA-256", enc);
-  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+// Запрос к серверу (вход, регистрация, действия администратора и т.п.).
+// При ошибке бросает исключение с понятным текстом (e.message) — его можно показать пользователю.
+async function api(path, body, method) {
+  try {
+    return await window.storage.api(path, body, method);
+  } catch (e) {
+    if (!e || typeof e.status !== "number") {
+      const err = new Error("Нет связи с сервером — проверьте интернет и попробуйте ещё раз");
+      err.offline = true;
+      throw err;
+    }
+    throw e;
+  }
 }
 
 async function safeGet(key, shared, fallback) {
@@ -110,14 +119,29 @@ async function safeGet(key, shared, fallback) {
     return fallback;
   }
 }
-async function safeSet(key, value, shared) {
+// Сохранение. Для общих данных (shared) передаётся ещё и base — значение, из которого
+// получено новое: на сервер уходит только разница между ними, и сервер применяет её
+// к актуальным данным (так одновременная работа нескольких человек не затирает чужое).
+// Если сохранить не удалось — возвращает false и сообщает об этом приложению событием
+// "packer-save-failed" (оно покажет предупреждение), detail.offline = true — нет связи.
+async function safeSet(key, value, shared, base) {
   try {
-    await window.storage.set(key, JSON.stringify(value), shared);
+    if (shared) await window.storage.setShared(key, value, base);
+    else await window.storage.set(key, JSON.stringify(value), false);
     return true;
   } catch (e) {
     console.error("storage set failed", key, e);
+    const offline = !e || typeof e.status !== "number";
+    safeSet.lastFailure = { key, offline, message: e && e.message };
+    if (shared) {
+      try { window.dispatchEvent(new CustomEvent("packer-save-failed", { detail: { key, offline, message: e && e.message, status: e && e.status } })); } catch (e2) {}
+    }
     return false;
   }
+}
+// Точно ли на сервере нет такого значения (а не просто не удалось его прочитать)
+async function sharedKeyMissing(key) {
+  try { await window.storage.get(key, true); return false; } catch (e) { return !!e && e.status === 404; }
 }
 
 let sharedAudioCtx = null;
@@ -308,6 +332,10 @@ export default function App() {
   const [employeeQuickReplies, setEmployeeQuickReplies] = useState(DEFAULT_EMPLOYEE_QUICK_REPLIES);
 
   const [currentUser, setCurrentUser] = useState(null);
+  const [serverHasAdmin, setServerHasAdmin] = useState(true); // есть ли уже администратор (сообщает сервер)
+  const [registrationOpen, setRegistrationOpen] = useState(true); // разрешена ли самостоятельная регистрация
+  const [authBusy, setAuthBusy] = useState(false);
+  const [recoverName, setRecoverName] = useState("");
   const [authMode, setAuthMode] = useState("login");
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -433,32 +461,50 @@ export default function App() {
   const [msgTarget, setMsgTarget] = useState("all");
   const searchInputRef = useRef(null);
 
-  const loadSharedData = async () => {
-    const u = await safeGet("users", true, []);
-    let cat = await safeGet("catalog", true, null);
+  // userHint — кто сейчас вошёл (передаётся сразу после входа, когда состояние
+  // currentUser ещё не успело обновиться)
+  const loadSharedData = async (userHint) => {
+    const me = userHint || currentUser;
+    // Разделы, которые сервер отдаёт только администратору, сотрудник даже не запрашивает
+    const adminOnly = (key, fallback) => (me && me.role === "admin" ? safeGet(key, true, fallback) : Promise.resolve(fallback));
+    // Все разделы запрашиваются одновременно, а не по очереди — приложение открывается быстрее
+    const [u, catRaw, poRaw, ent, ts, ph, cb, pi, ll, din, msgs, chatMsgs, pm, ppr, ppl, settings] = await Promise.all([
+      safeGet("users", true, []),
+      safeGet("catalog", true, null),
+      safeGet("packagingOptions", true, null),
+      safeGet("entries", true, []),
+      safeGet("timerSessions", true, []),
+      adminOnly("priceHistory", []),
+      safeGet("customBarcodes", true, []),
+      safeGet("productImages", true, {}),
+      adminOnly("loginLog", []),
+      adminOnly("dismissedInactiveNotices", {}),
+      safeGet("messages", true, []),
+      safeGet("chatMessages", true, []),
+      safeGet("packagingMaterials", true, []),
+      safeGet("packagingPurchaseRequest", true, []),
+      safeGet("productPackagingLinks", true, {}),
+      safeGet("settings", true, { currency: "₽", showEmployeeTotals: true }),
+    ]);
+    // Начальный каталог и цены записываются на сервер только в одном случае: сервер
+    // точно ответил, что таких данных ещё нет (самый первый запуск), и вошёл администратор.
+    // Если каталог просто не удалось прочитать (сбой связи/сервера) — НИЧЕГО не записываем:
+    // раньше в такой ситуации настоящий каталог мог быть затёрт начальным.
+    let cat = catRaw;
     if (cat === null) {
-      cat = SEED_CATALOG;
-      await safeSet("catalog", cat, true);
+      if (await sharedKeyMissing("catalog")) {
+        cat = SEED_CATALOG;
+        if (me && me.role === "admin") await safeSet("catalog", cat, true, undefined);
+      } else cat = [];
     }
     setCatalog(cat);
-    let po = await safeGet("packagingOptions", true, null);
+    let po = poRaw;
     if (po === null) {
-      po = DEFAULT_PACKAGING_OPTIONS;
-      await safeSet("packagingOptions", po, true);
+      if (await sharedKeyMissing("packagingOptions")) {
+        po = DEFAULT_PACKAGING_OPTIONS;
+        if (me && me.role === "admin") await safeSet("packagingOptions", po, true, undefined);
+      } else po = [];
     }
-    const ent = await safeGet("entries", true, []);
-    const ts = await safeGet("timerSessions", true, []);
-    const ph = await safeGet("priceHistory", true, []);
-    const cb = await safeGet("customBarcodes", true, []);
-    const pi = await safeGet("productImages", true, {});
-    const ll = await safeGet("loginLog", true, []);
-    const din = await safeGet("dismissedInactiveNotices", true, {});
-    const msgs = await safeGet("messages", true, []);
-    const chatMsgs = await safeGet("chatMessages", true, []);
-    const pm = await safeGet("packagingMaterials", true, []);
-    const ppr = await safeGet("packagingPurchaseRequest", true, []);
-    const ppl = await safeGet("productPackagingLinks", true, {});
-    const settings = await safeGet("settings", true, { currency: "₽", showEmployeeTotals: true });
     setUsers(u);
     // currentUser — отдельный снимок пользователя, сохранённый при входе; если админ
     // поменял его данные (ставку, роль и т.п.), это не подтянется само собой без
@@ -488,6 +534,7 @@ export default function App() {
     setAdminQuickReplies(settings.adminQuickReplies || DEFAULT_ADMIN_QUICK_REPLIES);
     setEmployeeQuickReplies(settings.employeeQuickReplies || DEFAULT_EMPLOYEE_QUICK_REPLIES);
     setShowChatReadReceipts(settings.showChatReadReceipts !== false);
+    setRegistrationOpen(settings.registrationOpen !== false);
     setShowChartDaily(settings.showChartDaily !== false);
     setShowChartEmployees(settings.showChartEmployees !== false);
     setShowChartTopProducts(settings.showChartTopProducts !== false);
@@ -548,12 +595,6 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
-      const u = await loadSharedData();
-      const sessionUserId = await safeGet("session", false, null);
-      if (sessionUserId) {
-        const su = u.find((x) => x.id === sessionUserId);
-        if (su) setCurrentUser(su);
-      }
       const savedTheme = await safeGet("theme", false, "dark");
       setTheme(savedTheme === "light" ? "light" : "dark");
       const savedSound = await safeGet("soundEnabled", false, true);
@@ -561,29 +602,30 @@ export default function App() {
       const savedLang = await safeGet("lang", false, "ru");
       setLang(savedLang === "uz" ? "uz" : "ru");
 
-      try {
-        const snapKey = `snapshot:${todayStr()}`;
-        const existing = await safeGet(snapKey, true, null);
-        if (existing === null) {
-          const settings = await safeGet("settings", true, {});
-          const ent = await safeGet("entries", true, []);
-          const po = await safeGet("packagingOptions", true, []);
-          const ts = await safeGet("timerSessions", true, []);
-          const ph = await safeGet("priceHistory", true, []);
-          const cb = await safeGet("customBarcodes", true, []);
-          const snapshot = {
-            exportedAt: new Date().toISOString(),
-            users: u, packagingOptions: po, entries: ent, timerSessions: ts, priceHistory: ph, customBarcodes: cb, settings,
-          };
-          await safeSet(snapKey, snapshot, true);
-          const listRes = await window.storage.list("snapshot:", true);
-          const keys = (listRes && listRes.keys ? listRes.keys : []).sort();
-          if (keys.length > 14) {
-            const toDelete = keys.slice(0, keys.length - 14);
-            for (const k of toDelete) { try { await window.storage.delete(k, true); } catch (e) {} }
-          }
+      // Кто вошёл на этом устройстве — решает сервер (по сессии), а не само приложение
+      let authState = null;
+      try { authState = await api("/api/auth/state"); } catch (e) { authState = null; }
+      if (authState) {
+        setServerHasAdmin(authState.hasAdmin !== false);
+        setRegistrationOpen(authState.registrationOpen !== false);
+        if (authState.user) {
+          setCurrentUser(authState.user);
+          await safeSet("session", authState.user.id, false);
+          await loadSharedData(authState.user);
+        } else {
+          await safeSet("session", null, false);
+          try { window.storage.resetShared(); } catch (e) {}
         }
-      } catch (e) { /* snapshotting is best-effort */ }
+      } else {
+        // Сервер недоступен (нет интернета) — открываемся по последним сохранённым на
+        // устройстве данным, как и раньше; записи уйдут на сервер, когда связь вернётся
+        const sessionUserId = await safeGet("session", false, null);
+        if (sessionUserId) {
+          const u = await loadSharedData();
+          const su = u.find((x) => x.id === sessionUserId);
+          if (su) setCurrentUser(su);
+        }
+      }
 
       setLoading(false);
     })();
@@ -708,11 +750,28 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  const exportFullBackup = () => {
+  const exportFullBackup = async () => {
+    // Хеши паролей в обычных данных приложения больше не передаются — для резервной
+    // копии запрашиваем их отдельно, чтобы после восстановления сотрудники могли войти
+    let usersForBackup = users;
+    try {
+      const { secrets } = await api("/api/admin/user-secrets");
+      usersForBackup = users.map((u) => {
+        const sec = secrets[u.id] || {};
+        const out = { ...u };
+        if (sec.passwordHash) out.passwordHash = sec.passwordHash;
+        if (sec.secretWordHash) out.secretWordHash = sec.secretWordHash; else delete out.secretWordHash;
+        return out;
+      });
+    } catch (e) {
+      setToast("Не удалось получить данные для бэкапа: " + e.message);
+      return;
+    }
     const backup = {
       exportedAt: new Date().toISOString(),
-      users, packagingOptions, entries, timerSessions, priceHistory, customBarcodes,
-      settings: { currency, showEmployeeTotals, showTimerTab, showChartDaily, showChartEmployees, showChartTopProducts, showChartComparison, enabledAdminTabs, adminQuickReplies, employeeQuickReplies, showChatReadReceipts },
+      users: usersForBackup, packagingOptions, entries, timerSessions, priceHistory, customBarcodes,
+      catalog, productImages, packagingMaterials, productPackagingLinks, packagingPurchaseRequest, messages, chatMessages,
+      settings: { currency, showEmployeeTotals, showTimerTab, showChartDaily, showChartEmployees, showChartTopProducts, showChartComparison, showChartHeatmap, enabledAdminTabs, adminQuickReplies, employeeQuickReplies, showChatReadReceipts, registrationOpen },
     };
     downloadJson(backup, `backup_${todayStr()}.json`);
     setToast("Резервная копия скачана");
@@ -731,7 +790,16 @@ export default function App() {
           await persistTimerSessions(data.timerSessions || []);
           await persistPriceHistory(data.priceHistory || []);
           await persistCustomBarcodes(data.customBarcodes || []);
+          // Эти разделы есть только в новых бэкапах — в старых файлах их нет, тогда не трогаем
+          if (Array.isArray(data.catalog)) await persistCatalog(data.catalog);
+          if (data.productImages) await persistProductImages(data.productImages);
+          if (Array.isArray(data.packagingMaterials)) await persistPackagingMaterials(data.packagingMaterials);
+          if (data.productPackagingLinks) await persistProductPackagingLinks(data.productPackagingLinks);
+          if (Array.isArray(data.packagingPurchaseRequest)) await persistPackagingPurchaseRequest(data.packagingPurchaseRequest);
+          if (Array.isArray(data.messages)) await persistMessages(data.messages);
+          if (Array.isArray(data.chatMessages)) await persistChatMessages(data.chatMessages);
           if (data.settings) await persistSettings(data.settings);
+          await loadSharedData();
           setToast("Данные восстановлены из бэкапа");
         });
       } catch (err) {
@@ -759,21 +827,14 @@ export default function App() {
     } catch (e) { setToast("Не удалось скачать снэпшот"); }
   };
 
-  const persistUsers = async (next) => { setUsers(next); await safeSet("users", next, true); };
+  const persistUsers = async (next) => { setUsers(next); await safeSet("users", next, true, users); };
   const toggleMyIncognito = async (checked) => {
     if (!currentUser) return;
     const next = users.map((u) => u.id === currentUser.id ? { ...u, chatIncognito: checked } : u);
     await persistUsers(next);
     setCurrentUser((cu) => ({ ...cu, chatIncognito: checked }));
   };
-  const resetAllTestData = async () => {
-    askConfirm("Это тестовый сброс мокапа — сотрудники, админы, пароли и записи будут удалены безвозвратно. Продолжить?", async () => {
-      await safeSet("users", [], true);
-      await safeSet("session", null, false);
-      try { window.location.reload(); } catch (e) { setUsers([]); setCurrentUser(null); }
-    });
-  };
-  const persistCatalog = async (next) => { setCatalog(next); await safeSet("catalog", next, true); };
+  const persistCatalog = async (next) => { setCatalog(next); await safeSet("catalog", next, true, catalog); };
   const addProduct = async () => {
     setNewProductError("");
     const skuVal = newProductSku.trim();
@@ -900,10 +961,10 @@ export default function App() {
     }
     setOzonSyncing(false);
   };
-  const persistPackagingOptions = async (next) => { setPackagingOptions(next); await safeSet("packagingOptions", next, true); };
-  const persistPackagingMaterials = async (next) => { setPackagingMaterials(next); await safeSet("packagingMaterials", next, true); };
-  const persistProductPackagingLinks = async (next) => { setProductPackagingLinks(next); await safeSet("productPackagingLinks", next, true); };
-  const persistPackagingPurchaseRequest = async (next) => { setPackagingPurchaseRequest(next); await safeSet("packagingPurchaseRequest", next, true); };
+  const persistPackagingOptions = async (next) => { setPackagingOptions(next); await safeSet("packagingOptions", next, true, packagingOptions); };
+  const persistPackagingMaterials = async (next) => { setPackagingMaterials(next); await safeSet("packagingMaterials", next, true, packagingMaterials); };
+  const persistProductPackagingLinks = async (next) => { setProductPackagingLinks(next); await safeSet("productPackagingLinks", next, true, productPackagingLinks); };
+  const persistPackagingPurchaseRequest = async (next) => { setPackagingPurchaseRequest(next); await safeSet("packagingPurchaseRequest", next, true, packagingPurchaseRequest); };
 
   // Добавляет позицию в заявку на закупку упаковки (если такая упаковка уже в заявке —
   // прибавляет к уже указанному количеству, а не создаёт вторую строку)
@@ -1223,8 +1284,8 @@ export default function App() {
     });
   };
 
-  const persistCustomBarcodes = async (next) => { setCustomBarcodes(next); await safeSet("customBarcodes", next, true); };
-  const persistProductImages = async (next) => { setProductImages(next); await safeSet("productImages", next, true); };
+  const persistCustomBarcodes = async (next) => { setCustomBarcodes(next); await safeSet("customBarcodes", next, true, customBarcodes); };
+  const persistProductImages = async (next) => { setProductImages(next); await safeSet("productImages", next, true, productImages); };
   const getProductImage = (sku) => {
     const v = productImages[sku];
     if (!v) return null;
@@ -1349,28 +1410,7 @@ export default function App() {
     };
     reader.readAsArrayBuffer(file);
   };
-  const persistLoginLog = async (next) => { setLoginLog(next); await safeSet("loginLog", next, true); };
-  const parseDevice = (ua) => {
-    let os = "Неизвестно", browser = "";
-    if (/Windows/i.test(ua)) os = "Windows";
-    else if (/Android/i.test(ua)) os = "Android";
-    else if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS";
-    else if (/Mac OS/i.test(ua)) os = "macOS";
-    else if (/Linux/i.test(ua)) os = "Linux";
-    if (/Edg/i.test(ua)) browser = "Edge";
-    else if (/Chrome/i.test(ua)) browser = "Chrome";
-    else if (/Firefox/i.test(ua)) browser = "Firefox";
-    else if (/Safari/i.test(ua)) browser = "Safari";
-    return browser ? `${os} · ${browser}` : os;
-  };
-  const logLogin = async (user, method) => {
-    try {
-      const entry = { id: uid(), userId: user.id, userName: user.name, method, device: parseDevice(navigator.userAgent || ""), timestamp: Date.now() };
-      const next = [...loginLog, entry].slice(-500);
-      await persistLoginLog(next);
-    } catch (e) { /* logging is best-effort */ }
-  };
-  const persistMessages = async (next) => { setMessages(next); await safeSet("messages", next, true); };
+  const persistMessages = async (next) => { setMessages(next); await safeSet("messages", next, true, messages); };
   const sendMessage = async (text, toEmployeeId) => {
     if (!text.trim() || !currentUser) return;
     const msg = { id: uid(), from: currentUser.name, toEmployeeId: toEmployeeId || null, text: text.trim(), timestamp: Date.now(), readBy: [] };
@@ -1387,7 +1427,7 @@ export default function App() {
       await persistMessages(messages.filter((m) => m.id !== msgId));
     });
   };
-  const persistChatMessages = async (next) => { setChatMessages(next); await safeSet("chatMessages", next, true); };
+  const persistChatMessages = async (next) => { setChatMessages(next); await safeSet("chatMessages", next, true, chatMessages); };
   const sendChatMessage = async (threadId, text, attachedSku, media, audio) => {
     if (!text.trim() && !attachedSku && !media && !audio) return;
     if (!currentUser) return;
@@ -1462,8 +1502,10 @@ export default function App() {
   };
   const persistEntries = async (next, opts = {}) => {
     setEntries(next);
-    const ok = await safeSet("entries", next, true);
-    if (!ok && opts.newEntry) {
+    const ok = await safeSet("entries", next, true, entries);
+    // В офлайн-очередь кладём только если причина — отсутствие связи. Если сервер
+    // запись отклонил (нет прав и т.п.), повторять её бесконечно бессмысленно.
+    if (!ok && opts.newEntry && safeSet.lastFailure && safeSet.lastFailure.offline) {
       // Не удалось отправить на сервер (нет сети) — сама запись всё равно уже
       // видна локально (setEntries выше), а в очередь на досылку кладём именно
       // её, чтобы не потерять и отправить, как только связь вернётся
@@ -1477,12 +1519,23 @@ export default function App() {
     const queue = loadOfflineQueue();
     if (queue.length === 0 || !navigator.onLine) return;
     try {
-      const serverEntries = await safeGet("entries", true, null);
-      if (serverEntries === null) return;
+      // Читаем напрямую с сервера: если связи всё ещё нет (вернулись данные из кэша
+      // устройства) — выходим и пробуем позже
+      let res;
+      try { res = await window.storage.get("entries", true); } catch (e) { return; }
+      if (!res || res.offline) return;
+      const serverEntries = JSON.parse(res.value);
       const existingIds = new Set(serverEntries.map((e) => e.id));
       const toAdd = queue.filter((e) => !existingIds.has(e.id));
       const merged = [...serverEntries, ...toAdd];
-      const ok = await safeSet("entries", merged, true);
+      const ok = await safeSet("entries", merged, true, serverEntries);
+      if (!ok && safeSet.lastFailure && !safeSet.lastFailure.offline) {
+        // Сервер отклонил эти записи — убираем их из очереди, иначе они будут
+        // пытаться отправиться вечно
+        saveOfflineQueue([]);
+        setPendingSyncCount(0);
+        return;
+      }
       if (ok) {
         setEntries(merged);
         saveOfflineQueue([]);
@@ -1519,10 +1572,11 @@ export default function App() {
       clearInterval(interval);
     };
   }, []);
-  const persistTimerSessions = async (next) => { setTimerSessions(next); await safeSet("timerSessions", next, true); };
-  const persistPriceHistory = async (next) => { setPriceHistory(next); await safeSet("priceHistory", next, true); };
+  const persistTimerSessions = async (next) => { setTimerSessions(next); await safeSet("timerSessions", next, true, timerSessions); };
+  const persistPriceHistory = async (next) => { setPriceHistory(next); await safeSet("priceHistory", next, true, priceHistory); };
   const persistSettings = async (updates) => {
-    const next = { currency, showEmployeeTotals, showTimerTab, showChartDaily, showChartEmployees, showChartTopProducts, showChartComparison, showChartHeatmap, enabledAdminTabs, adminQuickReplies, employeeQuickReplies, showChatReadReceipts, ...updates };
+    const base = { currency, showEmployeeTotals, showTimerTab, showChartDaily, showChartEmployees, showChartTopProducts, showChartComparison, showChartHeatmap, enabledAdminTabs, adminQuickReplies, employeeQuickReplies, showChatReadReceipts, registrationOpen };
+    const next = { ...base, ...updates };
     setCurrency(next.currency);
     setShowEmployeeTotals(next.showEmployeeTotals);
     setShowTimerTab(next.showTimerTab);
@@ -1535,7 +1589,8 @@ export default function App() {
     setAdminQuickReplies(next.adminQuickReplies);
     setEmployeeQuickReplies(next.employeeQuickReplies);
     setShowChatReadReceipts(next.showChatReadReceipts);
-    await safeSet("settings", next, true);
+    setRegistrationOpen(next.registrationOpen !== false);
+    await safeSet("settings", next, true, base);
   };
   const toggleAdminTabEnabled = (key, checked) => {
     const next = { ...enabledAdminTabs, [key]: checked };
@@ -1577,7 +1632,30 @@ export default function App() {
   }, [catalog, customBarcodes]);
   const entryAmount = (e) => e.type === "piece" ? e.qty * e.unitPrice : e.hours * e.rate;
 
-  const hasAdmin = users.some((u) => u.role === "admin");
+  // Общая часть после любого успешного входа: сервер уже завёл сессию, осталось
+  // запомнить пользователя на устройстве и загрузить его данные
+  const finishLogin = async (user) => {
+    try { window.storage.resetShared(); } catch (e) {}
+    setCurrentUser(user);
+    setServerHasAdmin(true);
+    await safeSet("session", user.id, false);
+    await loadSharedData(user);
+    setTab("log"); setAdminTab("overview");
+  };
+  // Запрос входа с защитой от двойного нажатия и показом ошибки сервера на экране входа
+  const authCall = async (path, body) => {
+    if (authBusy) return null;
+    setAuthError("");
+    setAuthBusy(true);
+    try {
+      return await api(path, body);
+    } catch (e) {
+      setAuthError(e.message || "Не удалось выполнить запрос");
+      return null;
+    } finally {
+      setAuthBusy(false);
+    }
+  };
 
   const doSetupAdmin = async () => {
     setAuthError("");
@@ -1585,79 +1663,57 @@ export default function App() {
       setAuthError("Заполните все поля");
       return;
     }
-    const hash = await hashPassword(setupPassword);
-    const admin = { id: uid(), username: setupUsername.trim().toLowerCase(), passwordHash: hash, role: "admin", name: setupName.trim(), qrToken: uid() + uid() };
-    const next = [...users, admin];
-    await persistUsers(next);
-    setCurrentUser(admin);
-    await safeSet("session", admin.id, false);
-    await logLogin(admin, "первый запуск");
+    const res = await authCall("/api/auth/setup", { name: setupName.trim(), username: setupUsername.trim().toLowerCase(), password: setupPassword });
+    if (!res) return;
+    await finishLogin(res.user);
     setSetupUsername(""); setSetupPassword(""); setSetupName("");
   };
 
   const doLogin = async () => {
-    setAuthError("");
-    const uname = loginUsername.trim().toLowerCase();
-    const user = users.find((u) => u.username === uname);
-    if (!user) { setAuthError("Пользователь не найден"); return; }
-    const hash = await hashPassword(loginPassword);
-    if (hash !== user.passwordHash) { setAuthError("Неверный пароль"); return; }
-    setCurrentUser(user);
-    await safeSet("session", user.id, false);
-    await logLogin(user, "пароль");
-    setTab("log"); setAdminTab("overview");
+    const res = await authCall("/api/auth/login", { username: loginUsername.trim().toLowerCase(), password: loginPassword });
+    if (!res) return;
+    await finishLogin(res.user);
     setLoginUsername(""); setLoginPassword("");
   };
 
   const doQrLogin = async (token) => {
-    setAuthError("");
     const code = token.trim();
     if (!code) return;
-    const user = users.find((u) => u.qrToken === code);
-    if (!user) { setAuthError("QR-код не распознан"); setQrInput(""); return; }
-    setCurrentUser(user);
-    await safeSet("session", user.id, false);
-    await logLogin(user, "QR");
-    setTab("log"); setAdminTab("overview");
+    const res = await authCall("/api/auth/qr", { token: code });
+    if (!res) { setQrInput(""); return; }
+    await finishLogin(res.user);
     setQrInput("");
   };
 
-  const doRecoverScan = () => {
-    setAuthError("");
-    const code = recoverQrInput.trim();
-    if (!code) return;
-    const user = users.find((u) => u.qrToken === code);
-    if (!user) { setAuthError("QR-код не распознан"); setRecoverQrInput(""); return; }
-    setRecoverUserId(user.id);
+  // Данные, которыми подтверждается личность при восстановлении пароля (QR или логин + секретное слово)
+  const recoverProof = () => recoverMethod === "qr"
+    ? { method: "qr", token: recoverQrInput.trim() }
+    : { method: "secret", username: recoverUsername.trim().toLowerCase(), secretWord: recoverSecretWord.trim().toLowerCase() };
+  const doRecoverScan = async () => {
+    if (!recoverQrInput.trim()) return;
+    const res = await authCall("/api/auth/recover/check", { method: "qr", token: recoverQrInput.trim() });
+    if (!res) { setRecoverQrInput(""); return; }
+    setRecoverName(res.name || "");
     setRecoverStep("newpass");
   };
   const doRecoverBySecret = async () => {
-    setAuthError("");
     const uname = recoverUsername.trim().toLowerCase();
     const word = recoverSecretWord.trim().toLowerCase();
     if (!uname || !word) return;
-    const user = users.find((u) => u.username === uname);
-    if (!user) { setAuthError("Такой логин не найден"); return; }
-    if (!user.secretWordHash) { setAuthError("У этого аккаунта не задано секретное слово — используйте QR-код или обратитесь к администратору"); return; }
-    const hash = await hashPassword(word);
-    if (hash !== user.secretWordHash) { setAuthError("Секретное слово не подошло"); return; }
-    setRecoverUserId(user.id);
+    const res = await authCall("/api/auth/recover/check", { method: "secret", username: uname, secretWord: word });
+    if (!res) return;
+    setRecoverName(res.name || "");
     setRecoverStep("newpass");
   };
   const doRecoverSubmit = async () => {
     setAuthError("");
     if (!recoverPassword || recoverPassword.length < 4) { setAuthError("Пароль должен быть не короче 4 символов"); return; }
     if (recoverPassword !== recoverPassword2) { setAuthError("Пароли не совпадают"); return; }
-    const hash = await hashPassword(recoverPassword);
-    const next = users.map((u) => u.id === recoverUserId ? { ...u, passwordHash: hash } : u);
-    await persistUsers(next);
-    const user = next.find((u) => u.id === recoverUserId);
-    setCurrentUser(user);
-    await safeSet("session", user.id, false);
-    await logLogin(user, "восстановление пароля по QR");
-    setTab("log"); setAdminTab("overview");
+    const res = await authCall("/api/auth/recover", { ...recoverProof(), newPassword: recoverPassword });
+    if (!res) return;
+    await finishLogin(res.user);
     setAuthMode("login");
-    setRecoverStep("scan"); setRecoverQrInput(""); setRecoverUserId(null); setRecoverPassword(""); setRecoverPassword2("");
+    setRecoverStep("scan"); setRecoverQrInput(""); setRecoverUsername(""); setRecoverSecretWord(""); setRecoverName(""); setRecoverPassword(""); setRecoverPassword2("");
     setToast("Пароль изменён, вы вошли в систему");
   };
 
@@ -1667,29 +1723,51 @@ export default function App() {
       setAuthError("Заполните все поля, включая секретное слово");
       return;
     }
+    if (regPassword.length < 4) { setAuthError("Пароль должен быть не короче 4 символов"); return; }
     if (regPassword !== regPassword2) {
       setAuthError("Пароли не совпадают");
       return;
     }
-    const uname = regUsername.trim().toLowerCase();
-    if (users.some((u) => u.username === uname)) {
-      setAuthError("Такой логин уже занят");
-      return;
-    }
-    const hash = await hashPassword(regPassword);
-    const secretHash = await hashPassword(regSecretWord.trim().toLowerCase());
-    const newUser = { id: uid(), username: uname, passwordHash: hash, secretWordHash: secretHash, role: "employee", name: regName.trim(), hourlyRate: 0, timerEnabled: false, barcodeAddEnabled: false, qrToken: uid() + uid() };
-    const next = [...users, newUser];
-    await persistUsers(next);
-    setCurrentUser(newUser);
-    await safeSet("session", newUser.id, false);
-    await logLogin(newUser, "регистрация");
-    setTab("log");
+    const res = await authCall("/api/auth/register", { name: regName.trim(), username: regUsername.trim().toLowerCase(), password: regPassword, secretWord: regSecretWord.trim().toLowerCase() });
+    if (!res) return;
+    await finishLogin(res.user);
     setRegUsername(""); setRegPassword(""); setRegPassword2(""); setRegName(""); setRegSecretWord("");
   };
 
-
-  const logout = () => { setCurrentUser(null); setAuthMode("login"); setAuthError(""); safeSet("session", null, false); };
+  // Локальная часть выхода: забываем пользователя и всё, что было скачано для него на это устройство
+  const forgetLocalSession = () => {
+    setCurrentUser(null); setAuthMode("login"); setAuthError("");
+    safeSet("session", null, false);
+    try { window.storage.resetShared(); } catch (e) {}
+  };
+  const logout = async () => {
+    try { await api("/api/auth/logout", {}); } catch (e) { /* нет связи — сессия на сервере погаснет сама, локально выходим в любом случае */ }
+    forgetLocalSession();
+  };
+  // Сервер сообщил, что сессия больше не действует (истекла, сменили пароль, сотрудника удалили)
+  const currentUserRef = useRef(null);
+  useEffect(() => { currentUserRef.current = currentUser; }, [currentUser]);
+  useEffect(() => {
+    const onExpired = () => {
+      if (!currentUserRef.current) return;
+      currentUserRef.current = null;
+      forgetLocalSession();
+      setToast("Сессия завершена — войдите заново");
+    };
+    // Изменение не сохранилось на сервере — раньше это проходило молча, и казалось, что всё записано
+    const onSaveFailed = (ev) => {
+      const d = (ev && ev.detail) || {};
+      if (d.status === 401) return; // про это скажет обработчик выше
+      if (d.offline) { if (d.key !== "entries") setToast("Нет связи — изменение не сохранено на сервере"); return; }
+      setToast("Не сохранено: " + (d.message || "ошибка сервера"));
+    };
+    window.addEventListener("packer-auth-expired", onExpired);
+    window.addEventListener("packer-save-failed", onSaveFailed);
+    return () => {
+      window.removeEventListener("packer-auth-expired", onExpired);
+      window.removeEventListener("packer-save-failed", onSaveFailed);
+    };
+  }, []);
   const toggleTheme = async () => {
     const next = theme === "dark" ? "light" : "dark";
     setTheme(next);
@@ -1970,7 +2048,14 @@ export default function App() {
   useEffect(() => {
     if (!currentUser) return;
     const interval = setInterval(async () => {
-      const next = await safeGet("chatMessages", true, []);
+      // Сервер отвечает "ничего не изменилось", если новых сообщений нет, — тогда сам чат
+      // не скачивается и не разбирается. Если связи нет — просто пропускаем этот раз.
+      let res;
+      try { res = await window.storage.get("chatMessages", true); } catch (e) { return; }
+      if (!res || res.notModified || res.offline) return;
+      let next;
+      try { next = JSON.parse(res.value); } catch (e) { return; }
+      if (!Array.isArray(next)) return;
       setChatMessages((prev) => {
         // Ничего не изменилось с прошлой проверки — не трогаем состояние вообще,
         // иначе React будет перерисовывать часть интерфейса каждые 4 секунды впустую
@@ -2245,7 +2330,7 @@ export default function App() {
       // затишье — уведомление появится заново (дата другая)
       .filter((r) => dismissedInactiveNotices[r.emp.id] !== r.lastDate);
   }, [employees, activeEntries, dismissedInactiveNotices]);
-  const persistDismissedInactiveNotices = async (next) => { setDismissedInactiveNotices(next); await safeSet("dismissedInactiveNotices", next, true); };
+  const persistDismissedInactiveNotices = async (next) => { setDismissedInactiveNotices(next); await safeSet("dismissedInactiveNotices", next, true, dismissedInactiveNotices); };
   const dismissInactiveNotice = async (employeeId, lastDate) => {
     await persistDismissedInactiveNotices({ ...dismissedInactiveNotices, [employeeId]: lastDate });
   };
@@ -2492,40 +2577,48 @@ export default function App() {
     await persistCustomBarcodes([...customBarcodes, entry]);
     setToast("Штрихкод добавлен");
   };
+  // Список сотрудников заново с сервера (после действий, которые сервер выполняет сам)
+  const reloadUsers = async () => {
+    const fresh = await safeGet("users", true, null);
+    if (!fresh) return;
+    setUsers(fresh);
+    setCurrentUser((cu) => (cu ? fresh.find((x) => x.id === cu.id) || cu : cu));
+  };
   const savePwReset = async (id) => {
     if (!resetPwVal) return;
-    const hash = await hashPassword(resetPwVal);
-    const next = users.map((u) => u.id === id ? { ...u, passwordHash: hash } : u);
-    await persistUsers(next);
+    try {
+      await api(`/api/admin/users/${encodeURIComponent(id)}/password`, { password: resetPwVal });
+    } catch (e) { setToast(e.message); return; }
     setResetPwId(null); setResetPwVal("");
     setToast("Пароль обновлён");
   };
   const saveSecretWordReset = async (id) => {
     if (!resetSecretVal.trim()) return;
-    const hash = await hashPassword(resetSecretVal.trim().toLowerCase());
-    const next = users.map((u) => u.id === id ? { ...u, secretWordHash: hash } : u);
-    await persistUsers(next);
+    try {
+      await api(`/api/admin/users/${encodeURIComponent(id)}/secret`, { secretWord: resetSecretVal.trim().toLowerCase() });
+    } catch (e) { setToast(e.message); return; }
+    await reloadUsers();
     setResetSecretId(null); setResetSecretVal("");
     setToast("Секретное слово обновлено");
   };
   const setMySecretWord = async () => {
     if (!currentUser || !mySecretWordVal.trim()) return;
-    const hash = await hashPassword(mySecretWordVal.trim().toLowerCase());
-    const next = users.map((u) => u.id === currentUser.id ? { ...u, secretWordHash: hash } : u);
-    await persistUsers(next);
-    setCurrentUser((cu) => ({ ...cu, secretWordHash: hash }));
+    try {
+      await api("/api/auth/secret", { secretWord: mySecretWordVal.trim().toLowerCase() });
+    } catch (e) { setToast(e.message); return; }
+    await reloadUsers();
     setShowMySecretWord(false);
     setMySecretWordVal("");
     setToast("Секретное слово сохранено");
   };
   const addAdmin = async () => {
     if (!newAdminUsername.trim() || !newAdminPassword || !newAdminName.trim()) return;
-    const uname = newAdminUsername.trim().toLowerCase();
-    if (users.some((u) => u.username === uname)) { setToast("Логин занят"); return; }
-    const hash = await hashPassword(newAdminPassword);
-    const next = [...users, { id: uid(), username: uname, passwordHash: hash, role: "admin", name: newAdminName.trim() }];
-    await persistUsers(next);
+    try {
+      await api("/api/admin/admins", { name: newAdminName.trim(), username: newAdminUsername.trim().toLowerCase(), password: newAdminPassword });
+    } catch (e) { setToast(e.message); return; }
+    await reloadUsers();
     setNewAdminUsername(""); setNewAdminPassword(""); setNewAdminName("");
+    setToast("Администратор добавлен");
   };
   const saveOptionEdit = async (optionId) => {
     const val = parseFloat(priceEditVal.replace(",", ".")) || 0;
@@ -2582,7 +2675,7 @@ export default function App() {
     );
   }
 
-  if (!hasAdmin) {
+  if (!serverHasAdmin && !currentUser) {
     return (
       <div data-theme={theme} style={{ ...styles.page, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
         <FontLinks /><GlobalStyle />
@@ -2594,7 +2687,7 @@ export default function App() {
             <input placeholder="Логин" value={setupUsername} onChange={(e) => setSetupUsername(e.target.value)} />
             <input type="password" placeholder="Пароль" value={setupPassword} onChange={(e) => setSetupPassword(e.target.value)} />
             {authError && <div style={{ color: "var(--danger)", fontSize: 13 }}>{authError}</div>}
-            <button className="btn btn-accent" onClick={doSetupAdmin}>Создать админа</button>
+            <button className="btn btn-accent" disabled={authBusy} onClick={doSetupAdmin}>Создать админа</button>
           </div>
         </div>
       </div>
@@ -2616,7 +2709,7 @@ export default function App() {
           <div style={{ display: "flex", gap: 6, margin: "16px 0", borderBottom: "1px solid var(--surface)" }}>
             <button onClick={() => { setAuthMode("login"); setAuthError(""); }} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", padding: "8px 0", fontSize: 14, fontWeight: 500, color: authMode === "login" ? "var(--accent)" : "var(--muted)", borderBottom: authMode === "login" ? "2px solid var(--accent)" : "2px solid transparent" }}>{t("tabLogin")}</button>
             <button onClick={() => { setAuthMode("qr"); setAuthError(""); }} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", padding: "8px 0", fontSize: 14, fontWeight: 500, color: authMode === "qr" ? "var(--accent)" : "var(--muted)", borderBottom: authMode === "qr" ? "2px solid var(--accent)" : "2px solid transparent" }}>{t("tabQr")}</button>
-            <button onClick={() => { setAuthMode("register"); setAuthError(""); }} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", padding: "8px 0", fontSize: 14, fontWeight: 500, color: authMode === "register" ? "var(--accent)" : "var(--muted)", borderBottom: authMode === "register" ? "2px solid var(--accent)" : "2px solid transparent" }}>{t("tabRegister")}</button>
+{registrationOpen && <button onClick={() => { setAuthMode("register"); setAuthError(""); }} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", padding: "8px 0", fontSize: 14, fontWeight: 500, color: authMode === "register" ? "var(--accent)" : "var(--muted)", borderBottom: authMode === "register" ? "2px solid var(--accent)" : "2px solid transparent" }}>{t("tabRegister")}</button>}
             <button onClick={() => { setAuthMode("recover"); setAuthError(""); setRecoverStep("scan"); }} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", padding: "8px 0", fontSize: 12, fontWeight: 500, color: authMode === "recover" ? "var(--accent)" : "var(--muted)", borderBottom: authMode === "recover" ? "2px solid var(--accent)" : "2px solid transparent" }}>Забыли пароль?</button>
           </div>
 
@@ -2625,7 +2718,7 @@ export default function App() {
               <input placeholder={t("login")} value={loginUsername} onChange={(e) => setLoginUsername(e.target.value)} onKeyDown={(e) => e.key === "Enter" && doLogin()} />
               <input type="password" placeholder={t("password")} value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && doLogin()} />
               {authError && <div style={{ color: "var(--danger)", fontSize: 13 }}>{authError}</div>}
-              <button className="btn btn-accent" onClick={doLogin}>{t("signIn")}</button>
+              <button className="btn btn-accent" disabled={authBusy} onClick={doLogin}>{t("signIn")}</button>
             </div>
           ) : authMode === "qr" ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -2634,7 +2727,7 @@ export default function App() {
               {authError && <div style={{ color: "var(--danger)", fontSize: 13 }}>{authError}</div>}
               <button className="btn btn-accent" onClick={() => doQrLogin(qrInput)}>{t("signInQr")}</button>
             </div>
-          ) : authMode === "register" ? (
+          ) : authMode === "register" && registrationOpen ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 2 }}>Регистрация для упаковщиков. Ставку вам назначит администратор после регистрации.</div>
               <input placeholder={t("yourName")} value={regName} onChange={(e) => setRegName(e.target.value)} />
@@ -2644,7 +2737,7 @@ export default function App() {
               <input placeholder="Секретное слово (для восстановления пароля)" value={regSecretWord} onChange={(e) => setRegSecretWord(e.target.value)} />
               <div style={{ fontSize: 11, color: "var(--muted-2)", marginTop: -6 }}>Придумайте слово, которое легко запомните — оно понадобится, если забудете пароль и не будет под рукой QR-кода.</div>
               {authError && <div style={{ color: "var(--danger)", fontSize: 13 }}>{authError}</div>}
-              <button className="btn btn-accent" onClick={doRegister}>{t("register")}</button>
+              <button className="btn btn-accent" disabled={authBusy} onClick={doRegister}>{t("register")}</button>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -2675,11 +2768,11 @@ export default function App() {
                 </>
               ) : (
                 <>
-                  <div style={{ fontSize: 13, color: "var(--text)" }}>Личность подтверждена — {users.find((u) => u.id === recoverUserId)?.name}. Задайте новый пароль:</div>
+                  <div style={{ fontSize: 13, color: "var(--text)" }}>Личность подтверждена — {recoverName}. Задайте новый пароль:</div>
                   <input type="password" autoFocus placeholder={t("password")} value={recoverPassword} onChange={(e) => setRecoverPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && doRecoverSubmit()} />
                   <input type="password" placeholder={t("confirmPassword")} value={recoverPassword2} onChange={(e) => setRecoverPassword2(e.target.value)} onKeyDown={(e) => e.key === "Enter" && doRecoverSubmit()} />
                   {authError && <div style={{ color: "var(--danger)", fontSize: 13 }}>{authError}</div>}
-                  <button className="btn btn-accent" onClick={doRecoverSubmit}>Сохранить новый пароль и войти</button>
+                  <button className="btn btn-accent" disabled={authBusy} onClick={doRecoverSubmit}>Сохранить новый пароль и войти</button>
                 </>
               )}
             </div>
@@ -3922,6 +4015,15 @@ export default function App() {
 
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 4, paddingTop: 16, borderTop: "1px solid var(--surface-2)" }}>Данные и безопасность</div>
                 <div style={{ marginTop: -12 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, cursor: "pointer" }}>
+                    <input type="checkbox" checked={registrationOpen} onChange={(e) => persistSettings({ registrationOpen: e.target.checked })} style={{ width: 18, height: 18, padding: 0 }} />
+                    Разрешить самостоятельную регистрацию новых сотрудников
+                  </label>
+                  <div style={{ fontSize: 12, color: "var(--muted-2)", marginTop: 4, marginLeft: 28 }}>
+                    Пока включено, любой, у кого есть ссылка на приложение, может зарегистрироваться как упаковщик. Когда все сотрудники зарегистрировались — выключите: вкладка «Я новый» на экране входа исчезнет, а уже зарегистрированные продолжат работать как обычно.
+                  </div>
+                </div>
+                <div>
                   <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 8 }}>Резервная копия</div>
                   <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
                     <button className="btn btn-accent" onClick={exportFullBackup}>Скачать бэкап (JSON)</button>
