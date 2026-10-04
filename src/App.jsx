@@ -2597,11 +2597,11 @@ export default function App() {
     if (wanted && wanted < entriesFrom) extendEntriesWindow(wanted);
   }, [logDateFrom, overviewDateFrom, dailyChartFrom, empFilterDateFrom, entriesFrom, currentUser]);
 
-  const styles = { page: { minHeight: "100dvh", background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter', sans-serif", overflowX: "hidden" } };
+  const styles = { page: { minHeight: "calc(100dvh / var(--ui-zoom, 1))", background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter', sans-serif", overflowX: "hidden" } };
 
   if (loading) {
     return (
-      <div data-theme={theme} style={{ ...styles.page, display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>
+      <div data-theme={theme} style={{ ...styles.page, display: "flex", alignItems: "center", justifyContent: "center", height: "calc(100vh / var(--ui-zoom, 1))" }}>
         <FontLinks />
         <div style={{ color: "var(--muted)", fontFamily: "'IBM Plex Mono', monospace", letterSpacing: "0.05em" }}>ЗАГРУЗКА...</div>
       </div>
@@ -2636,7 +2636,7 @@ export default function App() {
         </div>
       )}
       <div style={{ height: 6, background: "repeating-linear-gradient(45deg, var(--accent) 0 10px, var(--bg) 10px 20px)" }} />
-      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "calc(24px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) calc(60px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left))" }}>
+      <div className="app-shell" style={{ margin: "0 auto", padding: "calc(24px + env(safe-area-inset-top)) calc(20px + env(safe-area-inset-right)) calc(60px + env(safe-area-inset-bottom)) calc(20px + env(safe-area-inset-left))" }}>
         <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 28 }}>
           <div>
             <div className="display" style={{ fontSize: 26, fontWeight: 700, letterSpacing: "0.02em" }}>{t("appTitle")}</div>
@@ -2702,7 +2702,7 @@ export default function App() {
             {(isAdmin || (!isAdmin && messagesForMe.length > 0) || chatUnreadTotal > 0) && (
               <span style={{ width: 1, alignSelf: "stretch", background: "var(--border)", margin: "0 1px" }} />
             )}
-            {isAdmin && <span className="mono" style={{ fontSize: 10, color: "var(--accent)", border: "1px solid var(--accent)", borderRadius: 4, padding: "1px 5px" }}>{t("admin")}</span>}
+            {isAdmin && <span className="mono admin-badge" style={{ fontSize: 10, color: "var(--accent)", border: "1px solid var(--accent)", borderRadius: 4, padding: "1px 5px" }}>{t("admin")}</span>}
             {isAdmin && totalNotifications > 0 && enabledAdminTabs.overview !== false && (
               <button
                 className="btn"
@@ -2826,7 +2826,7 @@ export default function App() {
 
       {showAnnouncementsModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 20 }} onClick={() => setShowAnnouncementsModal(false)}>
-          <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 16, width: "100%", maxWidth: 460, maxHeight: "75vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 16, width: "100%", maxWidth: 460, maxHeight: "calc(75vh / var(--ui-zoom, 1))", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Объявления</div>
             <div style={{ overflowY: "auto", flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
               {[...messagesForMe].sort((a, b) => b.timestamp - a.timestamp).map((m) => {

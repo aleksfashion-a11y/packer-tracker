@@ -51,7 +51,7 @@ export function ChatAttachModal(ctx) {
   } = ctx;
   return (
       <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 60, padding: 20 }} onClick={() => { setChatAttachOpen(false); setChatAttachQuery(""); }}>
-        <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 16, width: "100%", maxWidth: 420, maxHeight: "70vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 16, width: "100%", maxWidth: 420, maxHeight: "calc(70vh / var(--ui-zoom, 1))", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Прикрепить товар к сообщению</div>
           <input autoFocus value={chatAttachQuery} onChange={(e) => setChatAttachQuery(e.target.value)} placeholder="Найти товар по названию или артикулу..." style={{ marginBottom: 10 }} />
           <div style={{ overflowY: "auto", flex: 1 }}>

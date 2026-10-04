@@ -106,7 +106,7 @@ export function LightboxImage({ src, onStop }) {
   }
   const currentSrc = stage === "proxy" ? proxiedImageUrl(src) : src;
   return (
-    <img src={currentSrc} alt="" referrerPolicy="no-referrer" style={{ maxWidth: "90vw", maxHeight: "70vh", borderRadius: 8, background: "#fff" }}
+    <img src={currentSrc} alt="" referrerPolicy="no-referrer" style={{ maxWidth: "90vw", maxHeight: "calc(70vh / var(--ui-zoom, 1))", borderRadius: 8, background: "#fff" }}
       onClick={onStop} onError={() => setStage((s) => (s === "direct" ? "proxy" : "broken"))} />
   );
 }

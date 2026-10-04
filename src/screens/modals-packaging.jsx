@@ -21,7 +21,7 @@ export function PackagingChoiceModal(ctx) {
       const patch = (fields) => setPackagingModal((prev) => ({ ...prev, ...fields }));
       return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }} onClick={() => setPackagingModal(null)}>
-          <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 420, maxHeight: "80vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 420, maxHeight: "calc(80vh / var(--ui-zoom, 1))", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 6 }}>Упаковка для «{packagingModal.product.name}»</div>
             {linkedMaterials.length === 0 ? (
               <div style={{ fontSize: 12, color: "var(--accent)", marginBottom: 12 }}>⚠ У этого товара ещё нет привязанной упаковки — выберите, создайте новую, или укажите, что упаковка не нужна.</div>
@@ -137,7 +137,7 @@ export function MaterialLinkModal(ctx) {
       const results = materialLinkResults.filter((p) => !linkedSkus.has(String(p.sku)));
       return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }} onClick={() => setMaterialLinkModal(null)}>
-          <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 460, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 460, maxHeight: "calc(85vh / var(--ui-zoom, 1))", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontSize: 14, fontWeight: 600 }}>{material.name}</div>
             <div className="mono" style={{ fontSize: 11, color: "var(--muted-2)", marginBottom: 12 }}>арт. {material.sku} · остаток: {material.stock}</div>
 
@@ -193,7 +193,7 @@ export function ProductLinkModal(ctx) {
       const sectionTitle = { fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 };
       return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }} onClick={() => setProductLinkModal(null)}>
-          <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 460, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 460, maxHeight: "calc(85vh / var(--ui-zoom, 1))", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontSize: 14, fontWeight: 600 }}>Упаковка товара</div>
             <div style={{ fontSize: 13, marginBottom: 12, overflowWrap: "anywhere" }}>{product.name} <span className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>· арт. {product.sku}</span></div>
 
@@ -276,7 +276,7 @@ export function SupplyReconcileModal(ctx) {
   } = ctx;
   return (
       <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }} onClick={() => setSupplyReconcile(null)}>
-        <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 640, maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 640, maxHeight: "calc(85vh / var(--ui-zoom, 1))", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
           {supplyReconcile.step === "mapping" ? (
             <>
               <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>Укажите, какие данные содержатся в столбцах</div>

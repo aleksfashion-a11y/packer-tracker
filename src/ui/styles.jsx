@@ -55,7 +55,24 @@ export function GlobalStyle() {
       ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
       .grid-log { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; }
       .grid-emp { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-      .chat-layout { display: flex; gap: 16px; height: 560px; max-width: 900px; }
+      .chat-layout { display: flex; gap: 16px; height: clamp(420px, calc(100dvh / var(--ui-zoom, 1) - 280px), 760px); max-width: 1100px; }
+
+      /* ===== Подстройка под размер экрана =====
+         Ширина рабочей области растёт вместе с экраном, а на больших мониторах всё
+         приложение ещё и пропорционально увеличивается (--ui-zoom): иначе на мониторе
+         2K/4K интерфейс занимал бы узкую полоску посередине с мелким текстом.
+         Высоты, заданные в долях экрана (vh), делятся на --ui-zoom, чтобы окна не
+         вылезали за экран. */
+      :root { --ui-zoom: 1; }
+      .app-shell { max-width: 1080px; }
+      @media (min-width: 1300px) { .app-shell { max-width: 1240px; } }
+      @media (min-width: 1600px) { .app-shell { max-width: 1400px; } }
+      @media (min-width: 1800px) { :root { --ui-zoom: 1.15; } .app-shell { max-width: 1480px; } }
+      @media (min-width: 2300px) { :root { --ui-zoom: 1.4; } .app-shell { max-width: 1560px; } }
+      @media (min-width: 3200px) { :root { --ui-zoom: 2; } .app-shell { max-width: 1680px; } }
+      [data-theme] { zoom: var(--ui-zoom); }
+      /* поля ввода в строке с кнопкой сжимаются, а не выталкивают кнопку за край узкого экрана */
+      input, select, textarea { min-width: 0; max-width: 100%; }
       .chat-threads { width: 220px; flex-shrink: 0; }
       .chat-panel { flex: 1; min-width: 0; }
       .chat-input-row { padding: 12px; border-top: 1px solid var(--surface-2); display: flex; gap: 8px; align-items: center; }
@@ -76,6 +93,7 @@ export function GlobalStyle() {
       }
       @media (max-width: 480px) {
         .header-btn-label { display: none; }
+        .admin-badge { display: none; } /* на телефоне место нужнее под кнопки */
       }
       @media (max-width: 400px) {
         .display { font-size: 22px !important; }
@@ -84,6 +102,7 @@ export function GlobalStyle() {
       .header-search-item:hover { background: var(--surface-2); }
       #print-payslip { display: none; }
       @media print {
+        [data-theme] { zoom: 1; }
         body * { visibility: hidden; }
         #print-payslip, #print-payslip * { visibility: visible; }
         #print-payslip { display: block; position: absolute; top: 0; left: 0; width: 100%; padding: 20px; color: #000; background: #fff; }
