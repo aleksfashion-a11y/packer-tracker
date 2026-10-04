@@ -11,9 +11,12 @@
   - `access.js` — кто что может читать и менять;
   - `patch.js` — применение изменений к данным (слияние одновременных правок).
 - `src/` — исходники интерфейса:
-  - `App.jsx` — всё приложение;
-  - `entry.jsx` — точка входа;
-  - `storage.js`, `kvdiff.js` — обмен данными с сервером (отправляются только изменения).
+  - `App.jsx` — ядро: состояние, загрузка данных и все действия (логика без разметки разделов);
+  - `screens/` — разметка разделов, по файлу на раздел: `auth` (вход), `admin-overview`, `admin-journal`, `admin-employees`, `admin-products`, `admin-stock`, `admin-messages`, `admin-settings`, `employee-work`, `employee-stock`, `modals-packaging`, `modals-common`;
+  - `ui/` — стили (`styles.jsx`) и мелкие общие элементы (`components.jsx`);
+  - `lib/` — общие функции: `helpers.js` (упаковка, даты, тексты), `server.js` (обмен с сервером), `sound.js`;
+  - `data/seed.js` — начальный каталог и цены для первого запуска;
+  - `entry.jsx` — точка входа; `storage.js`, `kvdiff.js` — обмен данными с сервером; `qr.js` — построение QR-кода.
 - `public/` — страница-обёртка, service worker, иконки.
 
 ## bundle.js собирать не нужно
