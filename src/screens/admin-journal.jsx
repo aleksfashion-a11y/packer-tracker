@@ -53,7 +53,7 @@ export function AdminJournal(ctx) {
         {renderEntriesWindowNotice()}
 
         <div style={{ overflowX: "auto" }}>
-          <table>
+          <table className="m-cards m-sort">
             <thead><tr>
               <SortableTh label="Дата" sortKey="date" currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
               <SortableTh label="Сотрудник" sortKey="employee" currentKey={sortKey} dir={sortDir} onClick={toggleSort} />
@@ -129,7 +129,7 @@ export function AdminTimer(ctx) {
           <div style={{ color: "var(--muted-2)", fontSize: 13 }}>Замеров пока нет. Они появятся, когда сотрудник с включённым секундомером сохранит первый замер.</div>
         ) : (
           <div style={{ overflowX: "auto" }}>
-            <table>
+            <table className="m-cards m-sort">
               <thead><tr>
                 <SortableTh label="Дата" sortKey="date" currentKey={timerSortKey} dir={timerSortDir} onClick={toggleTimerSort} />
                 <SortableTh label="Сотрудник" sortKey="employee" currentKey={timerSortKey} dir={timerSortDir} onClick={toggleTimerSort} />

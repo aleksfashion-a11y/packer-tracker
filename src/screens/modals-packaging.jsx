@@ -337,7 +337,7 @@ export function SupplyReconcileModal(ctx) {
 
               <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--muted)", textTransform: "uppercase" }}>По товарам ({supplyReconcile.productRows.length})</div>
               <div style={{ maxHeight: 220, overflowY: "auto", marginBottom: 16, border: "1px solid var(--border)", borderRadius: 8 }}>
-                <table style={{ fontSize: 12 }}>
+                <table className="m-cards" style={{ fontSize: 12 }}>
                   <thead><tr><th>Артикул</th><th>Название</th><th>Кол-во</th><th>Упаковка</th><th></th></tr></thead>
                   <tbody>
                     {supplyReconcile.productRows.map((r, i) => (
@@ -360,7 +360,7 @@ export function SupplyReconcileModal(ctx) {
 
               <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: "var(--muted)", textTransform: "uppercase" }}>Итого по упаковкам — чего не хватает</div>
               <div style={{ maxHeight: 220, overflowY: "auto", marginBottom: 16, border: "1px solid var(--border)", borderRadius: 8 }}>
-                <table style={{ fontSize: 12 }}>
+                <table className="m-cards" style={{ fontSize: 12 }}>
                   <thead><tr><th>Упаковка</th><th>Нужно</th><th>Остаток</th><th>Не хватает</th><th>К заказу</th></tr></thead>
                   <tbody>
                     {supplyReconcile.materialSummary.length === 0 && <tr><td colSpan={5} style={{ color: "var(--muted-2)" }}>Все товары либо без упаковки, либо не привязаны.</td></tr>}

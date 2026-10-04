@@ -28,7 +28,7 @@ export function AdminOverview(ctx) {
           <div style={{ color: "var(--muted-2)", fontSize: 13 }}>Пока ни один сотрудник не зарегистрировался.</div>
         ) : (
           <div style={{ overflowX: "auto", marginBottom: 28 }}>
-            <table>
+            <table className="m-cards">
               <thead><tr>
                 <th>Сотрудник</th><th>Сегодня</th><th>Штук всего</th><th>Сдельная</th><th>Часы</th><th>Почасовая</th><th>Итого</th><th></th>
               </tr></thead>

@@ -150,7 +150,7 @@ export function BarcodeAddRow({ sku, onAdd }) {
 export function SortableTh({ label, sortKey, currentKey, dir, onClick }) {
   const active = sortKey === currentKey;
   return (
-    <th style={{ cursor: "pointer", userSelect: "none", color: active ? "var(--accent)" : undefined }} onClick={() => onClick(sortKey)}>
+    <th className={"sortable-th" + (active ? " active" : "")} style={{ cursor: "pointer", userSelect: "none", color: active ? "var(--accent)" : undefined }} onClick={() => onClick(sortKey)}>
       {label} {active ? (dir === "asc" ? "▲" : "▼") : ""}
     </th>
   );

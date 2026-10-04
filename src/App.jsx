@@ -2597,6 +2597,24 @@ export default function App() {
     if (wanted && wanted < entriesFrom) extendEntriesWindow(wanted);
   }, [logDateFrom, overviewDateFrom, dailyChartFrom, empFilterDateFrom, entriesFrom, currentUser]);
 
+  // Таблицы на телефоне показываются карточками (см. стили .m-cards): у каждой ячейки
+  // подпись берётся из заголовка её столбца. Подписи расставляются здесь, после каждой
+  // отрисовки, — чтобы не прописывать их вручную в каждой таблице.
+  useEffect(() => {
+    document.querySelectorAll("table.m-cards").forEach((table) => {
+      const labels = [...table.querySelectorAll("thead th")].map((th) => th.textContent.replace(/[▲▼]/g, "").trim());
+      table.querySelectorAll("tbody tr").forEach((tr) => {
+        [...tr.children].forEach((td, i) => {
+          const label = td.colSpan > 1 ? "" : (labels[i] || "");
+          if (td.getAttribute("data-label") !== label) td.setAttribute("data-label", label);
+          // длинный текст и ячейки без подписи (кнопки действий) занимают всю ширину карточки
+          const wide = label === "" || td.textContent.trim().length > 18;
+          if (wide !== td.hasAttribute("data-wide")) { if (wide) td.setAttribute("data-wide", ""); else td.removeAttribute("data-wide"); }
+        });
+      });
+    });
+  });
+
   const styles = { page: { minHeight: "calc(100dvh / var(--ui-zoom, 1))", background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter', sans-serif", overflowX: "hidden" } };
 
   if (loading) {

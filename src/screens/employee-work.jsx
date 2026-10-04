@@ -238,7 +238,7 @@ export function EmployeeHistory(ctx) {
 
         {renderEntriesWindowNotice()}
         <div style={{ overflowX: "auto" }}>
-          <table>
+          <table className="m-cards m-sort">
             <thead><tr>
               <SortableTh label="Дата" sortKey="date" currentKey={empSortKey} dir={empSortDir} onClick={empToggleSort} />
               <SortableTh label="Тип" sortKey="type" currentKey={empSortKey} dir={empSortDir} onClick={empToggleSort} />

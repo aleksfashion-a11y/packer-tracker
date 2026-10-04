@@ -84,6 +84,25 @@ export function GlobalStyle() {
         .pack-chip-x { padding: 9px 12px 9px 8px; }
         table { font-size: 12px; }
         th, td { padding: 8px 6px; }
+
+        /* Таблицы на телефоне — карточками, без прокрутки вбок: каждая строка становится
+           карточкой, ячейки идут в два столбца с подписью из заголовка таблицы */
+        table.m-cards, table.m-cards tbody { display: block; width: 100%; }
+        table.m-cards thead { display: none; }
+        table.m-cards tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; padding: 12px; margin-bottom: 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+        table.m-cards td { display: block; padding: 0; border: none; min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
+        table.m-cards td[data-wide] { grid-column: 1 / -1; }
+        table.m-cards td:not([data-label=""])::before { content: attr(data-label); display: block; font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 400; color: var(--muted-2); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; text-decoration: none; }
+        /* сортировка: заголовки столбцов превращаются в ряд кнопок над карточками */
+        table.m-cards.m-sort thead { display: block; margin-bottom: 10px; }
+        table.m-cards.m-sort thead tr { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+        table.m-cards.m-sort thead tr::before { content: "Сортировка:"; font-size: 12px; color: var(--muted-2); }
+        table.m-cards.m-sort thead th { display: none; }
+        table.m-cards.m-sort thead th.sortable-th { display: inline-flex; align-items: center; min-height: 36px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); font-size: 12px; text-transform: none; letter-spacing: 0; white-space: nowrap; }
+        table.m-cards.m-sort thead th.sortable-th.active { border-color: var(--accent); }
+        /* обёртка таблицы больше не нужна как окно с прокруткой — карточки идут в общем потоке */
+        div:has(> table.m-cards) { max-height: none !important; overflow: visible !important; border: none !important; }
+        table.m-cards td[data-label=""] .btn { padding: 6px 14px; font-size: 12px; }
         .chat-layout { flex-direction: column; height: 78vh; max-width: 100%; }
         .chat-threads { width: 100%; max-height: 130px; }
         .chat-panel { min-height: 0; }
