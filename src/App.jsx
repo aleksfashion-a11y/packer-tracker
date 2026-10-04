@@ -119,6 +119,14 @@ async function safeGet(key, shared, fallback) {
     return fallback;
   }
 }
+// Прямой запрос к серверу с обязательным служебным заголовком: без него сервер
+// отклоняет всё, что что-то меняет (защита от запросов с чужих сайтов)
+const serverFetch = (path, options = {}) => fetch(path, {
+  ...options,
+  credentials: "same-origin",
+  headers: { "X-Requested-With": "packer-tracker", ...(options.headers || {}) },
+});
+
 // Сохранение. Для общих данных (shared) передаётся ещё и base — значение, из которого
 // получено новое: на сервер уходит только разница между ними, и сервер применяет её
 // к актуальным данным (так одновременная работа нескольких человек не затирает чужое).
@@ -890,14 +898,14 @@ export default function App() {
   // просто тихо не сработают, ошибка не показывается пользователю зря.
   const loadOzonStatus = async () => {
     try {
-      const res = await fetch("/api/ozon/status");
+      const res = await serverFetch("/api/ozon/status");
       if (!res.ok) return;
       setOzonStatus(await res.json());
     } catch (e) { /* мокап в чате или сеть недоступна — ничего страшного */ }
   };
   const loadOzonHistory = async () => {
     try {
-      const res = await fetch("/api/ozon/history");
+      const res = await serverFetch("/api/ozon/history");
       if (!res.ok) return;
       const data = await res.json();
       setOzonHistory(data.history || []);
@@ -910,7 +918,7 @@ export default function App() {
     askConfirm(warning, async () => {
       setOzonUndoing(entry.id);
       try {
-        const res = await fetch(`/api/ozon/undo/${entry.id}`, { method: "POST" });
+        const res = await serverFetch(`/api/ozon/undo/${entry.id}`, { method: "POST" });
         const data = await res.json();
         if (!res.ok) { setToast(data.error || "Не удалось отменить"); setOzonUndoing(null); return; }
         await loadSharedData();
@@ -918,7 +926,7 @@ export default function App() {
         await loadOzonHistory();
         setToast(`Отменено: удалено ${data.removedCount}, возвращено к прежнему виду ${data.restoredCount}`);
       } catch (e) {
-        setToast("Эта функция работает только на настоящем сервере, не в мокапе");
+        setToast("Нет связи с сервером — попробуйте ещё раз");
       }
       setOzonUndoing(null);
     });
@@ -926,7 +934,7 @@ export default function App() {
   const saveOzonCredentials = async () => {
     if (!ozonClientId.trim() || !ozonApiKey.trim()) { setToast("Укажите Client-Id и Api-Key"); return; }
     try {
-      const res = await fetch("/api/ozon/credentials", {
+      const res = await serverFetch("/api/ozon/credentials", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId: ozonClientId.trim(), apiKey: ozonApiKey.trim() }),
       });
@@ -935,21 +943,21 @@ export default function App() {
       setToast("Ключи Ozon сохранены");
       setOzonEditingCreds(false); setOzonClientId(""); setOzonApiKey("");
       await loadOzonStatus();
-    } catch (e) { setToast("Эта функция работает только на настоящем сервере, не в мокапе"); }
+    } catch (e) { setToast("Нет связи с сервером — попробуйте ещё раз"); }
   };
   const removeOzonCredentials = () => {
     askConfirm("Удалить сохранённые ключи Ozon? Синхронизация перестанет работать, пока не введёте их заново.", async () => {
       try {
-        await fetch("/api/ozon/credentials", { method: "DELETE" });
+        await serverFetch("/api/ozon/credentials", { method: "DELETE" });
         setToast("Ключи Ozon удалены");
         await loadOzonStatus();
-      } catch (e) { setToast("Эта функция работает только на настоящем сервере, не в мокапе"); }
+      } catch (e) { setToast("Нет связи с сервером — попробуйте ещё раз"); }
     });
   };
   const syncOzonCatalog = async () => {
     setOzonSyncing(true);
     try {
-      const res = await fetch("/api/ozon/sync", { method: "POST" });
+      const res = await serverFetch("/api/ozon/sync", { method: "POST" });
       const data = await res.json();
       if (!res.ok) { setToast(data.error || "Ошибка синхронизации"); setOzonSyncing(false); return; }
       await loadSharedData(); // подтягиваем обновлённый каталог и фото себе на экран
@@ -957,7 +965,7 @@ export default function App() {
       await loadOzonStatus();
       await loadOzonHistory();
     } catch (e) {
-      setToast("Эта функция работает только на настоящем сервере, не в мокапе");
+      setToast("Нет связи с сервером — попробуйте ещё раз");
     }
     setOzonSyncing(false);
   };
@@ -1636,11 +1644,11 @@ export default function App() {
   // запомнить пользователя на устройстве и загрузить его данные
   const finishLogin = async (user) => {
     try { window.storage.resetShared(); } catch (e) {}
+    setTab("log"); setAdminTab("overview");
     setCurrentUser(user);
     setServerHasAdmin(true);
     await safeSet("session", user.id, false);
     await loadSharedData(user);
-    setTab("log"); setAdminTab("overview");
   };
   // Запрос входа с защитой от двойного нажатия и показом ошибки сервера на экране входа
   const authCall = async (path, body) => {
