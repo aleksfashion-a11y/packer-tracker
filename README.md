@@ -46,7 +46,43 @@
 
 ## База данных (PostgreSQL)
 
-Если задана переменная окружения `DATABASE_URL` (или `PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`) — данные хранятся в PostgreSQL, в таблице `kv_store` (`project` + `key` + `value`). Если нет — во временной папке, и стираются при каждом деплое.
+Если задана переменная окружения `DATABASE_URL` (или `PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`) — данные хранятся в PostgreSQL. Если нет — во временной папке, и стираются при каждом деплое.
+
+**Разделы приложения хранятся в таблицах, по строке на элемент:**
+
+| Раздел | Таблица | Отдельные столбцы |
+|---|---|---|
+| Сотрудники | `pt_users` | `username`, `role` |
+| Записи (упаковка и смены) | `pt_entries` | `employee_id`, `entry_date`, `type`, `sku`, `ts` |
+| Замеры секундомера | `pt_timer_sessions` | `employee_id`, `entry_date`, `ts` |
+| Чат | `pt_chat_messages` | `thread_id`, `sender_id`, `ts` |
+| Объявления | `pt_messages` | `to_employee_id`, `ts` |
+| Журнал входов | `pt_login_log` | `user_id`, `ts` |
+| История цен | `pt_price_history` | `sku`, `ts` |
+| Штрихкоды от сотрудников | `pt_custom_barcodes` | `sku`, `barcode` |
+| Каталог | `pt_catalog` | `name` |
+| Цены упаковки | `pt_packaging_options` | `sku` |
+| Упаковочные материалы | `pt_packaging_materials` | `sku`, `name` |
+| Заявка на закупку | `pt_packaging_purchase_request` | — |
+| Фото товаров | `pt_product_images` | — |
+| Привязка упаковки к товарам | `pt_product_packaging_links` | — |
+| Скрытые уведомления | `pt_dismissed_inactive_notices` | — |
+
+У каждой таблицы: `project` (имя проекта), `id` (ключ элемента), `pos` (порядок), `data` (элемент целиком, JSONB), `updated_at`. Пример запроса в pgAdmin — сумма упакованного по сотрудникам за октябрь:
+
+```sql
+SELECT employee_id, sum((data->>'qty')::numeric * (data->>'unitPrice')::numeric) AS сумма
+FROM pt_entries
+WHERE project = 'packer-tracker' AND type = 'piece' AND entry_date BETWEEN '2026-10-01' AND '2026-10-31'
+  AND data->>'deletedAt' IS NULL
+GROUP BY employee_id;
+```
+
+Настройки, ежедневные снимки и служебные ключи (сессии, ключи Ozon) остаются в общей таблице `kv_store`.
+
+**Как включаются таблицы.** При каждом запуске сервер создаёт недостающие таблицы и проводит самопроверку на отдельной служебной таблице. При первом запуске переносит все разделы из `kv_store` одной транзакцией и сверяет каждый с оригиналом. Если самопроверка или сверка не прошли — таблицы не включаются, приложение работает по-старому, данные не меняются (в логах будет строка с `❌` и причиной). Старые значения в `kv_store` после переноса не удаляются, но и не обновляются.
+
+**Важно про откат.** После переноса откатываться на версию до 3.3.0 не стоит: старая версия будет читать устаревшие данные из `kv_store`, а всё записанное ею потом не попадёт в таблицы.
 
 Одну базу можно использовать для нескольких проектов: каждому задаётся свой `PROJECT_NAME` (по умолчанию `packer-tracker`).
 

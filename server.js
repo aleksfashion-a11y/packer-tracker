@@ -9,6 +9,8 @@ const auth = require("./lib/auth");
 const access = require("./lib/access");
 const secrets = require("./lib/secrets");
 const { ensureBundle } = require("./lib/build");
+const coll = require("./lib/collections");
+const { pgDriver } = require("./lib/rows-pg");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -86,6 +88,7 @@ function makeFileStore() {
   const asText = (v) => (typeof v === "string" ? v : JSON.stringify(v));
 
   return {
+    dataDir: DATA_DIR,
     async list(prefix) {
       return Object.keys(load()).filter((k) => k.startsWith(prefix));
     },
@@ -158,6 +161,8 @@ function makePgStore() {
   const VERSION_SQL = "xmin::text || '.' || (extract(epoch from updated_at) * 1000)::bigint::text";
 
   return {
+    pool,
+    ready,
     async list(prefix) {
       await ready;
       const { rows } = await pool.query(
@@ -221,24 +226,100 @@ store = DATABASE_URL ? makePgStore() : makeFileStore();
 // Обёртки для СЕРВЕРНОГО кода, которому нужны настоящие объекты/массивы.
 // storeGetJSON — "мягкое" чтение: если значение не читается, возвращает fallback.
 // storeGetJSONStrict — для случаев "прочитать → изменить → записать": если значение
-// есть, но не читается, бросает ошибку — чтобы не записать поверх него пустоту.
+// есть, но не читается, бросает ошибку — чтобы не записать поверх него пустоту.//
+// Разделы приложения (записи, чат, каталог, сотрудники...) хранятся в таблицах —
+// по строке на элемент (см. lib/collections.js). Эти три функции сами выбирают, откуда
+// читать: из таблицы раздела или из общего хранилища ключ-значение (настройки, снимки,
+// служебные ключи). Остальному серверному коду знать об этом не нужно.
+let tables = null; // драйвер таблиц; null — таблицы не используются (старый способ хранения)
+const usesTables = (key) => tables !== null && coll.isCollection(key) && !coll.SPECS[key].internal;
+// Раздел считается существующим, если в него хоть раз что-то записывали (пусть даже
+// сейчас он пуст) — по этому приложение отличает "ещё не создано" от "всё удалили"
+const tableExists = async (key) => (await tables.version(key)) !== "0";
+
 async function storeGetJSON(key, fallback) {
-  const raw = await store.get(key);
-  if (raw === undefined || raw === null) return fallback;
   try {
-    return JSON.parse(raw);
+    return await storeGetJSONStrict(key, fallback);
   } catch (e) {
     return fallback;
   }
 }
 async function storeGetJSONStrict(key, fallback) {
+  if (usesTables(key)) {
+    if (!(await tableExists(key))) return fallback;
+    return coll.readValue(tables, key);
+  }
   const raw = await store.get(key);
   if (raw === undefined || raw === null) return fallback;
   return JSON.parse(raw);
 }
 async function storeSetJSON(key, value) {
+  if (usesTables(key)) {
+    await tables.tx(async (t) => { await coll.syncAll(t, key, value); await t.bump(key); });
+    return;
+  }
   await store.set(key, JSON.stringify(value));
 }
+
+// ===================== Запуск хранения в таблицах =====================
+// 1. Создаём таблицы (если их ещё нет).
+// 2. Самопроверка: прогоняем на служебной таблице набор действий и сверяем результат с
+//    эталоном. Если база ведёт себя не так, как ожидается, — таблицы не включаем и
+//    продолжаем работать по-старому (данные при этом не трогаем).
+// 3. Первый запуск: переносим все разделы из старого хранилища в таблицы одной
+//    транзакцией и сверяем каждый раздел с оригиналом. Не сошлось хоть что-то — откат,
+//    работаем по-старому. Старые данные в kv_store остаются на месте как страховка.
+const DATA_KEYS = Object.keys(coll.SPECS).filter((k) => !coll.SPECS[k].internal);
+async function initTables() {
+  if (process.env.STORAGE_MODE === "kv") {
+    console.log("⚠️  STORAGE_MODE=kv — таблицы отключены, данные хранятся по-старому");
+    return;
+  }
+  if (store.ready) await store.ready;
+  const driver = store.pool ? pgDriver(store.pool, PROJECT_NAME) : coll.memoryDriver(path.join(store.dataDir, "tables.json"));
+  const markerRaw = await store.get("_tables");
+  const marker = markerRaw ? JSON.parse(markerRaw) : null;
+  try {
+    await driver.ensure(Object.keys(coll.SPECS));
+    const problem = await coll.selfCheck(driver);
+    if (problem) throw new Error("самопроверка таблиц не пройдена — " + problem);
+  } catch (e) {
+    if (marker) throw e; // данные уже в таблицах — работать по-старому нельзя, это были бы устаревшие данные
+    console.error("❌ Таблицы не включены, работаем по-старому:", e.message);
+    return;
+  }
+  if (!marker) {
+    try {
+      const summary = [];
+      await driver.tx(async (t) => {
+        for (const key of DATA_KEYS) {
+          const raw = await store.get(key);
+          if (raw === undefined || raw === null) continue;
+          const value = JSON.parse(raw);
+          if (value === null) continue;
+          const spec = coll.SPECS[key];
+          await t.clear(key);
+          const report = await coll.syncAll(t, key, value);
+          const expected = coll.rowsToValue(spec, coll.valueToRows(spec, value).rows);
+          const actual = await coll.readValue(t, key);
+          if (!coll.deepEqual(expected, actual)) throw new Error(`раздел «${key}» после переноса не совпал с оригиналом`);
+          await t.bump(key);
+          const n = spec.kind === "array" ? actual.length : Object.keys(actual).length;
+          summary.push(`${key}: ${n}` + (report.skipped || report.duplicates ? ` (пропущено без ключа: ${report.skipped}, повторов ключа: ${report.duplicates})` : ""));
+        }
+      });
+      await store.set("_tables", JSON.stringify({ version: 1, migratedAt: new Date().toISOString() }));
+      console.log("📋 Данные перенесены в таблицы и сверены с оригиналом — " + (summary.join("; ") || "переносить было нечего"));
+    } catch (e) {
+      console.error("❌ Перенос в таблицы не выполнен, работаем по-старому (данные не изменены):", e.message);
+      return;
+    }
+  }
+  tables = driver;
+  console.log(`✅ Данные хранятся в таблицах (${driver.name}), самопроверка пройдена`);
+}
+const dataReady = initTables();
+dataReady.catch((e) => console.error("❌ ХРАНИЛИЩЕ НЕДОСТУПНО:", e.message));
 
 // Очередь на каждый ключ: "прочитать → изменить → записать" для одного и того же
 // ключа выполняется строго по одному, чтобы два одновременных запроса не затёрли
@@ -432,6 +513,7 @@ app.use("/api", (req, res, next) => {
     if (req.method !== "GET" && req.method !== "HEAD" && !req.headers["x-requested-with"]) {
       throw new HttpError(403, "Запрос отклонён");
     }
+    try { await dataReady; } catch (e) { throw new HttpError(503, "Хранилище данных недоступно — подробности в логах приложения"); }
     await sessionsReady;
     req.user = null;
     const token = auth.parseCookies(req.headers.cookie)[SESSION_COOKIE];
@@ -707,7 +789,9 @@ function isPrivateKey(key) {
 
 app.get("/api/kv", requireUser, wrap(async (req, res) => {
   const prefix = String(req.query.prefix || "");
-  const keys = (await store.list(prefix)).filter((k) => !isPrivateKey(k) && access.canRead(k, req.user));
+  const all = new Set(await store.list(prefix));
+  if (tables) for (const k of DATA_KEYS) if (k.startsWith(prefix) && (await tableExists(k))) all.add(k);
+  const keys = [...all].filter((k) => !isPrivateKey(k) && access.canRead(k, req.user));
   res.json({ keys, prefix, shared: true });
 }));
 
@@ -720,6 +804,14 @@ app.get("/api/kv/:key", requireUser, wrap(async (req, res) => {
   // Сначала спрашиваем только "метку версии" — если у браузера уже есть эта версия,
   // само значение из базы даже не читаем (важно для чата: он опрашивается каждые 4 сек)
   const ifNoneMatch = req.headers["if-none-match"];
+  if (usesTables(key)) {
+    const ver = await tables.version(key);
+    if (ver === "0") throw new HttpError(404, "not found");
+    if (ifNoneMatch === tag("t" + ver)) return res.status(304).end();
+    const value = JSON.stringify(await readTableView(key, req.user));
+    res.set("ETag", tag("t" + ver));
+    return sendJSON(req, res, { key, value, shared: true });
+  }
   if (ifNoneMatch) {
     const ver = await store.version(key);
     if (ver === undefined) throw new HttpError(404, "not found");
@@ -734,10 +826,24 @@ app.get("/api/kv/:key", requireUser, wrap(async (req, res) => {
   sendJSON(req, res, { key, value, shared: true });
 }));
 
+// Раздел из таблицы в том виде, в каком его положено видеть этому пользователю.
+// Сотруднику из базы выбираются только его строки — чужие даже не читаются.
+async function readTableView(key, user) {
+  const admin = access.isAdmin(user);
+  let rows;
+  if (!admin && (key === "entries" || key === "timerSessions")) rows = await tables.query(key, { eq: { employee_id: user.id } });
+  else if (!admin && key === "chatMessages") rows = await tables.query(key, { in: { thread_id: ["all", user.id] } });
+  else if (key === "loginLog") rows = (await tables.query(key, { orderBy: "ts", desc: true, limit: 500 })).reverse();
+  else rows = await tables.all(key);
+  const value = coll.rowsToValue(coll.SPECS[key], rows);
+  return access.needsView(key, user) ? access.viewFor(key, value, user) : value;
+}
+
 // Применение изменений к ключу — общий путь и для точечных изменений, и для замены целиком
 async function writeKey(req, key, ops) {
   if (isPrivateKey(key)) throw new HttpError(403, "Недостаточно прав");
   validateOps(ops);
+  if (usesTables(key)) return writeTableKey(req, key, ops);
   await withKeyLock(key, async () => {
     const currentText = await store.get(key);
     const current = currentText === undefined ? undefined : JSON.parse(currentText);
@@ -758,6 +864,34 @@ async function writeKey(req, key, ops) {
       if (gone.length) await dropSessionsOf(gone);
     }
   });
+}
+
+// То же для раздела, хранящегося в таблице: меняются только затронутые строки
+async function writeTableKey(req, key, ops) {
+  const spec = coll.SPECS[key];
+  if (ops.kind !== "replace" && ops.kind !== spec.kind) throw new HttpError(409, "Формат данных не совпадает с сохранённым");
+  let goneUsers = [];
+  await withKeyLock(key, async () => {
+    await tables.tx(async (t) => {
+      // Для проверки прав читаем только те строки, которых касаются изменения
+      // (весь раздел — только для сотрудников: там нужна проверка "остался ли администратор")
+      const whole = key === "users";
+      const current = whole ? await coll.readValue(t, key) : await coll.readSubset(t, key, coll.referencedIds(spec, ops));
+      const guarded = await access.guardWrite(key, ops, current, req.user, { getJSON: storeGetJSON });
+      await coll.applyOps(t, key, guarded, access.MERGE_RULES[key]);
+      if (whole) {
+        const after = await coll.readValue(t, key);
+        access.checkResult(key, current, after);
+        const alive = new Set(after.map((u) => String(u.id)));
+        goneUsers = [...new Set([...sessions.values()].map((x) => String(x.userId)))].filter((id) => !alive.has(id));
+      }
+      await t.bump(key);
+    });
+  });
+  if (key === "users") {
+    invalidateUsers();
+    if (goneUsers.length) await dropSessionsOf(goneUsers);
+  }
 }
 
 app.post("/api/kv/:key/patch", requireUser, wrap(async (req, res) => {
@@ -782,6 +916,10 @@ app.put("/api/kv/:key", requireUser, wrap(async (req, res) => {
 app.delete("/api/kv/:key", requireAdmin, wrap(async (req, res) => {
   const key = req.params.key;
   if (isPrivateKey(key) || key === "users") throw new HttpError(403, "Недостаточно прав");
+  if (usesTables(key)) {
+    await withKeyLock(key, () => tables.tx(async (t) => { await t.clear(key); await t.bump(key); }));
+    return res.json({ key, deleted: true, shared: true });
+  }
   const existed = await withKeyLock(key, () => store.del(key));
   res.json({ key, deleted: existed, shared: true });
 }));
@@ -799,6 +937,7 @@ function moscowDateStr() {
 }
 async function ensureDailySnapshot() {
   try {
+    await dataReady;
     const key = `snapshot:${moscowDateStr()}`;
     if ((await store.version(key)) !== undefined) return;
     const users = await storeGetJSON("users", []);
@@ -825,6 +964,7 @@ async function encryptStoredSecrets() {
     return;
   }
   try {
+    await dataReady;
     const saved = await storeGetJSON("_ozonCredentials", null);
     if (saved && !saved.enc && saved.clientId && saved.apiKey) {
       await saveOzonCredentials({ clientId: saved.clientId, apiKey: saved.apiKey });
