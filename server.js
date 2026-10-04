@@ -7,6 +7,7 @@ const zlib = require("zlib");
 const { applyOps, validateOps, PatchError } = require("./lib/patch");
 const auth = require("./lib/auth");
 const access = require("./lib/access");
+const secrets = require("./lib/secrets");
 const { ensureBundle } = require("./lib/build");
 
 const app = express();
@@ -532,7 +533,7 @@ app.post("/api/auth/setup", wrap(async (req, res) => {
   const result = await mutateUsers(async (users) => {
     if (users.some((u) => u && u.role === "admin")) throw new HttpError(403, "Администратор уже создан — войдите под его логином");
     if (users.some((u) => u && u.username === uname)) throw new HttpError(400, "Такой логин уже занят");
-    const admin = { id: auth.newId(), username: uname, passwordHash: await auth.hashSecret(password), role: "admin", name: String(name).trim(), qrToken: auth.newToken() };
+    const admin = secrets.withQrToken({ id: auth.newId(), username: uname, passwordHash: await auth.hashSecret(password), role: "admin", name: String(name).trim() }, auth.newToken());
     return { users: [...users, admin], user: admin };
   });
   await startSession(req, res, result.user);
@@ -562,7 +563,7 @@ app.post("/api/auth/login", wrap(async (req, res) => {
 app.post("/api/auth/qr", wrap(async (req, res) => {
   const token = String((req.body || {}).token || "").trim();
   checkLimit(req, null);
-  const user = token ? (await getUsers()).find((u) => u && u.qrToken && u.qrToken === token) : null;
+  const user = token ? (await getUsers()).find((u) => secrets.matchesQrToken(u, token)) : null;
   if (!user) { failLimit(req, null); throw new HttpError(400, "QR-код не распознан"); }
   await startSession(req, res, user);
   await logLogin(req, user, "QR");
@@ -580,12 +581,11 @@ app.post("/api/auth/register", wrap(async (req, res) => {
   const result = await mutateUsers(async (users) => {
     if (!users.some((u) => u && u.role === "admin")) throw new HttpError(403, "Сначала нужно создать администратора");
     if (users.some((u) => u && u.username === uname)) throw new HttpError(400, "Такой логин уже занят");
-    const user = {
+    const user = secrets.withQrToken({
       id: auth.newId(), username: uname,
       passwordHash: await auth.hashSecret(password), secretWordHash: await auth.hashSecret(word),
       role: "employee", name: String(name).trim().slice(0, 100), hourlyRate: 0, timerEnabled: false, barcodeAddEnabled: false,
-      qrToken: auth.newToken(),
-    };
+    }, auth.newToken());
     return { users: [...users, user], user };
   });
   await startSession(req, res, result.user);
@@ -599,7 +599,7 @@ async function findUserForRecovery(req) {
   if (body.method === "qr") {
     const token = String(body.token || "").trim();
     checkLimit(req, null);
-    const user = token ? (await getUsers()).find((u) => u && u.qrToken && u.qrToken === token) : null;
+    const user = token ? (await getUsers()).find((u) => secrets.matchesQrToken(u, token)) : null;
     if (!user) { failLimit(req, null); throw new HttpError(400, "QR-код не распознан"); }
     return { user, method: "восстановление пароля по QR" };
   }
@@ -682,7 +682,7 @@ app.post("/api/admin/admins", requireAdmin, wrap(async (req, res) => {
   checkNewPassword(password);
   await mutateUsers(async (users) => {
     if (users.some((u) => u && u.username === uname)) throw new HttpError(400, "Логин занят");
-    const admin = { id: auth.newId(), username: uname, passwordHash: await auth.hashSecret(password), role: "admin", name: String(name).trim(), qrToken: auth.newToken() };
+    const admin = secrets.withQrToken({ id: auth.newId(), username: uname, passwordHash: await auth.hashSecret(password), role: "admin", name: String(name).trim() }, auth.newToken());
     return { users: [...users, admin] };
   });
   res.json({ ok: true });
@@ -816,6 +816,38 @@ async function ensureDailySnapshot() {
     console.error("Не удалось сделать ежедневный снимок:", e.message);
   }
 }
+// ===================== Шифрование уже сохранённых секретов =====================
+// При первом запуске с заданным APP_SECRET — ключи Ozon и QR-коды, лежащие в базе
+// открытым текстом, перезаписываются в зашифрованном виде.
+async function encryptStoredSecrets() {
+  if (!secrets.enabled) {
+    console.log("⚠️  APP_SECRET не задан — ключи Ozon и QR-коды хранятся в базе без шифрования");
+    return;
+  }
+  try {
+    const saved = await storeGetJSON("_ozonCredentials", null);
+    if (saved && !saved.enc && saved.clientId && saved.apiKey) {
+      await saveOzonCredentials({ clientId: saved.clientId, apiKey: saved.apiKey });
+      console.log("🔐 Ключи Ozon в базе зашифрованы");
+    }
+    let count = 0;
+    await mutateUsers(async (users) => {
+      if (!Array.isArray(users) || !users.some(secrets.needsQrMigration)) return null;
+      const next = users.map((u) => {
+        if (!secrets.needsQrMigration(u)) return u;
+        count++;
+        return secrets.withQrToken(u, u.qrToken);
+      });
+      return { users: next };
+    });
+    if (count) console.log(`🔐 QR-коды входа в базе зашифрованы: ${count}`);
+    console.log("🔐 Шифрование секретов включено (APP_SECRET задан)");
+  } catch (e) {
+    console.error("Не удалось зашифровать сохранённые секреты:", e.message);
+  }
+}
+setTimeout(encryptStoredSecrets, 3 * 1000);
+
 const snapshotTimer = setInterval(ensureDailySnapshot, 30 * 60 * 1000);
 if (snapshotTimer.unref) snapshotTimer.unref();
 setTimeout(ensureDailySnapshot, 15 * 1000);
@@ -828,11 +860,30 @@ setTimeout(ensureDailySnapshot, 15 * 1000);
 
 app.use("/api/ozon", requireAdmin);
 
+// Ключи Ozon в базе: { enc: "<зашифровано>" } при заданном APP_SECRET, иначе { clientId, apiKey } (как раньше).
+// Возвращает { creds, unreadable }: unreadable = true, если ключи есть, но расшифровать их нечем
+// (APP_SECRET изменили или убрали) — тогда их нужно ввести заново.
+async function loadOzonCredentials() {
+  const saved = await storeGetJSON("_ozonCredentials", null);
+  if (!saved) return { creds: null, unreadable: false };
+  if (saved.enc) {
+    const text = secrets.decrypt(saved.enc);
+    if (!text) return { creds: null, unreadable: true };
+    try { return { creds: JSON.parse(text), unreadable: false }; } catch (e) { return { creds: null, unreadable: true }; }
+  }
+  return { creds: saved, unreadable: false };
+}
+async function saveOzonCredentials(creds) {
+  await storeSetJSON("_ozonCredentials", secrets.enabled ? { enc: secrets.encrypt(JSON.stringify(creds)) } : creds);
+}
+
 app.get("/api/ozon/status", async (req, res) => {
   try {
-    const creds = await storeGetJSON("_ozonCredentials", null);
+    const { creds, unreadable } = await loadOzonCredentials();
     const lastSync = await storeGetJSON("_ozonLastSync", null);
     res.json({
+      encrypted: secrets.enabled,
+      unreadable,
       configured: !!(creds && creds.clientId && creds.apiKey),
       clientIdHint: creds && creds.clientId ? "…" + String(creds.clientId).slice(-4) : null,
       lastSync: lastSync || null,
@@ -846,7 +897,7 @@ app.post("/api/ozon/credentials", async (req, res) => {
   try {
     const { clientId, apiKey } = req.body || {};
     if (!clientId || !apiKey) return res.status(400).json({ error: "Укажите Client-Id и Api-Key" });
-    await storeSetJSON("_ozonCredentials", { clientId: String(clientId).trim(), apiKey: String(apiKey).trim() });
+    await saveOzonCredentials({ clientId: String(clientId).trim(), apiKey: String(apiKey).trim() });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -865,7 +916,10 @@ app.delete("/api/ozon/credentials", async (req, res) => {
 app.post("/api/ozon/sync", async (req, res) => {
   let releaseCatalog = null;
   try {
-    const creds = await storeGetJSON("_ozonCredentials", null);
+    const { creds, unreadable } = await loadOzonCredentials();
+    if (unreadable) {
+      return res.status(400).json({ error: "Сохранённые ключи Ozon не удалось расшифровать (изменился APP_SECRET). Введите Client-Id и Api-Key заново" });
+    }
     if (!creds || !creds.clientId || !creds.apiKey) {
       return res.status(400).json({ error: "Сначала укажите Client-Id и Api-Key от Ozon в настройках" });
     }

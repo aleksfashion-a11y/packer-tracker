@@ -3940,6 +3940,12 @@ export default function App() {
                     Подтягивает артикул, название и штрихкоды напрямую из вашего кабинета продавца Ozon — без ручной выгрузки Excel. Ключи возьмите в кабинете Ozon: Настройки → Seller API.
                   </div>
 
+                  {ozonStatus && ozonStatus.unreadable && (
+                    <div style={{ fontSize: 12, color: "var(--danger)", marginBottom: 10 }}>Сохранённые ключи не удалось расшифровать (изменился ключ шифрования APP_SECRET) — введите Client-Id и Api-Key заново.</div>
+                  )}
+                  {ozonStatus && ozonStatus.encrypted === false && (
+                    <div style={{ fontSize: 12, color: "var(--accent)", marginBottom: 10 }}>⚠ Ключи Ozon и QR-коды входа хранятся в базе без шифрования. Чтобы включить шифрование, задайте в Timeweb переменную окружения APP_SECRET.</div>
+                  )}
                   {!ozonStatus || !ozonStatus.configured || ozonEditingCreds ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 420 }}>
                       <input placeholder="Client-Id" value={ozonClientId} onChange={(e) => setOzonClientId(e.target.value)} />
