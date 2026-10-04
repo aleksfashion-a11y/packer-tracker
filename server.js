@@ -8,7 +8,7 @@ const { applyOps, validateOps, PatchError } = require("./lib/patch");
 const auth = require("./lib/auth");
 const access = require("./lib/access");
 const secrets = require("./lib/secrets");
-const { ensureBundle } = require("./lib/build");
+const { ensureBundle, appVersion } = require("./lib/build");
 const coll = require("./lib/collections");
 const { pgDriver } = require("./lib/rows-pg");
 
@@ -408,6 +408,12 @@ app.get("/bundle.js", wrap(async (req, res) => {
   if (bundle.br && /\bbr\b/.test(accepts)) { res.set("Content-Encoding", "br"); return res.send(bundle.br); }
   if (bundle.gz && /\bgzip\b/.test(accepts)) { res.set("Content-Encoding", "gzip"); return res.send(bundle.gz); }
   res.send(bundle.js);
+}));
+
+// Какая версия сейчас на сервере — по этому открытое приложение узнаёт, что вышло обновление
+app.get("/api/version", wrap(async (req, res) => {
+  const bundle = await bundlePromise;
+  res.json({ version: appVersion(__dirname), build: bundle.hash || null });
 }));
 
 // Номер версии кэша в service worker подставляется автоматически (по номеру сборки

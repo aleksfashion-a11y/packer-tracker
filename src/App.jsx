@@ -384,6 +384,54 @@ export default function App() {
   const PULL_DEADZONE = 12; // не реагируем на первые ~12px — гасит дребезг от обычного "резинового" отскока iOS у верха страницы
   const pullRafRef = useRef(null);
   const pullLatestYRef = useRef(null);
+  // ===== Обновление приложения =====
+  // Интерфейс знает номер своей сборки (вшит при сборке на сервере). Раз в пару минут,
+  // при возвращении в приложение и при каждом ручном обновлении он спрашивает у сервера
+  // текущий номер: если на сервере уже другая сборка — вышла новая версия.
+  const APP_BUILD = (typeof window !== "undefined" && window.__PT_BUILD__) || null;
+  const APP_VERSION = (typeof window !== "undefined" && window.__PT_VERSION__) || "";
+  const [updateInfo, setUpdateInfo] = useState(null); // { version, build } — есть новая версия
+  const checkForUpdate = async () => {
+    if (!APP_BUILD) return null;
+    try {
+      const v = await window.storage.api("/api/version");
+      if (v && v.build && v.build !== APP_BUILD) { setUpdateInfo(v); return v; }
+      setUpdateInfo(null);
+    } catch (e) { /* нет связи — проверим в следующий раз */ }
+    return null;
+  };
+  // Перейти на новую версию: сбрасываем сохранённую на устройстве оболочку приложения и
+  // перезагружаем страницу. Данные и неотправленные офлайн-записи при этом сохраняются.
+  const applyUpdate = async () => {
+    setToast("Обновляем приложение…");
+    try {
+      if ("serviceWorker" in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) await reg.update();
+      }
+      if (window.caches) {
+        const keys = await window.caches.keys();
+        await Promise.all(keys.map((k) => window.caches.delete(k)));
+      }
+    } catch (e) { /* не получилось почистить — перезагрузка всё равно возьмёт новую версию с сервера */ }
+    window.location.reload();
+  };
+  // Ручное обновление (свайп вниз или кнопка ↻): если вышла новая версия — переходим на
+  // неё, иначе просто перечитываем данные
+  const refreshEverything = async () => {
+    if (await checkForUpdate()) { await applyUpdate(); return; }
+    await loadSharedData();
+    setToast("Обновлено");
+  };
+  useEffect(() => {
+    const first = setTimeout(checkForUpdate, 5000);
+    const timer = setInterval(checkForUpdate, 2 * 60 * 1000);
+    const onVisible = () => { if (document.visibilityState === "visible") checkForUpdate(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", checkForUpdate);
+    return () => { clearTimeout(first); clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); window.removeEventListener("online", checkForUpdate); };
+  }, []);
+
   const handlePullTouchStart = (e) => {
     if (refreshing) return;
     const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
@@ -419,9 +467,8 @@ export default function App() {
     if (pullDistance > PULL_THRESHOLD) {
       setRefreshing(true);
       setPullDistance(56);
-      await loadSharedData();
+      await refreshEverything();
       setRefreshing(false);
-      setToast("Обновлено");
     }
     setPullDistance(0);
   };
@@ -2646,6 +2693,12 @@ export default function App() {
           </span>
         </div>
       )}
+      {updateInfo && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, flexWrap: "wrap", padding: "8px 12px", fontSize: 13, background: "var(--accent)", color: "#1a1a1a", fontWeight: 500 }}>
+          <span>🔄 Вышла новая версия приложения{updateInfo.version ? ` (${updateInfo.version})` : ""}</span>
+          <button className="btn" style={{ padding: "6px 16px", fontSize: 13, fontWeight: 600, background: "#1a1a1a", color: "#fff", borderColor: "#1a1a1a" }} onClick={applyUpdate}>Обновить</button>
+        </div>
+      )}
       {(!isOnline || pendingSyncCount > 0) && (
         <div style={{ textAlign: "center", padding: "6px 10px", fontSize: 12, background: !isOnline ? "var(--danger)" : "var(--accent)", color: "#1a1a1a", fontWeight: 500 }}>
           {!isOnline
@@ -2706,7 +2759,7 @@ export default function App() {
 
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 18, padding: "6px 6px 6px 12px", maxWidth: "100%" }}>
             <button className="btn" style={{ padding: "6px 8px", borderRadius: 999, fontSize: 12 }}
-              onClick={async () => { setRefreshing(true); await loadSharedData(); setRefreshing(false); setToast("Обновлено"); }}
+              onClick={async () => { setRefreshing(true); await refreshEverything(); setRefreshing(false); }}
               disabled={refreshing} title="Обновить данные">
               {refreshing ? "⟳" : "↻"}
             </button>
@@ -2809,6 +2862,11 @@ export default function App() {
 
             {tab === "chat" && EmployeeChat({ catalog, chatActiveThread, chatHasOlder, chatInput, chatMessagesInActiveThread, chatReadStatus, chatRecordSeconds, chatRecording, chatUnreadByThread, chatUserName, currentUser, deleteChatMessage, employeeQuickReplies, getProductImage, loadOlderChat, markChatThreadRead, sendChatMessage, setChatActiveThread, setChatAttachOpen, setChatInput, setChatMediaOpen, setLightbox, showChatReadReceipts, startVoiceRecording, stopVoiceRecording })}
           </>
+        )}
+        {APP_VERSION && (
+          <div className="mono" style={{ marginTop: 40, textAlign: "center", fontSize: 11, color: "var(--muted-2)" }}>
+            версия {APP_VERSION}{updateInfo ? " · доступна новая" : ""}
+          </div>
         )}
       </div>
 
