@@ -71,6 +71,7 @@ export default function App() {
   const [stockEditSize, setStockEditSize] = useState("");
   const [stockEditMultiplicity, setStockEditMultiplicity] = useState("");
   const [stockAddAmountFor, setStockAddAmountFor] = useState(null);
+  const [stockOpMode, setStockOpMode] = useState("in"); // какая операция с остатком открыта: in — приход, out — списание, set — инвентаризация
   const [stockAddAmountVal, setStockAddAmountVal] = useState("");
   const [ozonHistory, setOzonHistory] = useState([]);
   const [ozonUndoing, setOzonUndoing] = useState(null); // id отменяемой записи, либо null
@@ -1113,6 +1114,68 @@ export default function App() {
     const next = packagingMaterials.map((m) => m.id === materialId ? { ...m, stock: m.stock + n } : m);
     await persistPackagingMaterials(next);
     setToast(`Остаток пополнен на ${n}`);
+  };
+  // ===== Операции с остатком упаковки: приход, списание, инвентаризация =====
+  // Каждая операция — с подтверждением, в котором видно «было → станет». У упаковки
+  // запоминается последняя операция (что, сколько, кто, когда) — она показана в карточке.
+  const STOCK_OPS = {
+    in: { button: "＋ Приход", title: "Приход", placeholder: "Сколько пришло" },
+    out: { button: "− Списание", title: "Списание", placeholder: "Сколько списать" },
+    set: { button: "= Инвентаризация", title: "Инвентаризация", placeholder: "Сколько всего по факту" },
+  };
+  const closeStockOp = () => { setStockAddAmountFor(null); setStockAddAmountVal(""); };
+  const applyStockOperation = (material, mode, rawValue) => {
+    const text = String(rawValue).replace(/\s/g, "");
+    const n = /^\d+$/.test(text) ? parseInt(text, 10) : NaN;
+    if (Number.isNaN(n) || (mode !== "set" && n <= 0)) { setToast(mode === "set" ? "Укажите количество по факту (0 или больше)" : "Укажите количество больше нуля"); return; }
+    const before = Number(material.stock) || 0;
+    if (mode === "out" && n > before) { setToast(`Нельзя списать ${n} — на остатке всего ${before}. Если по факту меньше, сделайте инвентаризацию`); return; }
+    const after = mode === "in" ? before + n : mode === "out" ? before - n : n;
+    if (mode === "set" && after === before) { setToast("Остаток уже равен " + n + " — менять нечего"); closeStockOp(); return; }
+    const diff = after - before;
+    const question =
+      mode === "in" ? `Оприходовать ${n} шт упаковки «${material.name}»?\nОстаток: ${before} → ${after}` :
+      mode === "out" ? `Списать ${n} шт упаковки «${material.name}»?\nОстаток: ${before} → ${after}` :
+      `Инвентаризация «${material.name}»: установить остаток ${after} шт?\nБыло ${before}, расхождение ${diff > 0 ? "+" : ""}${diff}`;
+    askConfirm(question, async () => {
+      const lastOp = { type: mode, qty: Math.abs(diff), before, after, by: currentUser ? currentUser.name : "", at: Date.now() };
+      if (mode === "set") {
+        // Инвентаризация задаёт остаток ТОЧНО (а не "на разницу", как приход и списание):
+        // если кто-то в эту же минуту списал упаковку, по факту всё равно должно стать ровно столько
+        try {
+          await window.storage.api("/api/kv/packagingMaterials/patch", { ops: { kind: "array", keyField: "id", remove: [], upsert: [], patch: [{ id: material.id, set: { stock: after, lastOp } }] } });
+        } catch (e) { setToast("Не сохранено: " + (e && e.message ? e.message : "нет связи с сервером")); return; }
+        setPackagingMaterials((prev) => prev.map((m) => (m.id === material.id ? { ...m, stock: after, lastOp } : m)));
+      } else {
+        await persistPackagingMaterials(packagingMaterials.map((m) => (m.id === material.id ? { ...m, stock: after, lastOp } : m)));
+      }
+      closeStockOp();
+      setToast(mode === "in" ? `Оприходовано ${n}. Остаток: ${after}` : mode === "out" ? `Списано ${n}. Остаток: ${after}` : `Инвентаризация: остаток ${after}`);
+    });
+  };
+  // Кнопки операций в карточке упаковки (одинаковые у администратора и у сотрудника)
+  const renderStockOps = (m) => (stockAddAmountFor === m.id ? (
+    <>
+      <span className="mono" style={{ fontSize: 11, color: "var(--accent)" }}>{STOCK_OPS[stockOpMode].title}:</span>
+      <input type="text" inputMode="numeric" autoFocus value={stockAddAmountVal} onChange={(e) => setStockAddAmountVal(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") applyStockOperation(m, stockOpMode, stockAddAmountVal); }}
+        placeholder={STOCK_OPS[stockOpMode].placeholder} style={{ width: 190 }} />
+      <button className="btn btn-accent" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => applyStockOperation(m, stockOpMode, stockAddAmountVal)}>ОК</button>
+      <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={closeStockOp}>✕</button>
+    </>
+  ) : (
+    <>
+      {["in", "out", "set"].map((mode) => (
+        <button key={mode} className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => { setStockOpMode(mode); setStockAddAmountFor(m.id); setStockAddAmountVal(""); }}>{STOCK_OPS[mode].button}</button>
+      ))}
+    </>
+  ));
+  const renderStockLastOp = (m) => {
+    const op = m.lastOp;
+    if (!op || !op.at) return null;
+    const what = op.type === "in" ? `приход +${op.qty}` : op.type === "out" ? `списание −${op.qty}` : `инвентаризация (${op.after - op.before > 0 ? "+" : ""}${op.after - op.before})`;
+    const when = new Date(op.at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    return <div className="mono" style={{ fontSize: 10, color: "var(--muted-2)", marginTop: 2 }}>последняя операция: {what} · {op.before} → {op.after} · {op.by || "—"} · {when}</div>;
   };
   const deductPackagingStock = async (materialId, amount) => {
     const next = packagingMaterials.map((m) => m.id === materialId ? { ...m, stock: Math.max(0, m.stock - amount) } : m);
@@ -2854,7 +2917,7 @@ export default function App() {
 
             {adminTab === "products" && AdminProducts({ addPackagingOption, addProduct, addingOptionSku, addingProduct, catalog, catalogEditBarcodes, catalogEditName, catalogEditSku, catalogEditSkuValue, catalogSortMode, exportCatalogToExcel, fuzzyResults, getProductImage, imageEditGalleryVal, imageEditSku, imageEditVal, importCatalogFromExcel, importImagesFromExcel, importReport, mergeDuplicateOptions, money, newOptionLabel, newOptionPrice, newProductBarcodes, newProductError, newProductName, newProductSku, optionsForSku, persistPriceHistory, priceEditLabelVal, priceEditOptionId, priceEditVal, priceHistory, printCatalog, removePackagingOption, removeProduct, renderProductPackaging, saveOptionEdit, saveProductEdit, search, searchMode, searchResults, setAddingOptionSku, setAddingProduct, setCatalogEditBarcodes, setCatalogEditName, setCatalogEditSku, setCatalogEditSkuValue, setCatalogSortMode, setImageEditGalleryVal, setImageEditSku, setImageEditVal, setImportReport, setLightbox, setNewOptionLabel, setNewOptionPrice, setNewProductBarcodes, setNewProductError, setNewProductName, setNewProductSku, setPriceEditLabelVal, setPriceEditOptionId, setPriceEditVal, setProductImage, setSearch, setSearchMode, setShowFuzzy, showFuzzy, sortedCatalog })}
 
-            {adminTab === "stock" && AdminStock({ addPackagingStock, addToPurchaseRequest, createPackagingMaterial, downloadStockImportTemplate, editPackagingMaterial, exportPurchaseRequestToExcel, exportStockToExcel, filteredStock, fulfillPurchaseRequest, importStockFromExcel, isAdmin, packagingMaterials, packagingPurchaseRequest, printPurchaseRequest, productsByMaterial, purchaseAddFor, purchaseAddVal, removeFromPurchaseRequest, removePackagingMaterial, setMaterialLinkModal, setPurchaseAddFor, setPurchaseAddVal, setStockAddAmountFor, setStockAddAmountVal, setStockAddingNew, setStockEditId, setStockEditMultiplicity, setStockEditSize, setStockEditType, setStockNewSize, setStockNewStock, setStockNewType, setStockSearch, setStockSizeFilter, startSupplyReconcile, stockAddAmountFor, stockAddAmountVal, stockAddingNew, stockEditId, stockEditMultiplicity, stockEditSize, stockEditType, stockNewSize, stockNewStock, stockNewType, stockSearch, stockSizeFilter, stockSortDir, stockSortMode, toggleStockSort, updatePurchaseRequestQty })}
+            {adminTab === "stock" && AdminStock({ renderStockLastOp, renderStockOps, addPackagingStock, addToPurchaseRequest, createPackagingMaterial, downloadStockImportTemplate, editPackagingMaterial, exportPurchaseRequestToExcel, exportStockToExcel, filteredStock, fulfillPurchaseRequest, importStockFromExcel, isAdmin, packagingMaterials, packagingPurchaseRequest, printPurchaseRequest, productsByMaterial, purchaseAddFor, purchaseAddVal, removeFromPurchaseRequest, removePackagingMaterial, setMaterialLinkModal, setPurchaseAddFor, setPurchaseAddVal, setStockAddAmountFor, setStockAddAmountVal, setStockAddingNew, setStockEditId, setStockEditMultiplicity, setStockEditSize, setStockEditType, setStockNewSize, setStockNewStock, setStockNewType, setStockSearch, setStockSizeFilter, startSupplyReconcile, stockAddAmountFor, stockAddAmountVal, stockAddingNew, stockEditId, stockEditMultiplicity, stockEditSize, stockEditType, stockNewSize, stockNewStock, stockNewType, stockSearch, stockSizeFilter, stockSortDir, stockSortMode, toggleStockSort, updatePurchaseRequestQty })}
 
             {adminTab === "messages" && AdminMessages({ deleteMessage, employees, messages, msgTarget, msgText, sendMessage, setMsgTarget, setMsgText })}
 
@@ -2876,7 +2939,7 @@ export default function App() {
 
             {tab === "history" && EmployeeHistory({ deleteEntry, empFilterDateFrom, empFilterDateTo, empFilterSku, empFilterType, empSortDir, empSortKey, empToggleSort, entryAmount, filteredMyHistory, filteredMyHistoryTotal, histVisible, money, myHistoryTotals, renderEntriesWindowNotice, setEmpFilterDateFrom, setEmpFilterDateTo, setEmpFilterSku, setEmpFilterType, setHistVisible, showEmployeeTotals, sortedMyHistory })}
 
-            {tab === "stock" && EmployeeStock({ catalog, empProdOnlyUnlinked, empProdQuery, empProdVisible, empProducts, empProductsUnlinkedCount, empStockView, productImages, renderProductPackaging, setEmpProdOnlyUnlinked, setEmpProdQuery, setEmpProdVisible, setEmpStockView, setLightbox, addPackagingStock, addToPurchaseRequest, createPackagingMaterial, downloadStockImportTemplate, editPackagingMaterial, exportPurchaseRequestToExcel, exportStockToExcel, filteredStock, fulfillPurchaseRequest, importStockFromExcel, packagingMaterials, packagingPurchaseRequest, printPurchaseRequest, productsByMaterial, purchaseAddFor, purchaseAddVal, removeFromPurchaseRequest, setMaterialLinkModal, setPurchaseAddFor, setPurchaseAddVal, setStockAddAmountFor, setStockAddAmountVal, setStockAddingNew, setStockEditId, setStockEditMultiplicity, setStockEditSize, setStockEditType, setStockNewSize, setStockNewStock, setStockNewType, setStockSearch, setStockSizeFilter, stockAddAmountFor, stockAddAmountVal, stockAddingNew, stockEditId, stockEditMultiplicity, stockEditSize, stockEditType, stockNewSize, stockNewStock, stockNewType, stockSearch, stockSizeFilter, stockSortDir, stockSortMode, toggleStockSort, updatePurchaseRequestQty })}
+            {tab === "stock" && EmployeeStock({ catalog, empProdOnlyUnlinked, empProdQuery, empProdVisible, empProducts, empProductsUnlinkedCount, empStockView, productImages, renderProductPackaging, setEmpProdOnlyUnlinked, setEmpProdQuery, setEmpProdVisible, setEmpStockView, setLightbox, renderStockLastOp, renderStockOps, addPackagingStock, addToPurchaseRequest, createPackagingMaterial, downloadStockImportTemplate, editPackagingMaterial, exportPurchaseRequestToExcel, exportStockToExcel, filteredStock, fulfillPurchaseRequest, importStockFromExcel, packagingMaterials, packagingPurchaseRequest, printPurchaseRequest, productsByMaterial, purchaseAddFor, purchaseAddVal, removeFromPurchaseRequest, setMaterialLinkModal, setPurchaseAddFor, setPurchaseAddVal, setStockAddAmountFor, setStockAddAmountVal, setStockAddingNew, setStockEditId, setStockEditMultiplicity, setStockEditSize, setStockEditType, setStockNewSize, setStockNewStock, setStockNewType, setStockSearch, setStockSizeFilter, stockAddAmountFor, stockAddAmountVal, stockAddingNew, stockEditId, stockEditMultiplicity, stockEditSize, stockEditType, stockNewSize, stockNewStock, stockNewType, stockSearch, stockSizeFilter, stockSortDir, stockSortMode, toggleStockSort, updatePurchaseRequestQty })}
 
             {tab === "chat" && EmployeeChat({ catalog, chatActiveThread, chatHasOlder, chatInput, chatMessagesInActiveThread, chatReadStatus, chatRecordSeconds, chatRecording, chatUnreadByThread, chatUserName, currentUser, deleteChatMessage, employeeQuickReplies, getProductImage, loadOlderChat, markChatThreadRead, sendChatMessage, setChatActiveThread, setChatAttachOpen, setChatInput, setChatMediaOpen, setLightbox, showChatReadReceipts, startVoiceRecording, stopVoiceRecording })}
           </>
@@ -2942,7 +3005,7 @@ export default function App() {
       {confirmDialog && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }} onClick={() => setConfirmDialog(null)}>
           <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
-            <div style={{ fontSize: 14, marginBottom: 14 }}>{confirmDialog.message}</div>
+            <div style={{ fontSize: 14, marginBottom: 14, whiteSpace: "pre-line" }}>{confirmDialog.message}</div>
             <div style={{ display: "flex", gap: 8 }}>
               <button className="btn btn-danger" onClick={() => { const fn = confirmDialog.onConfirm; setConfirmDialog(null); fn(); }}>Подтвердить</button>
               <button className="btn" onClick={() => setConfirmDialog(null)}>Отмена</button>

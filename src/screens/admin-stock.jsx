@@ -5,6 +5,7 @@ import { PACKAGING_TYPES, buildPackagingSkuName, getMultiplicity } from "../lib/
 
 export function AdminStock(ctx) {
   const {
+    renderStockLastOp, renderStockOps,
     addPackagingStock, addToPurchaseRequest, createPackagingMaterial, downloadStockImportTemplate,
     editPackagingMaterial, exportPurchaseRequestToExcel, exportStockToExcel, filteredStock, fulfillPurchaseRequest,
     importStockFromExcel, isAdmin, packagingMaterials, packagingPurchaseRequest, printPurchaseRequest,
@@ -112,17 +113,10 @@ export function AdminStock(ctx) {
                   <div>
                     <div style={{ fontSize: 14 }}>{m.name}</div>
                     <div className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>арт. {m.sku} · размер {m.size} · кратность {getMultiplicity(m)} · остаток: <span style={{ color: m.stock > 0 ? "var(--text)" : "var(--danger)", fontWeight: 600 }}>{m.stock}</span> · {(productsByMaterial[m.id] || []).length > 0 ? `товаров: ${productsByMaterial[m.id].length}` : "к товарам не привязана"}</div>
+                    {renderStockLastOp(m)}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    {stockAddAmountFor === m.id ? (
-                      <>
-                        <input type="text" inputMode="numeric" value={stockAddAmountVal} onChange={(e) => setStockAddAmountVal(e.target.value)} placeholder="Кол-во" style={{ width: 90 }} />
-                        <button className="btn btn-accent" style={{ padding: "4px 10px", fontSize: 11 }} onClick={async () => { await addPackagingStock(m.id, parseInt(stockAddAmountVal) || 0); setStockAddAmountFor(null); setStockAddAmountVal(""); }}>ОК</button>
-                        <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setStockAddAmountFor(null)}>✕</button>
-                      </>
-                    ) : (
-                      <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => { setStockAddAmountFor(m.id); setStockAddAmountVal(""); }}>+ Пополнить</button>
-                    )}
+                    {renderStockOps(m)}
                     {purchaseAddFor === m.id ? (
                       <>
                         <input type="text" inputMode="numeric" value={purchaseAddVal} onChange={(e) => setPurchaseAddVal(e.target.value)} placeholder="Кол-во" style={{ width: 90 }} />

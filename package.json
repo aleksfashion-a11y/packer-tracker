@@ -1,6 +1,6 @@
 {
   "name": "packer-tracker-server",
-  "version": "3.9.0",
+  "version": "3.10.0",
   "description": "Складской учёт — сервер (Node.js/Express) + интерфейс, который сервер собирает сам при запуске",
   "main": "server.js",
   "scripts": {
