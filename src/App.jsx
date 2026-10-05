@@ -54,6 +54,11 @@ export default function App() {
   const [ozonSyncing, setOzonSyncing] = useState(false);
   // Состояние раздела "Остатки" (упаковочные материалы)
   const [stockSearch, setStockSearch] = useState("");
+  // «Остатки» у сотрудника: переключатель «Упаковка / Товары» и поиск по списку товаров
+  const [empStockView, setEmpStockView] = useState("materials");
+  const [empProdQuery, setEmpProdQuery] = useState("");
+  const [empProdOnlyUnlinked, setEmpProdOnlyUnlinked] = useState(false);
+  const [empProdVisible, setEmpProdVisible] = useState(50);
   const [stockSortMode, setStockSortMode] = useState("sku"); // "sku" | "name" | "size" | "stock"
   const [stockSortDir, setStockSortDir] = useState("asc"); // "asc" | "desc"
   const [stockSizeFilter, setStockSizeFilter] = useState("");
@@ -1203,14 +1208,15 @@ export default function App() {
   // Единый вид "какая упаковка привязана к товару" — используется во всех разделах:
   // чипы привязанных упаковок (основная выделена, рядом остаток), крестик — убрать,
   // нажатие на неосновную — сделать основной, «Изменить» — окно со всеми действиями.
-  const renderProductPackaging = (product) => {
+  // opts.addLabel — своя подпись кнопки (в списке товаров у сотрудника: «+ Добавить упаковку»)
+  const renderProductPackaging = (product, opts = {}) => {
     const link = getPackagingLink(product.sku);
     const open = () => setProductLinkModal({ product, query: "" });
     if (!link) {
       return (
         <div className="pack-row">
           <span className="pack-chip empty">📦 упаковка не привязана</span>
-          <button className="btn" style={{ padding: "3px 10px", fontSize: 11 }} onClick={open}>Привязать</button>
+          <button className={"btn" + (opts.addLabel ? " btn-accent" : "")} style={{ padding: "3px 10px", fontSize: 11 }} onClick={open}>{opts.addLabel || "Привязать"}</button>
         </div>
       );
     }
@@ -1233,7 +1239,7 @@ export default function App() {
             </span>
           );
         })}
-        <button className="btn" style={{ padding: "3px 10px", fontSize: 11 }} onClick={open}>Изменить</button>
+        <button className="btn" style={{ padding: "3px 10px", fontSize: 11 }} onClick={open}>{opts.addLabel || "Изменить"}</button>
       </div>
     );
   };
@@ -1607,6 +1613,18 @@ export default function App() {
     const opts = optionsForSku(sku);
     return opts.length > 0 ? opts[0].price : 0;
   };
+  // Список товаров для сотрудника (вкладка «Остатки» → «Товары»): поиск по названию,
+  // артикулу и штрихкоду, отбор «только без упаковки»
+  const empProducts = useMemo(() => {
+    const q = empProdQuery.trim().toLowerCase();
+    return catalog.filter((p) => {
+      if (empProdOnlyUnlinked && getPackagingLink(p.sku)) return false;
+      if (!q) return true;
+      return String(p.name || "").toLowerCase().includes(q) || String(p.sku).toLowerCase().includes(q) || (p.barcodes || []).some((b) => String(b).toLowerCase().includes(q));
+    });
+  }, [catalog, empProdQuery, empProdOnlyUnlinked, productPackagingLinks, packagingMaterials]);
+  const empProductsUnlinkedCount = useMemo(() => catalog.filter((p) => !getPackagingLink(p.sku)).length, [catalog, productPackagingLinks, packagingMaterials]);
+
   const barcodesForSku = useMemo(() => {
     const map = {};
     for (const p of catalog) map[p.sku] = [...p.barcodes];
@@ -2858,7 +2876,7 @@ export default function App() {
 
             {tab === "history" && EmployeeHistory({ deleteEntry, empFilterDateFrom, empFilterDateTo, empFilterSku, empFilterType, empSortDir, empSortKey, empToggleSort, entryAmount, filteredMyHistory, filteredMyHistoryTotal, histVisible, money, myHistoryTotals, renderEntriesWindowNotice, setEmpFilterDateFrom, setEmpFilterDateTo, setEmpFilterSku, setEmpFilterType, setHistVisible, showEmployeeTotals, sortedMyHistory })}
 
-            {tab === "stock" && EmployeeStock({ addPackagingStock, addToPurchaseRequest, createPackagingMaterial, downloadStockImportTemplate, editPackagingMaterial, exportPurchaseRequestToExcel, exportStockToExcel, filteredStock, fulfillPurchaseRequest, importStockFromExcel, packagingMaterials, packagingPurchaseRequest, printPurchaseRequest, productsByMaterial, purchaseAddFor, purchaseAddVal, removeFromPurchaseRequest, setMaterialLinkModal, setPurchaseAddFor, setPurchaseAddVal, setStockAddAmountFor, setStockAddAmountVal, setStockAddingNew, setStockEditId, setStockEditMultiplicity, setStockEditSize, setStockEditType, setStockNewSize, setStockNewStock, setStockNewType, setStockSearch, setStockSizeFilter, stockAddAmountFor, stockAddAmountVal, stockAddingNew, stockEditId, stockEditMultiplicity, stockEditSize, stockEditType, stockNewSize, stockNewStock, stockNewType, stockSearch, stockSizeFilter, stockSortDir, stockSortMode, toggleStockSort, updatePurchaseRequestQty })}
+            {tab === "stock" && EmployeeStock({ catalog, empProdOnlyUnlinked, empProdQuery, empProdVisible, empProducts, empProductsUnlinkedCount, empStockView, productImages, renderProductPackaging, setEmpProdOnlyUnlinked, setEmpProdQuery, setEmpProdVisible, setEmpStockView, setLightbox, addPackagingStock, addToPurchaseRequest, createPackagingMaterial, downloadStockImportTemplate, editPackagingMaterial, exportPurchaseRequestToExcel, exportStockToExcel, filteredStock, fulfillPurchaseRequest, importStockFromExcel, packagingMaterials, packagingPurchaseRequest, printPurchaseRequest, productsByMaterial, purchaseAddFor, purchaseAddVal, removeFromPurchaseRequest, setMaterialLinkModal, setPurchaseAddFor, setPurchaseAddVal, setStockAddAmountFor, setStockAddAmountVal, setStockAddingNew, setStockEditId, setStockEditMultiplicity, setStockEditSize, setStockEditType, setStockNewSize, setStockNewStock, setStockNewType, setStockSearch, setStockSizeFilter, stockAddAmountFor, stockAddAmountVal, stockAddingNew, stockEditId, stockEditMultiplicity, stockEditSize, stockEditType, stockNewSize, stockNewStock, stockNewType, stockSearch, stockSizeFilter, stockSortDir, stockSortMode, toggleStockSort, updatePurchaseRequestQty })}
 
             {tab === "chat" && EmployeeChat({ catalog, chatActiveThread, chatHasOlder, chatInput, chatMessagesInActiveThread, chatReadStatus, chatRecordSeconds, chatRecording, chatUnreadByThread, chatUserName, currentUser, deleteChatMessage, employeeQuickReplies, getProductImage, loadOlderChat, markChatThreadRead, sendChatMessage, setChatActiveThread, setChatAttachOpen, setChatInput, setChatMediaOpen, setLightbox, showChatReadReceipts, startVoiceRecording, stopVoiceRecording })}
           </>

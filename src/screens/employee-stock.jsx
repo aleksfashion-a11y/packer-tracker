@@ -2,9 +2,71 @@
 // Функции получают от App всё нужное одним объектом (ctx) и возвращают разметку.
 
 import { PACKAGING_TYPES, buildPackagingSkuName, getMultiplicity } from "../lib/helpers.js";
-import { ChatAudio, ChatMediaCard, ChatProductCard } from "../ui/components.jsx";
+import { ChatAudio, ChatMediaCard, ChatProductCard, ProductThumb } from "../ui/components.jsx";
 
+// Вкладка «Остатки» у сотрудника: два вида — остатки упаковки и список товаров с их упаковкой
 export function EmployeeStock(ctx) {
+  const { empStockView, setEmpStockView, empProductsUnlinkedCount } = ctx;
+  const tabBtn = (key, label) => (
+    <button className={"btn" + (empStockView === key ? " btn-accent" : "")} style={{ padding: "8px 16px", fontSize: 13 }} onClick={() => setEmpStockView(key)}>{label}</button>
+  );
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
+        {tabBtn("materials", "📦 Упаковка")}
+        {tabBtn("products", `🛒 Товары${empProductsUnlinkedCount > 0 ? ` · без упаковки: ${empProductsUnlinkedCount}` : ""}`)}
+      </div>
+      {empStockView === "products" ? EmployeeStockProducts(ctx) : EmployeeStockMaterials(ctx)}
+    </div>
+  );
+}
+
+// Список товаров: у каждого видно привязанную упаковку, кнопка «+ Добавить упаковку»
+// открывает окно «Упаковка товара» (выбрать из существующих, создать новую, убрать, сменить основную)
+function EmployeeStockProducts(ctx) {
+  const {
+    catalog, empProdOnlyUnlinked, empProdQuery, empProdVisible, empProducts, empProductsUnlinkedCount, productImages,
+    renderProductPackaging, setEmpProdOnlyUnlinked, setEmpProdQuery, setEmpProdVisible, setLightbox,
+  } = ctx;
+  return (
+    <div>
+      <div style={{ fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Товары и их упаковка ({catalog.length})</div>
+      <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 12 }}>
+        Привяжите к товару упаковку, которой его упаковывают: она будет предлагаться при упаковке и списываться с остатка. Без упаковки: {empProductsUnlinkedCount}.
+      </div>
+      <input placeholder="Поиск товара: название, артикул или штрихкод..." value={empProdQuery} onChange={(e) => { setEmpProdQuery(e.target.value); setEmpProdVisible(50); }} style={{ width: "100%", marginBottom: 10 }} />
+      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, marginBottom: 14, cursor: "pointer" }}>
+        <input type="checkbox" checked={empProdOnlyUnlinked} onChange={(e) => { setEmpProdOnlyUnlinked(e.target.checked); setEmpProdVisible(50); }} style={{ width: 18, height: 18, padding: 0 }} />
+        Показывать только товары без упаковки
+      </label>
+      {empProducts.length === 0 && <div style={{ fontSize: 13, color: "var(--muted-2)" }}>{empProdOnlyUnlinked && !empProdQuery ? "У всех товаров упаковка привязана." : "Ничего не найдено."}</div>}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {empProducts.slice(0, empProdVisible).map((p) => {
+          const img = productImages[String(p.sku)];
+          return (
+            <div key={p.sku} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 12 }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 8 }}>
+                {img && img.main && <ProductThumb src={img.main} size={40} onClick={() => setLightbox({ images: [img.main, ...(img.gallery || [])], index: 0, name: p.name })} />}
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 14, overflowWrap: "anywhere" }}>{p.name}</div>
+                  <div className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>арт. {p.sku}</div>
+                </div>
+              </div>
+              {renderProductPackaging(p, { addLabel: "＋ Добавить упаковку" })}
+            </div>
+          );
+        })}
+      </div>
+      {empProducts.length > empProdVisible && (
+        <div style={{ textAlign: "center", marginTop: 12 }}>
+          <button className="btn" onClick={() => setEmpProdVisible((n) => n + 50)}>Показать ещё (осталось {empProducts.length - empProdVisible})</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function EmployeeStockMaterials(ctx) {
   const {
     addPackagingStock, addToPurchaseRequest, createPackagingMaterial, downloadStockImportTemplate,
     editPackagingMaterial, exportPurchaseRequestToExcel, exportStockToExcel, filteredStock, fulfillPurchaseRequest,
