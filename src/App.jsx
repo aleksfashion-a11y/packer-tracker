@@ -13,13 +13,13 @@ import { AdminJournal, AdminTimer } from "./screens/admin-journal.jsx";
 import { AdminChat, AdminMessages } from "./screens/admin-messages.jsx";
 import { AdminOverview } from "./screens/admin-overview.jsx";
 import { AdminProducts } from "./screens/admin-products.jsx";
-import { AdminSettings } from "./screens/admin-settings.jsx";
+import { AdminSettings, ApiKeysSection, MoySkladSection } from "./screens/admin-settings.jsx";
 import { AdminStock } from "./screens/admin-stock.jsx";
 import { LoginScreen, SetupScreen } from "./screens/auth.jsx";
 import { EmployeeChat, EmployeeStock } from "./screens/employee-stock.jsx";
 import { EmployeeHistory, EmployeeWork } from "./screens/employee-work.jsx";
 import { ChatAttachModal, LightboxModal, PrintView } from "./screens/modals-common.jsx";
-import { MaterialLinkModal, PackagingChoiceModal, ProductLinkModal, SupplyReconcileModal } from "./screens/modals-packaging.jsx";
+import { MaterialLinkModal, PackagingChoiceModal, ProductLinkModal, SupplyReconcileModal, StockMovesModal } from "./screens/modals-packaging.jsx";
 import { FontLinks, GlobalStyle } from "./ui/styles.jsx";
 
 export default function App() {
@@ -529,7 +529,7 @@ export default function App() {
   }, [showTimerTab, adminTab]);
 
   useEffect(() => {
-    if (adminTab === "settings") { loadOzonStatus(); loadOzonHistory(); }
+    if (adminTab === "settings") { loadOzonStatus(); loadOzonHistory(); loadMsStatus(); loadMsHistory(); }
   }, [adminTab]);
 
   useEffect(() => {
@@ -790,6 +790,48 @@ export default function App() {
   // (не через общий window.storage/api/kv), поскольку там передаются секретные
   // ключи продавца. В песочнице-мокапе внутри чата этих эндпоинтов нет — запросы
   // просто тихо не сработают, ошибка не показывается пользователю зря.
+  // ===== Синхронизация каталога с «Моим складом» (администратор, Настройки) =====
+  const [msStatus, setMsStatus] = useState(null);
+  const [msHistory, setMsHistory] = useState([]);
+  const [msBaseUrl, setMsBaseUrl] = useState("");
+  const [msApiKey, setMsApiKey] = useState("");
+  const [msEditing, setMsEditing] = useState(false);
+  const [msBusy, setMsBusy] = useState(""); // "", "save", "sync", "full", "undo"
+  const loadMsStatus = async () => { try { setMsStatus(await api("/api/moysklad/status")); } catch (e) { /* нет связи — покажем прежнее */ } };
+  const loadMsHistory = async () => { try { setMsHistory((await api("/api/moysklad/history")).history || []); } catch (e) {} };
+  const saveMsCredentials = async () => {
+    if (!msBaseUrl.trim() || !msApiKey.trim()) { setToast("Укажите адрес «Моего склада» и ключ доступа"); return; }
+    setMsBusy("save");
+    try {
+      await api("/api/moysklad/credentials", { baseUrl: msBaseUrl.trim(), apiKey: msApiKey.trim() });
+      setMsApiKey(""); setMsEditing(false);
+      await loadMsStatus(); await loadOzonStatus();
+      setToast("«Мой склад» подключён. Запустите первую синхронизацию");
+    } catch (e) { setToast(e.message); }
+    setMsBusy("");
+  };
+  const removeMsCredentials = () => askConfirm("Отключить «Мой склад»? Каталог перестанет обновляться автоматически (товары останутся как есть), снова станет доступна синхронизация с Ozon.", async () => {
+    try { await api("/api/moysklad/credentials", undefined, "DELETE"); await loadMsStatus(); await loadOzonStatus(); setToast("«Мой склад» отключён"); } catch (e) { setToast(e.message); }
+  });
+  const syncMs = async (full) => {
+    setMsBusy(full ? "full" : "sync");
+    try {
+      const r = await api("/api/moysklad/sync", { full: !!full });
+      await loadSharedData(); await loadMsStatus(); await loadMsHistory();
+      const parts = [`добавлено ${r.added}`, `обновлено ${r.updated}`];
+      if (r.photosUpdated) parts.push(`фото ${r.photosUpdated}`);
+      if (r.renamed) parts.push(`смен артикула ${r.renamed}`);
+      if (r.deletedMarked) parts.push(`удалено в «Моём складе» ${r.deletedMarked}`);
+      setToast(`«Мой склад»: ${parts.join(", ")} (получено ${r.total})`);
+    } catch (e) { await loadMsStatus(); setToast(e.message); }
+    setMsBusy("");
+  };
+  const undoMsSync = (entry) => askConfirm(`Отменить синхронизацию от ${new Date(entry.timestamp).toLocaleString("ru-RU")}? Добавленные ею товары (${entry.added}) будут убраны, изменённым (${entry.updated}) вернутся прежние название и штрихкоды.${entry.renamed ? " Смена артикулов не отменяется." : ""}`, async () => {
+    setMsBusy("undo");
+    try { await api(`/api/moysklad/undo/${encodeURIComponent(entry.id)}`, {}); await loadSharedData(); await loadMsStatus(); await loadMsHistory(); setToast("Синхронизация отменена"); } catch (e) { setToast(e.message); }
+    setMsBusy("");
+  });
+
   const loadOzonStatus = async () => {
     try {
       const res = await serverFetch("/api/ozon/status");
@@ -1111,7 +1153,7 @@ export default function App() {
   const addPackagingStock = async (materialId, amount) => {
     const n = Number(amount);
     if (!n || n <= 0) { setToast("Укажите положительное количество"); return; }
-    const next = packagingMaterials.map((m) => m.id === materialId ? { ...m, stock: m.stock + n } : m);
+    const next = packagingMaterials.map((m) => m.id === materialId ? { ...m, stock: m.stock + n, lastOp: { type: "in", qty: n, before: m.stock, after: m.stock + n, by: currentUser ? currentUser.name : "", at: Date.now() } } : m);
     await persistPackagingMaterials(next);
     setToast(`Остаток пополнен на ${n}`);
   };
@@ -1173,14 +1215,55 @@ export default function App() {
   const renderStockLastOp = (m) => {
     const op = m.lastOp;
     if (!op || !op.at) return null;
-    const what = op.type === "in" ? `приход +${op.qty}` : op.type === "out" ? `списание −${op.qty}` : `инвентаризация (${op.after - op.before > 0 ? "+" : ""}${op.after - op.before})`;
+    const what = op.type === "in" ? `приход +${op.qty}` : op.type === "out" ? `списание −${op.qty}` : op.type === "pack" ? `упаковка −${op.qty}${op.productSku !== undefined ? " (арт. " + op.productSku + ")" : ""}` : `инвентаризация (${op.after - op.before > 0 ? "+" : ""}${op.after - op.before})`;
     const when = new Date(op.at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
     return <div className="mono" style={{ fontSize: 10, color: "var(--muted-2)", marginTop: 2 }}>последняя операция: {what} · {op.before} → {op.after} · {op.by || "—"} · {when}</div>;
   };
-  const deductPackagingStock = async (materialId, amount) => {
-    const next = packagingMaterials.map((m) => m.id === materialId ? { ...m, stock: Math.max(0, m.stock - amount) } : m);
+  // Списание упаковки при упаковке товара. product — какой товар упаковали: попадает в
+  // журнал движений упаковки (и дальше — в «Мой склад»)
+  const deductPackagingStock = async (materialId, amount, product) => {
+    const next = packagingMaterials.map((m) => {
+      if (m.id !== materialId) return m;
+      const after = Math.max(0, m.stock - amount);
+      const lastOp = { type: "pack", qty: m.stock - after, before: m.stock, after, by: currentUser ? currentUser.name : "", at: Date.now() };
+      if (product) { lastOp.productSku = product.sku; lastOp.productName = product.name; }
+      return { ...m, stock: after, lastOp };
+    });
     await persistPackagingMaterials(next);
   };
+
+  // ===== Журнал движений упаковки (администратор) =====
+  const [stockMoves, setStockMoves] = useState(null); // null — окно закрыто; иначе { rows, hasMore, loading }
+  const loadStockMoves = async (append) => {
+    const prev = append && stockMoves ? stockMoves.rows : [];
+    setStockMoves({ rows: prev, hasMore: false, loading: true });
+    try {
+      const before = prev.length ? `&before=${prev[prev.length - 1].timestamp}` : "";
+      const data = await api(`/api/packaging/moves?limit=100${before}`);
+      setStockMoves({ rows: [...prev, ...data.rows], hasMore: data.hasMore, loading: false });
+    } catch (e) {
+      setStockMoves({ rows: prev, hasMore: false, loading: false });
+      setToast("Не удалось загрузить журнал: " + e.message);
+    }
+  };
+
+  // ===== Ключи доступа для других приложений (администратор, Настройки) =====
+  const [apiKeys, setApiKeys] = useState(null);       // список ключей (без самих ключей)
+  const [apiKeyName, setApiKeyName] = useState("");
+  const [apiKeyCreated, setApiKeyCreated] = useState(null); // только что созданный ключ — показывается один раз
+  const loadApiKeys = async () => { try { setApiKeys((await api("/api/admin/api-keys")).keys); } catch (e) { setApiKeys([]); } };
+  const createApiKey = async () => {
+    if (!apiKeyName.trim()) { setToast("Укажите, для какого приложения ключ"); return; }
+    try {
+      const created = await api("/api/admin/api-keys", { name: apiKeyName.trim() });
+      setApiKeyCreated(created); setApiKeyName("");
+      await loadApiKeys();
+    } catch (e) { setToast(e.message); }
+  };
+  const deleteApiKey = (k) => askConfirm(`Удалить ключ «${k.name}»? Приложение, которое им пользуется, потеряет доступ.`, async () => {
+    try { await api(`/api/admin/api-keys/${encodeURIComponent(k.id)}`, undefined, "DELETE"); await loadApiKeys(); } catch (e) { setToast(e.message); }
+  });
+  useEffect(() => { if (currentUser && currentUser.role === "admin" && adminTab === "settings" && apiKeys === null) loadApiKeys(); }, [currentUser, adminTab]);
   const editPackagingMaterial = async (id, typeKey, sizeRaw, multiplicityRaw) => {
     const size = sizeRaw.trim();
     if (!size) { setToast("Укажите размер упаковки"); return; }
@@ -1341,7 +1424,7 @@ export default function App() {
     askConfirm(`Добавить ${qty} × ${product.name}${label} ${packagingText}? Дата: ${fmtDate(packDate)}`, async () => {
       await addPieceEntry(product, qty, opt, selectedMaterialId);
       await linkPackagingToProduct(product.sku, selectedMaterialId);
-      if (!noPackaging) await deductPackagingStock(selectedMaterialId, qty);
+      if (!noPackaging) await deductPackagingStock(selectedMaterialId, qty, product);
     });
   };
 
@@ -1681,12 +1764,13 @@ export default function App() {
   const empProducts = useMemo(() => {
     const q = empProdQuery.trim().toLowerCase();
     return catalog.filter((p) => {
+      if (p.msDeleted) return false;
       if (empProdOnlyUnlinked && getPackagingLink(p.sku)) return false;
       if (!q) return true;
       return String(p.name || "").toLowerCase().includes(q) || String(p.sku).toLowerCase().includes(q) || (p.barcodes || []).some((b) => String(b).toLowerCase().includes(q));
     });
   }, [catalog, empProdQuery, empProdOnlyUnlinked, productPackagingLinks, packagingMaterials]);
-  const empProductsUnlinkedCount = useMemo(() => catalog.filter((p) => !getPackagingLink(p.sku)).length, [catalog, productPackagingLinks, packagingMaterials]);
+  const empProductsUnlinkedCount = useMemo(() => catalog.filter((p) => !p.msDeleted && !getPackagingLink(p.sku)).length, [catalog, productPackagingLinks, packagingMaterials]);
 
   const barcodesForSku = useMemo(() => {
     const map = {};
@@ -1896,6 +1980,7 @@ export default function App() {
     };
 
     const results = catalog.filter((p) => {
+      if (p.msDeleted) return false; // удалён в «Моём складе» — упаковывать его больше нельзя
       const barcodes = barcodesForSku[p.sku] || [];
       return tokens.every((tok) => tokenMatches(tok, p, barcodes));
     });
@@ -1988,7 +2073,7 @@ export default function App() {
     const link = getPackagingLink(product.sku);
     await addPieceEntry(product, qty, option, link ? link.mainId : null);
     if (link && link.mainId !== NO_PACKAGING) {
-      await deductPackagingStock(link.mainId, qty);
+      await deductPackagingStock(link.mainId, qty, product);
     } else if (!link) {
       setToast(`+${qty} × ${product.name} — упаковка для этого товара ещё не настроена, остаток не списан`);
     }
@@ -2917,13 +3002,15 @@ export default function App() {
 
             {adminTab === "products" && AdminProducts({ addPackagingOption, addProduct, addingOptionSku, addingProduct, catalog, catalogEditBarcodes, catalogEditName, catalogEditSku, catalogEditSkuValue, catalogSortMode, exportCatalogToExcel, fuzzyResults, getProductImage, imageEditGalleryVal, imageEditSku, imageEditVal, importCatalogFromExcel, importImagesFromExcel, importReport, mergeDuplicateOptions, money, newOptionLabel, newOptionPrice, newProductBarcodes, newProductError, newProductName, newProductSku, optionsForSku, persistPriceHistory, priceEditLabelVal, priceEditOptionId, priceEditVal, priceHistory, printCatalog, removePackagingOption, removeProduct, renderProductPackaging, saveOptionEdit, saveProductEdit, search, searchMode, searchResults, setAddingOptionSku, setAddingProduct, setCatalogEditBarcodes, setCatalogEditName, setCatalogEditSku, setCatalogEditSkuValue, setCatalogSortMode, setImageEditGalleryVal, setImageEditSku, setImageEditVal, setImportReport, setLightbox, setNewOptionLabel, setNewOptionPrice, setNewProductBarcodes, setNewProductError, setNewProductName, setNewProductSku, setPriceEditLabelVal, setPriceEditOptionId, setPriceEditVal, setProductImage, setSearch, setSearchMode, setShowFuzzy, showFuzzy, sortedCatalog })}
 
-            {adminTab === "stock" && AdminStock({ renderStockLastOp, renderStockOps, addPackagingStock, addToPurchaseRequest, createPackagingMaterial, downloadStockImportTemplate, editPackagingMaterial, exportPurchaseRequestToExcel, exportStockToExcel, filteredStock, fulfillPurchaseRequest, importStockFromExcel, isAdmin, packagingMaterials, packagingPurchaseRequest, printPurchaseRequest, productsByMaterial, purchaseAddFor, purchaseAddVal, removeFromPurchaseRequest, removePackagingMaterial, setMaterialLinkModal, setPurchaseAddFor, setPurchaseAddVal, setStockAddAmountFor, setStockAddAmountVal, setStockAddingNew, setStockEditId, setStockEditMultiplicity, setStockEditSize, setStockEditType, setStockNewSize, setStockNewStock, setStockNewType, setStockSearch, setStockSizeFilter, startSupplyReconcile, stockAddAmountFor, stockAddAmountVal, stockAddingNew, stockEditId, stockEditMultiplicity, stockEditSize, stockEditType, stockNewSize, stockNewStock, stockNewType, stockSearch, stockSizeFilter, stockSortDir, stockSortMode, toggleStockSort, updatePurchaseRequestQty })}
+            {adminTab === "stock" && AdminStock({ loadStockMoves, renderStockLastOp, renderStockOps, addPackagingStock, addToPurchaseRequest, createPackagingMaterial, downloadStockImportTemplate, editPackagingMaterial, exportPurchaseRequestToExcel, exportStockToExcel, filteredStock, fulfillPurchaseRequest, importStockFromExcel, isAdmin, packagingMaterials, packagingPurchaseRequest, printPurchaseRequest, productsByMaterial, purchaseAddFor, purchaseAddVal, removeFromPurchaseRequest, removePackagingMaterial, setMaterialLinkModal, setPurchaseAddFor, setPurchaseAddVal, setStockAddAmountFor, setStockAddAmountVal, setStockAddingNew, setStockEditId, setStockEditMultiplicity, setStockEditSize, setStockEditType, setStockNewSize, setStockNewStock, setStockNewType, setStockSearch, setStockSizeFilter, startSupplyReconcile, stockAddAmountFor, stockAddAmountVal, stockAddingNew, stockEditId, stockEditMultiplicity, stockEditSize, stockEditType, stockNewSize, stockNewStock, stockNewType, stockSearch, stockSizeFilter, stockSortDir, stockSortMode, toggleStockSort, updatePurchaseRequestQty })}
 
             {adminTab === "messages" && AdminMessages({ deleteMessage, employees, messages, msgTarget, msgText, sendMessage, setMsgTarget, setMsgText })}
 
             {adminTab === "chat" && AdminChat({ adminQuickReplies, catalog, chatActiveThread, chatHasOlder, chatInput, chatMessagesInActiveThread, chatReadStatus, chatRecordSeconds, chatRecording, chatUnreadByThread, chatUserName, currentUser, deleteChatMessage, employees, getProductImage, loadOlderChat, markChatThreadRead, sendChatMessage, setChatActiveThread, setChatAttachOpen, setChatInput, setChatMediaOpen, setLightbox, showChatReadReceipts, startVoiceRecording, stopVoiceRecording })}
 
+            {adminTab === "settings" && MoySkladSection({ msStatus, msHistory, msBaseUrl, setMsBaseUrl, msApiKey, setMsApiKey, msEditing, setMsEditing, msBusy, saveMsCredentials, removeMsCredentials, syncMs, undoMsSync })}
             {adminTab === "settings" && AdminSettings({ addAdminQuickReply, addEmployeeQuickReply, adminQuickReplies, currency, currentUser, downloadSnapshot, employeeQuickReplies, enabledAdminTabs, exportFullBackup, exportOzonSyncToExcel, importFullBackup, loadSnapshotsList, loginLog, newEmployeeQuickReply, newQuickReply, ozonApiKey, ozonClientId, ozonEditingCreds, ozonHistory, ozonStatus, ozonSyncing, ozonUndoing, persistSettings, registrationOpen, removeAdminQuickReply, removeEmployeeQuickReply, removeOzonCredentials, saveOzonCredentials, setNewEmployeeQuickReply, setNewQuickReply, setOzonApiKey, setOzonClientId, setOzonEditingCreds, setShowLoginLog, showChartComparison, showChartDaily, showChartEmployees, showChartHeatmap, showChartTopProducts, showChatReadReceipts, showEmployeeTotals, showLoginLog, showTimerTab, snapshotKeys, snapshotsLoaded, syncOzonCatalog, t, toggleAdminTabEnabled, toggleMyIncognito, undoOzonSync })}
+            {adminTab === "settings" && ApiKeysSection({ apiKeys, apiKeyName, setApiKeyName, apiKeyCreated, setApiKeyCreated, createApiKey, deleteApiKey, setToast })}
           </>
         ) : (
           <>
@@ -3034,6 +3121,7 @@ export default function App() {
 
       {materialLinkModal && MaterialLinkModal({ askUnlinkPackaging, getPackagingLink, linkMaterialToProductConfirm, materialLinkModal, materialLinkResults, packagingLabel, packagingMaterials, productsByMaterial, setMaterialLinkModal })}
 
+      {stockMoves && StockMovesModal({ stockMoves, setStockMoves, loadStockMoves })}
       {productLinkModal && ProductLinkModal({ createPackagingMaterial, getPackagingLink, linkProductToMaterialConfirm, packagingMaterials, productLinkModal, productLinkResults, setMainPackaging, setProductLinkModal, unlinkPackagingFromProduct })}
 
       {showQrForId && (() => {

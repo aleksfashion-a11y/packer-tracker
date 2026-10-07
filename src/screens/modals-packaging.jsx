@@ -388,3 +388,44 @@ export function SupplyReconcileModal(ctx) {
       </div>
     );
 }
+
+// Журнал движений упаковки (администратор): все изменения остатков — кто, когда, сколько
+const MOVE_TYPES = { in: "Приход", out: "Списание", set: "Инвентаризация", pack: "Упаковка товара", new: "Новая упаковка", delete: "Упаковка удалена" };
+export function StockMovesModal(ctx) {
+  const { stockMoves, setStockMoves, loadStockMoves } = ctx;
+  const fmt = (ts) => new Date(ts).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 16 }} onClick={() => setStockMoves(null)}>
+      <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 860, maxHeight: "calc(88vh / var(--ui-zoom, 1))", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <div style={{ fontSize: 15, fontWeight: 600 }}>Журнал движений упаковки</div>
+          <button className="btn" style={{ padding: "4px 12px", fontSize: 12 }} onClick={() => setStockMoves(null)}>Закрыть</button>
+        </div>
+        {stockMoves.rows.length === 0 && !stockMoves.loading && <div style={{ fontSize: 13, color: "var(--muted-2)" }}>Движений пока нет. Журнал ведётся с момента установки этой версии.</div>}
+        {stockMoves.rows.length > 0 && (
+          <div style={{ overflowX: "auto" }}>
+            <table className="m-cards" style={{ fontSize: 12 }}>
+              <thead><tr><th>Когда</th><th>Упаковка</th><th>Операция</th><th>Изменение</th><th>Было → стало</th><th>Кто</th></tr></thead>
+              <tbody>
+                {stockMoves.rows.map((r) => (
+                  <tr key={r.id}>
+                    <td className="mono">{fmt(r.timestamp)}</td>
+                    <td>{r.name} <span className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>· {r.sku}</span></td>
+                    <td>{MOVE_TYPES[r.type] || r.type}{r.productSku !== undefined ? <span className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}> · арт. {r.productSku}</span> : null}</td>
+                    <td className="mono" style={{ color: r.delta < 0 ? "var(--danger)" : "var(--accent)", fontWeight: 600 }}>{r.delta > 0 ? "+" : ""}{r.delta}</td>
+                    <td className="mono">{r.before} → {r.after}</td>
+                    <td>{r.userName || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {stockMoves.loading && <div className="mono" style={{ fontSize: 12, color: "var(--muted-2)", marginTop: 10 }}>загрузка…</div>}
+        {stockMoves.hasMore && !stockMoves.loading && (
+          <div style={{ textAlign: "center", marginTop: 12 }}><button className="btn" onClick={() => loadStockMoves(true)}>Показать более ранние</button></div>
+        )}
+      </div>
+    </div>
+  );
+}

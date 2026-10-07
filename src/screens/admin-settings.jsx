@@ -46,8 +46,9 @@ export function AdminSettings(ctx) {
                 Client-Id: {ozonStatus.clientIdHint || "—"}
                 {ozonStatus.lastSync && ` · последняя синхронизация: ${new Date(ozonStatus.lastSync.timestamp).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} (добавлено ${ozonStatus.lastSync.added}, обновлено ${ozonStatus.lastSync.updated} из ${ozonStatus.lastSync.total}${ozonStatus.lastSync.photosUpdated ? `, фото: ${ozonStatus.lastSync.photosUpdated}` : ""})`}
               </div>
+              {ozonStatus.replacedByMoySklad && <div style={{ fontSize: 12, color: "var(--accent)", marginBottom: 10 }}>Каталог теперь синхронизируется с «Моим складом» — синхронизация с Ozon отключена.</div>}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button className="btn btn-accent" style={{ padding: "6px 14px" }} onClick={syncOzonCatalog} disabled={ozonSyncing}>
+                <button className="btn btn-accent" style={{ padding: "6px 14px" }} onClick={syncOzonCatalog} disabled={ozonSyncing || ozonStatus.replacedByMoySklad} title={ozonStatus.replacedByMoySklad ? "Каталог синхронизируется с «Моим складом»" : ""}>
                   {ozonSyncing ? "Синхронизация..." : "Синхронизировать сейчас"}
                 </button>
                 {ozonHistory.length > 0 && !ozonHistory[0].undone && (
@@ -269,3 +270,118 @@ export function AdminSettings(ctx) {
       </div>
     );
 }
+
+// Настройки → ключи доступа для других приложений («Мой склад» и т.д.)
+export function ApiKeysSection(ctx) {
+  const { apiKeys, apiKeyName, setApiKeyName, apiKeyCreated, setApiKeyCreated, createApiKey, deleteApiKey, setToast } = ctx;
+  const fmt = (ts) => (ts ? new Date(ts).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "ещё не использовался");
+  const base = typeof window !== "undefined" ? window.location.origin : "";
+  return (
+    <div style={{ marginTop: 28, paddingTop: 22, borderTop: "1px solid var(--surface-2)" }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Доступ для других приложений</div>
+      <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 12, maxWidth: 720 }}>
+        По ключу доступа другое ваше приложение (например, «Мой склад») может читать отсюда данные об упаковке: остатки, движения (приход, списание, инвентаризация, списание при упаковке), привязку упаковки к товарам, расценки за упаковку и почасовую оплату упаковщиков по дням (суммой, без имён). Только чтение — изменить что-либо по ключу нельзя.
+      </div>
+      {apiKeyCreated && (
+        <div style={{ background: "var(--surface)", border: "1px solid var(--accent)", borderRadius: 10, padding: 12, marginBottom: 12, maxWidth: 720 }}>
+          <div style={{ fontSize: 13, marginBottom: 6 }}>Ключ «{apiKeyCreated.name}» создан. <b>Скопируйте его сейчас — позже посмотреть его будет нельзя:</b></div>
+          <div className="mono" style={{ fontSize: 12, overflowWrap: "anywhere", background: "var(--bg-alt)", borderRadius: 6, padding: "8px 10px", marginBottom: 8 }}>{apiKeyCreated.key}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn btn-accent" style={{ padding: "6px 12px", fontSize: 12 }} onClick={async () => { try { await navigator.clipboard.writeText(apiKeyCreated.key); setToast("Ключ скопирован"); } catch (e) { setToast("Не удалось скопировать — выделите ключ и скопируйте вручную"); } }}>Скопировать</button>
+            <button className="btn" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => setApiKeyCreated(null)}>Я сохранил ключ</button>
+          </div>
+        </div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12, maxWidth: 720 }}>
+        {(apiKeys || []).length === 0 && <div style={{ fontSize: 12, color: "var(--muted-2)" }}>Ключей пока нет.</div>}
+        {(apiKeys || []).map((k) => (
+          <div key={k.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 12px" }}>
+            <div style={{ flex: 1, minWidth: 160 }}>
+              <div style={{ fontSize: 13 }}>{k.name} <span className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>{k.hint}</span></div>
+              <div className="mono" style={{ fontSize: 10, color: "var(--muted-2)" }}>создан {fmt(k.createdAt)} · последний запрос: {fmt(k.lastUsedAt)}</div>
+            </div>
+            <button className="btn btn-danger" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => deleteApiKey(k)}>Удалить</button>
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 8, maxWidth: 520, flexWrap: "wrap" }}>
+        <input placeholder="Для какого приложения, например: Мой склад" value={apiKeyName} onChange={(e) => setApiKeyName(e.target.value)} style={{ flex: 1, minWidth: 200 }} />
+        <button className="btn btn-accent" onClick={createApiKey}>Создать ключ</button>
+      </div>
+      <div className="mono" style={{ fontSize: 11, color: "var(--muted-2)", marginTop: 12, maxWidth: 720, overflowWrap: "anywhere" }}>
+        Адреса для чтения (заголовок запроса: Authorization: Bearer КЛЮЧ):<br />
+        {base}/api/ext/v1/packaging/materials — остатки упаковки<br />
+        {base}/api/ext/v1/packaging/moves?since=0 — движения упаковки<br />
+        {base}/api/ext/v1/packaging/links — привязка упаковки к товарам<br />
+        {base}/api/ext/v1/packaging/rates — расценки за упаковку (оплата упаковщику за штуку)<br />
+        {base}/api/ext/v1/payroll/hourly?from=ГГГГ-ММ-ДД&amp;to=ГГГГ-ММ-ДД — почасовая оплата по дням
+      </div>
+    </div>
+  );
+}
+
+// Настройки → синхронизация каталога товаров с приложением «Мой склад»
+export function MoySkladSection(ctx) {
+  const { msStatus, msHistory, msBaseUrl, setMsBaseUrl, msApiKey, setMsApiKey, msEditing, setMsEditing, msBusy, saveMsCredentials, removeMsCredentials, syncMs, undoMsSync } = ctx;
+  const fmt = (ts) => new Date(ts).toLocaleString("ru-RU", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  const summary = (r) => [`получено ${r.total}`, `добавлено ${r.added}`, `обновлено ${r.updated}`, r.photosUpdated ? `фото ${r.photosUpdated}` : "", r.renamed ? `смен артикула ${r.renamed}` : "", r.deletedMarked ? `удалено ${r.deletedMarked}` : ""].filter(Boolean).join(", ");
+  const modeLabel = { full: "полная", delta: "изменения", auto: "авто" };
+  const connected = msStatus && msStatus.configured && !msEditing;
+  return (
+    <div style={{ marginBottom: 24 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Каталог товаров</div>
+      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, maxWidth: 760 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
+          <span style={{ fontSize: 14, fontWeight: 600 }}>📦 Синхронизация с «Моим складом»</span>
+          {msStatus && msStatus.configured && <span className="mono" style={{ fontSize: 10, background: "rgba(90,200,120,0.15)", color: "#5ac878", border: "1px solid #5ac878", borderRadius: 999, padding: "1px 8px" }}>подключено</span>}
+        </div>
+        <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 10 }}>
+          Товары (артикул, название, штрихкоды, фото) берутся из вашего приложения «Мой склад». Изменения подтягиваются сами раз в {msStatus ? msStatus.autoMinutes : 30} минут; полную сверку можно запустить кнопкой. Удалённые в «Моём складе» товары здесь не удаляются, а помечаются; при смене артикула все записи, цены и упаковка переносятся на новый.
+        </div>
+        {msStatus && msStatus.unreadable && <div style={{ fontSize: 12, color: "var(--danger)", marginBottom: 10 }}>Сохранённый ключ не удалось расшифровать (изменился APP_SECRET) — введите адрес и ключ заново.</div>}
+        {msStatus && msStatus.lastError && <div style={{ fontSize: 12, color: "var(--danger)", marginBottom: 10 }}>Последняя попытка ({fmt(msStatus.lastError.timestamp)}) не удалась: {msStatus.lastError.message}</div>}
+        {!connected ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 520 }}>
+            <input placeholder="Адрес «Моего склада», например https://moy-sklad.example.ru" value={msBaseUrl} onChange={(e) => setMsBaseUrl(e.target.value)} />
+            <input placeholder="Ключ доступа (msa_…)" type="password" value={msApiKey} onChange={(e) => setMsApiKey(e.target.value)} />
+            <div style={{ fontSize: 11, color: "var(--muted-2)" }}>Ключ создаётся в «Моём складе»: Настройки → «Аналитика МП» → создать ключ с названием «Складской учёт».</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="btn btn-accent" style={{ padding: "6px 14px" }} disabled={msBusy === "save"} onClick={saveMsCredentials}>{msBusy === "save" ? "Проверяем связь…" : "Подключить"}</button>
+              {msEditing && <button className="btn" style={{ padding: "6px 14px" }} onClick={() => setMsEditing(false)}>Отмена</button>}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="mono" style={{ fontSize: 11, color: "var(--muted-2)", marginBottom: 10, overflowWrap: "anywhere" }}>
+              {msStatus.baseUrl} · ключ {msStatus.keyHint}
+              {msStatus.lastCheckedAt ? ` · проверено: ${fmt(msStatus.lastCheckedAt)}` : " · ещё не синхронизировалось"}
+              {msStatus.lastSync ? ` · последние изменения: ${fmt(msStatus.lastSync.timestamp)} (${summary(msStatus.lastSync)})` : ""}
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button className="btn btn-accent" style={{ padding: "6px 14px" }} disabled={!!msBusy} onClick={() => syncMs(false)}>{msBusy === "sync" ? "Синхронизация…" : "Синхронизировать сейчас"}</button>
+              <button className="btn" style={{ padding: "6px 14px", fontSize: 12 }} disabled={!!msBusy} onClick={() => syncMs(true)}>{msBusy === "full" ? "Полная сверка…" : "Полная сверка каталога"}</button>
+              <button className="btn" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => { setMsBaseUrl(msStatus.baseUrl || ""); setMsEditing(true); }}>Сменить адрес или ключ</button>
+              <button className="btn btn-danger" style={{ padding: "6px 14px", fontSize: 12 }} onClick={removeMsCredentials}>Отключить</button>
+            </div>
+            {msHistory.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>История синхронизаций</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {msHistory.slice(0, 8).map((h) => (
+                    <div key={h.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", fontSize: 12, opacity: h.undone ? 0.5 : 1 }}>
+                      <span className="mono" style={{ color: "var(--muted-2)" }}>{fmt(h.timestamp)} · {modeLabel[h.mode] || h.mode}</span>
+                      <span style={{ flex: 1, minWidth: 160 }}>{summary(h)}{h.undone ? " — отменена" : ""}</span>
+                      {!h.undone && (h.added > 0 || h.updated > 0 || h.deletedMarked > 0) && <button className="btn" style={{ padding: "3px 10px", fontSize: 11 }} disabled={!!msBusy} onClick={() => undoMsSync(h)}>Отменить</button>}
+                      {(h.renameProblems || []).map((p, i) => <div key={i} style={{ flexBasis: "100%", color: "var(--danger)", fontSize: 11 }}>⚠ {p}</div>)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+

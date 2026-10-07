@@ -141,6 +141,7 @@ export function AdminProducts(ctx) {
                       {img && img.main && <ProductThumb src={img.main} size={34} onClick={() => setLightbox({ images: [img.main, ...img.gallery], index: 0, name: p.name })} />}
                       <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 13 }}>{p.name}</span>
+                        {p.msDeleted && <span className="mono" style={{ fontSize: 10, color: "var(--danger)", border: "1px solid var(--danger)", borderRadius: 4, padding: "0 5px" }} title="Товар удалён в «Моём складе»: сотрудникам он больше не показывается, записи по нему сохранены">удалён в «Моём складе»</span>}
                         <span className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>· арт. {p.sku}{img && img.gallery.length > 0 ? ` · ещё ${img.gallery.length} фото` : ""}</span>
                         <button className="btn" style={{ padding: "2px 6px", fontSize: 10 }} onClick={() => { setCatalogEditSku(p.sku); setCatalogEditSkuValue(String(p.sku)); setCatalogEditName(p.name); setCatalogEditBarcodes((p.barcodes || []).join("\n")); }}>✎</button>
                       </div>

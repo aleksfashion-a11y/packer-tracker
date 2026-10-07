@@ -5,7 +5,7 @@ import { PACKAGING_TYPES, buildPackagingSkuName, getMultiplicity } from "../lib/
 
 export function AdminStock(ctx) {
   const {
-    renderStockLastOp, renderStockOps,
+    loadStockMoves, renderStockLastOp, renderStockOps,
     addPackagingStock, addToPurchaseRequest, createPackagingMaterial, downloadStockImportTemplate,
     editPackagingMaterial, exportPurchaseRequestToExcel, exportStockToExcel, filteredStock, fulfillPurchaseRequest,
     importStockFromExcel, isAdmin, packagingMaterials, packagingPurchaseRequest, printPurchaseRequest,
@@ -34,6 +34,7 @@ export function AdminStock(ctx) {
               📦 Сверить с поставкой товаров
               <input type="file" accept=".xlsx,.xls" style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) startSupplyReconcile(e.target.files[0]); e.target.value = ""; }} />
             </label>
+            <button className="btn" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => loadStockMoves(false)}>📋 Журнал движений</button>
           </div>
           <button className="btn btn-accent" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => setStockAddingNew(!stockAddingNew)}>{stockAddingNew ? "Отмена" : "+ Добавить упаковку"}</button>
         </div>

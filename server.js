@@ -11,6 +11,7 @@ const secrets = require("./lib/secrets");
 const { ensureBundle, appVersion } = require("./lib/build");
 const coll = require("./lib/collections");
 const { pgDriver } = require("./lib/rows-pg");
+const moySkladModule = require("./lib/moysklad");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -872,6 +873,39 @@ async function writeKey(req, key, ops) {
   });
 }
 
+// ===================== Журнал движений упаковки =====================
+// Любое изменение остатка упаковки — кем бы и как оно ни было сделано — записывается
+// отдельной строкой: что изменилось, на сколько, было/стало, кто и когда. Запись делается
+// в той же транзакции, что и само изменение остатка, поэтому журнал не может разойтись с остатками.
+// Типы: in — приход, out — списание вручную, set — инвентаризация, pack — списание при
+// упаковке товара, new — упаковка создана с начальным остатком, delete — упаковка удалена.
+async function logPackagingMoves(t, beforeList, afterList, user) {
+  const before = new Map((Array.isArray(beforeList) ? beforeList : []).map((m) => [String(m.id), m]));
+  const after = new Map((Array.isArray(afterList) ? afterList : []).map((m) => [String(m.id), m]));
+  const moves = [];
+  const now = Date.now();
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const add = (m, type, was, now_, extra) => moves.push({
+    id: auth.newId() + moves.length, materialId: m.id, sku: m.sku || "", name: m.name || "", type,
+    delta: now_ - was, before: was, after: now_, userId: user ? user.id : null, userName: user ? user.name : "", timestamp: now + moves.length, ...extra,
+  });
+  for (const [id, m] of after) {
+    const old = before.get(id);
+    const was = old ? num(old.stock) : 0, is = num(m.stock);
+    if (was === is) continue;
+    const op = m.lastOp && (!old || !old.lastOp || old.lastOp.at !== m.lastOp.at) ? m.lastOp : null;
+    let type = !old ? "new" : is < was ? "pack" : "in";
+    if (op && ["in", "out", "set", "pack"].includes(op.type)) type = op.type;
+    const extra = {};
+    if (op && op.productSku !== undefined) { extra.productSku = op.productSku; extra.productName = op.productName || ""; }
+    add(m, type, was, is, extra);
+  }
+  for (const [id, old] of before) if (!after.has(id) && num(old.stock) !== 0) add(old, "delete", num(old.stock), 0, {});
+  if (!moves.length) return;
+  await coll.applyOps(t, "packagingMoves", { kind: "array", keyField: "id", upsert: moves.map((item) => ({ item })) });
+  await t.bump("packagingMoves");
+}
+
 // То же для раздела, хранящегося в таблице: меняются только затронутые строки
 async function writeTableKey(req, key, ops) {
   const spec = coll.SPECS[key];
@@ -881,11 +915,17 @@ async function writeTableKey(req, key, ops) {
     await tables.tx(async (t) => {
       // Для проверки прав читаем только те строки, которых касаются изменения
       // (весь раздел — только для сотрудников: там нужна проверка "остался ли администратор")
-      const whole = key === "users";
-      const current = whole ? await coll.readValue(t, key) : await coll.readSubset(t, key, coll.referencedIds(spec, ops));
+      // для упаковки при замене раздела целиком тоже нужен весь список — чтобы записать движения остатков
+      const whole = key === "users" || (key === "packagingMaterials" && ops.kind === "replace");
+      const ids = coll.referencedIds(spec, ops);
+      const current = whole ? await coll.readValue(t, key) : await coll.readSubset(t, key, ids);
       const guarded = await access.guardWrite(key, ops, current, req.user, { getJSON: storeGetJSON });
       await coll.applyOps(t, key, guarded, access.MERGE_RULES[key]);
-      if (whole) {
+      if (key === "packagingMaterials") {
+        const after = whole ? await coll.readValue(t, key) : await coll.readSubset(t, key, ids);
+        await logPackagingMoves(t, current, after, req.user);
+      }
+      if (key === "users") {
         const after = await coll.readValue(t, key);
         access.checkResult(key, current, after);
         const alive = new Set(after.map((u) => String(u.id)));
@@ -921,7 +961,7 @@ app.put("/api/kv/:key", requireUser, wrap(async (req, res) => {
 
 app.delete("/api/kv/:key", requireAdmin, wrap(async (req, res) => {
   const key = req.params.key;
-  if (isPrivateKey(key) || key === "users") throw new HttpError(403, "Недостаточно прав");
+  if (isPrivateKey(key) || key === "users" || key === "packagingMoves") throw new HttpError(403, "Недостаточно прав");
   if (usesTables(key)) {
     await withKeyLock(key, () => tables.tx(async (t) => { await t.clear(key); await t.bump(key); }));
     return res.json({ key, deleted: true, shared: true });
@@ -988,6 +1028,162 @@ app.get("/api/chat/audio/:id", requireUser, wrap(async (req, res) => {
   else m = ((await storeGetJSON("chatMessages", [])) || []).find((x) => x && String(x.id) === req.params.id);
   if (!m || !chatVisible(m, req.user) || !m.audio || !m.audio.dataUrl) throw new HttpError(404, "Голосовое сообщение не найдено");
   sendJSON(req, res, { dataUrl: m.audio.dataUrl, duration: m.audio.duration });
+}));
+
+// Журнал движений упаковки для администратора: последние записи, постранично
+app.get("/api/packaging/moves", requireAdmin, wrap(async (req, res) => {
+  if (!usesTables("packagingMoves")) return res.json({ rows: [], hasMore: false });
+  const limit = Math.min(500, Math.max(1, Math.trunc(Number(req.query.limit) || 100)));
+  const filter = { orderBy: "ts", desc: true, limit: limit + 1 };
+  if (req.query.before) filter.lte = { ts: Math.trunc(Number(req.query.before)) - 1 };
+  if (req.query.materialId) filter.eq = { material_id: String(req.query.materialId) };
+  const rows = (await tables.query("packagingMoves", filter)).map((r) => r.data);
+  sendJSON(req, res, { rows: rows.slice(0, limit), hasMore: rows.length > limit });
+}));
+
+// ===================== Доступ для других приложений (внешний API) =====================
+// Другие ваши приложения («Мой склад» и т.д.) читают данные по ключу доступа.
+// Ключ создаёт администратор в Настройках; на сервере хранится только его хеш.
+// Запросы: заголовок  Authorization: Bearer <ключ>  (или X-Api-Key: <ключ>). Только чтение.
+async function loadApiKeys() { return (await storeGetJSON("_apiKeys", [])) || []; }
+const requireApiKey = (req, res, next) => {
+  (async () => {
+    const header = String(req.headers.authorization || "");
+    const key = header.startsWith("Bearer ") ? header.slice(7).trim() : String(req.headers["x-api-key"] || "").trim();
+    const ip = req.ip || "?";
+    if (ipLimiter.blocked("ext:" + ip)) throw new HttpError(429, "Слишком много запросов с неверным ключом, подождите 10 минут");
+    const keys = await loadApiKeys();
+    const hash = key ? auth.sha256hex(key) : null;
+    const found = hash ? keys.find((k) => k.hash === hash) : null;
+    if (!found) { ipLimiter.fail("ext:" + ip); throw new HttpError(401, "Неверный или отсутствующий ключ доступа"); }
+    req.apiKey = found;
+    if (!found.lastUsedAt || Date.now() - found.lastUsedAt > 60 * 60 * 1000) {
+      // отметку "когда пользовались" обновляем не чаще раза в час
+      withKeyLock("_apiKeys", async () => {
+        const list = await loadApiKeys();
+        const k = list.find((x) => x.id === found.id);
+        if (k) { k.lastUsedAt = Date.now(); await store.set("_apiKeys", JSON.stringify(list)); }
+      }).catch(() => {});
+    }
+  })().then(() => next(), (e) => res.status(e.status || 500).json({ error: e.message }));
+};
+
+app.get("/api/admin/api-keys", requireAdmin, wrap(async (req, res) => {
+  res.json({ keys: (await loadApiKeys()).map((k) => ({ id: k.id, name: k.name, hint: k.hint, createdAt: k.createdAt, lastUsedAt: k.lastUsedAt || null })) });
+}));
+app.post("/api/admin/api-keys", requireAdmin, wrap(async (req, res) => {
+  const name = String((req.body || {}).name || "").trim().slice(0, 60);
+  if (!name) throw new HttpError(400, "Укажите название — для какого приложения ключ");
+  const key = "su_" + auth.newToken();
+  const record = { id: auth.newId(), name, hash: auth.sha256hex(key), hint: "…" + key.slice(-4), createdAt: Date.now(), lastUsedAt: null };
+  await withKeyLock("_apiKeys", async () => { await store.set("_apiKeys", JSON.stringify([...(await loadApiKeys()), record])); });
+  // сам ключ показывается один раз — потом его нельзя посмотреть, только создать новый
+  res.json({ id: record.id, name, key });
+}));
+app.delete("/api/admin/api-keys/:id", requireAdmin, wrap(async (req, res) => {
+  await withKeyLock("_apiKeys", async () => { await store.set("_apiKeys", JSON.stringify((await loadApiKeys()).filter((k) => k.id !== req.params.id))); });
+  res.json({ ok: true });
+}));
+
+const extRouter = "/api/ext/v1";
+// Остатки упаковки: все упаковочные материалы с текущим остатком
+app.get(extRouter + "/packaging/materials", requireApiKey, wrap(async (req, res) => {
+  const list = (await storeGetJSON("packagingMaterials", [])) || [];
+  sendJSON(req, res, { rows: list.map((m) => ({ id: m.id, sku: m.sku, name: m.name, type: m.type, size: m.size, multiplicity: Number(m.multiplicity) || null, stock: Number(m.stock) || 0 })), serverTime: Date.now() });
+}));
+// Движения упаковки по порядку, начиная с отметки since (не включая её). Чтобы получать
+// только новое, в следующий запрос передаётся nextSince из предыдущего ответа.
+app.get(extRouter + "/packaging/moves", requireApiKey, wrap(async (req, res) => {
+  const since = Math.max(0, Math.trunc(Number(req.query.since) || 0));
+  const limit = Math.min(1000, Math.max(1, Math.trunc(Number(req.query.limit) || 500)));
+  if (!usesTables("packagingMoves")) return sendJSON(req, res, { rows: [], nextSince: since, hasMore: false, serverTime: Date.now() });
+  const rows = (await tables.query("packagingMoves", { gte: { ts: since + 1 }, orderBy: "ts", limit: limit + 1 })).map((r) => r.data);
+  const page = rows.slice(0, limit);
+  sendJSON(req, res, { rows: page, nextSince: page.length ? page[page.length - 1].timestamp : since, hasMore: rows.length > limit, serverTime: Date.now() });
+}));
+// Какая упаковка привязана к какому товару (артикул товара → упаковки, основная отмечена)
+app.get(extRouter + "/packaging/links", requireApiKey, wrap(async (req, res) => {
+  const links = (await storeGetJSON("productPackagingLinks", {})) || {};
+  const materials = new Map(((await storeGetJSON("packagingMaterials", [])) || []).map((m) => [m.id, m]));
+  const rows = [];
+  for (const [sku, link] of Object.entries(links)) {
+    const ids = (link.linkedIds || []).filter((id) => id === "none" || materials.has(id));
+    if (!ids.length) continue;
+    const mainId = ids.includes(link.lastUsedId) ? link.lastUsedId : ids[0];
+    rows.push({ productSku: sku, noPackaging: mainId === "none", mainPackagingId: mainId === "none" ? null : mainId, mainPackagingSku: mainId === "none" ? null : materials.get(mainId).sku, packagingIds: ids.filter((id) => id !== "none") });
+  }
+  sendJSON(req, res, { rows, serverTime: Date.now() });
+}));
+
+// Расценки за упаковку: сколько платится упаковщику за одну штуку товара.
+// У товара может быть несколько вариантов расценки (например, одинарная и двойная упаковка):
+//   rate       — основная расценка (первый вариант — он выбран по умолчанию при упаковке);
+//   variants   — все варианты;
+//   avgRate30d — сколько в среднем реально платили за штуку за последние 30 дней (по записям
+//                упаковщиков, с учётом того, какие варианты выбирали); null — за 30 дней не упаковывали.
+app.get(extRouter + "/packaging/rates", requireApiKey, wrap(async (req, res) => {
+  const options = (await storeGetJSON("packagingOptions", [])) || [];
+  const history = (await storeGetJSON("priceHistory", [])) || [];
+  const changedAt = new Map();
+  for (const h of history) {
+    const k = String(h.sku), ts = Number(h.timestamp) || 0;
+    if (ts > (changedAt.get(k) || 0)) changedAt.set(k, ts);
+  }
+  // фактическая средняя за 30 дней
+  const d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000 + 3 * 60 * 60 * 1000); // дата по Москве
+  const fromDate = d.toISOString().slice(0, 10);
+  const entries = usesTables("entries")
+    ? (await tables.query("entries", { gte: { entry_date: fromDate }, eq: { type: "piece" } })).map((r) => r.data)
+    : ((await storeGetJSON("entries", [])) || []).filter((e) => e && e.type === "piece" && e.date >= fromDate);
+  const fact = new Map();
+  for (const e of entries) {
+    if (e.deletedAt) continue;
+    const qty = Number(e.qty) || 0, price = Number(e.unitPrice) || 0;
+    if (qty <= 0) continue;
+    const f = fact.get(String(e.sku)) || { qty: 0, sum: 0 };
+    f.qty += qty; f.sum += qty * price;
+    fact.set(String(e.sku), f);
+  }
+  const bySku = new Map();
+  for (const o of options) {
+    if (!o || o.sku === undefined || o.sku === null) continue;
+    const k = String(o.sku);
+    if (!bySku.has(k)) bySku.set(k, []);
+    bySku.get(k).push({ id: o.id, label: o.label || "", rate: Number(o.price) || 0 });
+  }
+  const rows = [...bySku.entries()].map(([sku, variants]) => {
+    const f = fact.get(sku);
+    return { productSku: sku, rate: variants[0].rate, variants, avgRate30d: f ? Math.round((f.sum / f.qty) * 100) / 100 : null, packedQty30d: f ? f.qty : 0, updatedAt: changedAt.get(sku) || null };
+  });
+  sendJSON(req, res, { rows, serverTime: Date.now() });
+}));
+
+// Почасовая оплата упаковщиков по дням: ?from=ГГГГ-ММ-ДД&to=ГГГГ-ММ-ДД (включительно;
+// по умолчанию — последние 60 дней). Считается так же, как в самом приложении: все
+// неудалённые смены, часы × ставка, записанная в смене. Сдельная оплата сюда не входит.
+//   amount        — начислено почасовой оплаты за день, всего;
+//   pendingAmount — из них по сменам, которые администратор ещё не подтвердил (могут измениться);
+//   hours, employees — часов отработано и сколько человек работало.
+app.get(extRouter + "/payroll/hourly", requireApiKey, wrap(async (req, res) => {
+  const day = (ms) => new Date(ms + 3 * 60 * 60 * 1000).toISOString().slice(0, 10); // дата по Москве
+  const to = isDateStr(req.query.to) ? req.query.to : day(Date.now());
+  const from = isDateStr(req.query.from) ? req.query.from : day(Date.now() - 60 * 24 * 60 * 60 * 1000);
+  if (from > to) throw new HttpError(400, "Параметр from позже, чем to");
+  const entries = usesTables("entries")
+    ? (await tables.query("entries", { gte: { entry_date: from }, lte: { entry_date: to }, eq: { type: "hour" } })).map((r) => r.data)
+    : ((await storeGetJSON("entries", [])) || []).filter((e) => e && e.type === "hour" && e.date >= from && e.date <= to);
+  const days = new Map();
+  for (const e of entries) {
+    if (e.deletedAt || !isDateStr(e.date)) continue;
+    const hours = Number(e.hours) || 0, sum = hours * (Number(e.rate) || 0);
+    const d = days.get(e.date) || { hours: 0, amount: 0, pending: 0, people: new Set() };
+    d.hours += hours; d.amount += sum; if (!e.approved) d.pending += sum; d.people.add(e.employeeId);
+    days.set(e.date, d);
+  }
+  const round = (n) => Math.round(n * 100) / 100;
+  const rows = [...days.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .map(([date, d]) => ({ date, amount: round(d.amount), pendingAmount: round(d.pending), hours: round(d.hours), employees: d.people.size }));
+  sendJSON(req, res, { rows, from, to, serverTime: Date.now() });
 }));
 
 // ===================== Ежедневные снимки данных =====================
@@ -1058,6 +1254,13 @@ const snapshotTimer = setInterval(ensureDailySnapshot, 30 * 60 * 1000);
 if (snapshotTimer.unref) snapshotTimer.unref();
 setTimeout(ensureDailySnapshot, 15 * 1000);
 
+// ===================== Синхронизация каталога с «Моим складом» =====================
+// Вся логика — в lib/moysklad.js. Когда «Мой склад» подключён, синхронизация с Ozon отключается.
+const moySklad = moySkladModule.register(app, {
+  requireAdmin, wrap, HttpError, store, storeGetJSON, storeGetJSONStrict, storeSetJSON, secrets, acquireKeyLock, dataReady,
+  getTables: () => tables,
+});
+
 // ===================== Синхронизация каталога с Ozon =====================
 // Учётные данные (Client-Id + Api-Key от Ozon Seller API) хранятся под "приватным"
 // ключом _ozonCredentials — недоступным через общий /api/kv (см. isPrivateKey выше).
@@ -1088,6 +1291,7 @@ app.get("/api/ozon/status", async (req, res) => {
     const { creds, unreadable } = await loadOzonCredentials();
     const lastSync = await storeGetJSON("_ozonLastSync", null);
     res.json({
+      replacedByMoySklad: await moySklad.isConfigured(),
       encrypted: secrets.enabled,
       unreadable,
       configured: !!(creds && creds.clientId && creds.apiKey),
@@ -1122,6 +1326,9 @@ app.delete("/api/ozon/credentials", async (req, res) => {
 app.post("/api/ozon/sync", async (req, res) => {
   let releaseCatalog = null;
   try {
+    if (await moySklad.isConfigured()) {
+      return res.status(400).json({ error: "Каталог синхронизируется с «Моим складом» — синхронизация с Ozon отключена" });
+    }
     const { creds, unreadable } = await loadOzonCredentials();
     if (unreadable) {
       return res.status(400).json({ error: "Сохранённые ключи Ozon не удалось расшифровать (изменился APP_SECRET). Введите Client-Id и Api-Key заново" });
