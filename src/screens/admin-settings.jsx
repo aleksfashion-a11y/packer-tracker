@@ -342,7 +342,7 @@ export function MoySkladSection(ctx) {
         {msStatus && msStatus.lastError && <div style={{ fontSize: 12, color: "var(--danger)", marginBottom: 10 }}>Последняя попытка ({fmt(msStatus.lastError.timestamp)}) не удалась: {msStatus.lastError.message}</div>}
         {!connected ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 520 }}>
-            <input placeholder="Адрес «Моего склада», например https://moy-sklad.example.ru" value={msBaseUrl} onChange={(e) => setMsBaseUrl(e.target.value)} />
+            <input placeholder="Адрес «Моего склада» — как в адресной строке браузера, когда оно открыто" value={msBaseUrl} onChange={(e) => setMsBaseUrl(e.target.value)} />
             <input placeholder="Ключ доступа (msa_…)" type="password" value={msApiKey} onChange={(e) => setMsApiKey(e.target.value)} />
             <div style={{ fontSize: 11, color: "var(--muted-2)" }}>Ключ создаётся в «Моём складе»: Настройки → «Аналитика МП» → создать ключ с названием «Складской учёт».</div>
             <div style={{ display: "flex", gap: 8 }}>
