@@ -1105,12 +1105,20 @@ app.get(extRouter + "/packaging/moves", requireApiKey, wrap(async (req, res) => 
 app.get(extRouter + "/packaging/links", requireApiKey, wrap(async (req, res) => {
   const links = (await storeGetJSON("productPackagingLinks", {})) || {};
   const materials = new Map(((await storeGetJSON("packagingMaterials", [])) || []).map((m) => [m.id, m]));
+  // Виды работ без упаковки («Проклейка штрихкода», «Степлер»...) — из настроек; в привязке они записаны как "work:<id>"
+  const settings = (await storeGetJSON("settings", {})) || {};
+  const workList = Array.isArray(settings.packagingWorks) ? settings.packagingWorks : [{ id: "barcode", name: "Проклейка штрихкода" }, { id: "stapler", name: "Степлер" }];
+  const works = new Map(workList.map((w) => ["work:" + w.id, w.name]));
   const rows = [];
   for (const [sku, link] of Object.entries(links)) {
-    const ids = (link.linkedIds || []).filter((id) => id === "none" || materials.has(id));
+    const ids = (link.linkedIds || []).filter((id) => id === "none" || works.has(id) || materials.has(id));
     if (!ids.length) continue;
     const mainId = ids.includes(link.lastUsedId) ? link.lastUsedId : ids[0];
-    rows.push({ productSku: sku, noPackaging: mainId === "none", mainPackagingId: mainId === "none" ? null : mainId, mainPackagingSku: mainId === "none" ? null : materials.get(mainId).sku, packagingIds: ids.filter((id) => id !== "none") });
+    const noMaterial = mainId === "none" || works.has(mainId); // товар не упаковывают: упаковка не нужна или с ним делают работу без упаковки
+    // packagingState — три явных состояния: "packaging" — упаковывают в упаковку; "not_needed" — упаковка
+    // не нужна, товар уходит как есть; "work" — упаковки нет, но с товаром делают работу (workName).
+    // Товара без привязки в ответе нет вовсе — это четвёртое состояние: «не знаем».
+    rows.push({ productSku: sku, packagingState: mainId === "none" ? "not_needed" : works.has(mainId) ? "work" : "packaging", noPackaging: noMaterial, workName: works.get(mainId) || null, mainPackagingId: noMaterial ? null : mainId, mainPackagingSku: noMaterial ? null : materials.get(mainId).sku, packagingIds: ids.filter((id) => materials.has(id)) });
   }
   sendJSON(req, res, { rows, serverTime: Date.now() });
 }));
@@ -1151,9 +1159,24 @@ app.get(extRouter + "/packaging/rates", requireApiKey, wrap(async (req, res) => 
     if (!bySku.has(k)) bySku.set(k, []);
     bySku.get(k).push({ id: o.id, label: o.label || "", rate: Number(o.price) || 0 });
   }
+  // Товары с отметкой «упаковка не нужна» (основная привязка — "none"): у них расценка 0 значит
+  // «работы нет», а не «расценку забыли назначить»
+  const links = (await storeGetJSON("productPackagingLinks", {})) || {};
+  const notNeeded = new Set();
+  for (const [sku, link] of Object.entries(links)) {
+    const ids = Array.isArray(link.linkedIds) ? link.linkedIds : [];
+    if (ids.length && (ids.includes(link.lastUsedId) ? link.lastUsedId : ids[0]) === "none") notNeeded.add(sku);
+  }
+  for (const sku of notNeeded) if (!bySku.has(sku)) bySku.set(sku, []); // отметка есть, расценки нет вовсе — тоже «работы нет»
+  // rateStatus: "set" — расценка назначена; "no_work" — 0, потому что работы нет (упаковка не нужна);
+  // "not_set" — 0, потому что расценку ещё не назначили (значение неизвестно)
   const rows = [...bySku.entries()].map(([sku, variants]) => {
     const f = fact.get(sku);
-    return { productSku: sku, rate: variants[0].rate, variants, avgRate30d: f ? Math.round((f.sum / f.qty) * 100) / 100 : null, packedQty30d: f ? f.qty : 0, updatedAt: changedAt.get(sku) || null };
+    const rate = variants.length ? variants[0].rate : 0;
+    const paid = f ? Math.round((f.sum / f.qty) * 100) / 100 : null;
+    const rateStatus = rate > 0 || (paid !== null && paid > 0) ? "set" : notNeeded.has(sku) ? "no_work" : "not_set";
+    // noLabor — то же, что rateStatus "no_work", отдельным признаком (так его читает «Мой склад»): работа не нужна, 0 — настоящий ноль
+    return { productSku: sku, rate, rateStatus, noLabor: rateStatus === "no_work", variants, avgRate30d: paid, packedQty30d: f ? f.qty : 0, updatedAt: changedAt.get(sku) || null };
   });
   sendJSON(req, res, { rows, serverTime: Date.now() });
 }));

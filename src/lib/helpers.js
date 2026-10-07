@@ -2,6 +2,13 @@
 
 // Специальное значение вместо id упаковки — "этому товару упаковка не нужна"
 export const NO_PACKAGING = "none";
+// Работа без упаковки — товар не кладут в пакет или коробку, а, например, проклеивают
+// штрихкод или скрепляют степлером. В привязке товара вместо id упаковки тогда стоит
+// "work:<id вида работы>": упаковка не списывается, а в записи видно, что делали с товаром.
+export const WORK_PREFIX = "work:";
+export const isWorkId = (id) => typeof id === "string" && id.startsWith(WORK_PREFIX);
+export const isNoMaterialId = (id) => id === NO_PACKAGING || isWorkId(id);
+export const DEFAULT_PACKAGING_WORKS = [{ id: "barcode", name: "Проклейка штрихкода" }, { id: "stapler", name: "Степлер" }];
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 

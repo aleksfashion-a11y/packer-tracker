@@ -111,7 +111,7 @@ GROUP BY employee_id;
 - `GET /api/ext/v1/packaging/materials` — остатки упаковки;
 - `GET /api/ext/v1/packaging/moves?since=<отметка>&limit=<до 1000>` — журнал движений упаковки (приход `in`, списание `out`, инвентаризация `set`, списание при упаковке товара `pack`, создание `new`, удаление `delete`); «только новое» — по `nextSince` из прошлого ответа;
 - `GET /api/ext/v1/packaging/links` — привязка упаковки к товарам;
-- `GET /api/ext/v1/packaging/rates` — расценки за упаковку: основная (`rate`), все варианты (`variants`), фактическая средняя за 30 дней (`avgRate30d`);
+- `GET /api/ext/v1/packaging/rates` — расценки за упаковку: основная (`rate`), все варианты (`variants`), фактическая средняя за 30 дней (`avgRate30d`), статус (`rateStatus`: `set` / `no_work` / `not_set`) и признак `noLabor` (работа не нужна — расценка 0 у товара с отметкой «упаковка не нужна»);
 - `GET /api/ext/v1/payroll/hourly?from=ГГГГ-ММ-ДД&to=ГГГГ-ММ-ДД` — почасовая оплата упаковщиков по дням: `amount`, `pendingAmount` (по ещё не подтверждённым сменам), `hours`, `employees`.
 
 Журнал движений (`pt_packaging_moves`) пишет сам сервер в одной транзакции с изменением остатка; изменить или очистить его запросом нельзя.

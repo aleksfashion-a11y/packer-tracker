@@ -4,7 +4,7 @@
 import * as XLSX from "xlsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_PACKAGING_OPTIONS, SEED_CATALOG } from "./data/seed.js";
-import { DAY_MS, NO_PACKAGING, PACKAGING_TYPES, PAGE_ROWS, STR, buildPackagingSkuName, defaultChatFromTs, defaultEntriesFrom, defaultLast7Days, defaultPayPeriod, fmtDate, fmtDuration, getMultiplicity, localDateStr, packagingDefaultMultiplicity, packagingTypeLabel, pad2, roundUpToMultiple, shiftDays, shiftMonths, todayStr, uid } from "./lib/helpers.js";
+import { DAY_MS, DEFAULT_PACKAGING_WORKS, NO_PACKAGING, WORK_PREFIX, isNoMaterialId, isWorkId, PACKAGING_TYPES, PAGE_ROWS, STR, buildPackagingSkuName, defaultChatFromTs, defaultEntriesFrom, defaultLast7Days, defaultPayPeriod, fmtDate, fmtDuration, getMultiplicity, localDateStr, packagingDefaultMultiplicity, packagingTypeLabel, pad2, roundUpToMultiple, shiftDays, shiftMonths, todayStr, uid } from "./lib/helpers.js";
 import { api, safeGet, safeSet, serverFetch, sharedKeyMissing } from "./lib/server.js";
 import { playBeep, playVibrate } from "./lib/sound.js";
 import { qrSvg } from "./qr.js";
@@ -54,6 +54,8 @@ export default function App() {
   const [ozonSyncing, setOzonSyncing] = useState(false);
   // Состояние раздела "Остатки" (упаковочные материалы)
   const [stockSearch, setStockSearch] = useState("");
+  // Виды работ без упаковки («Проклейка штрихкода», «Степлер»...) — хранятся в настройках
+  const [packagingWorks, setPackagingWorks] = useState(DEFAULT_PACKAGING_WORKS);
   // «Остатки» у сотрудника: переключатель «Упаковка / Товары» и поиск по списку товаров
   const [empStockView, setEmpStockView] = useState("materials");
   const [empProdQuery, setEmpProdQuery] = useState("");
@@ -374,6 +376,7 @@ export default function App() {
     setEmployeeQuickReplies(settings.employeeQuickReplies || DEFAULT_EMPLOYEE_QUICK_REPLIES);
     setShowChatReadReceipts(settings.showChatReadReceipts !== false);
     setRegistrationOpen(settings.registrationOpen !== false);
+    setPackagingWorks(Array.isArray(settings.packagingWorks) ? settings.packagingWorks : DEFAULT_PACKAGING_WORKS);
     setShowChartDaily(settings.showChartDaily !== false);
     setShowChartEmployees(settings.showChartEmployees !== false);
     setShowChartTopProducts(settings.showChartTopProducts !== false);
@@ -1005,14 +1008,14 @@ export default function App() {
       const product = catalog.find((p) => String(p.sku) === String(skuNorm));
       const link = getPackagingLink(skuNorm);
       const materialId = link ? link.mainId : null;
-      const material = materialId && materialId !== "none" ? packagingMaterials.find((m) => m.id === materialId) : null;
+      const material = materialId && !isNoMaterialId(materialId) ? packagingMaterials.find((m) => m.id === materialId) : null;
       if (material) materialNeed[material.id] = (materialNeed[material.id] || 0) + qty;
       productRows.push({
         sku: skuNorm,
         name: product ? product.name : "(не найден в каталоге)",
         qty,
         materialId: material ? material.id : null,
-        materialName: material ? material.name : (materialId === "none" ? "без упаковки" : "упаковка не привязана"),
+        materialName: material ? material.name : (isWorkId(materialId) ? "без упаковки: " + packagingLabel(materialId) : materialId === "none" ? "без упаковки" : "упаковка не привязана"),
       });
     }
     const materialSummary = Object.entries(materialNeed).map(([materialId, needed]) => {
@@ -1300,11 +1303,31 @@ export default function App() {
   const getPackagingLink = (sku) => {
     const raw = productPackagingLinks[String(sku)];
     if (!raw || !Array.isArray(raw.linkedIds)) return null;
-    const linkedIds = raw.linkedIds.filter((id) => id === NO_PACKAGING || packagingMaterials.some((m) => m.id === id));
+    const linkedIds = raw.linkedIds.filter((id) => id === NO_PACKAGING || (isWorkId(id) ? packagingWorks.some((w) => WORK_PREFIX + w.id === id) : packagingMaterials.some((m) => m.id === id)));
     if (linkedIds.length === 0) return null;
     return { linkedIds, mainId: linkedIds.includes(raw.lastUsedId) ? raw.lastUsedId : linkedIds[0] };
   };
-  const packagingLabel = (id) => (id === NO_PACKAGING ? "без упаковки" : ((packagingMaterials.find((m) => m.id === id) || {}).name || "?"));
+  const packagingLabel = (id) => {
+    if (id === NO_PACKAGING) return "упаковка не нужна";
+    if (isWorkId(id)) return (packagingWorks.find((w) => WORK_PREFIX + w.id === id) || {}).name || "работа без упаковки";
+    return (packagingMaterials.find((m) => m.id === id) || {}).name || "?";
+  };
+  // Виды работ без упаковки: добавить / удалить (администратор)
+  const addPackagingWork = async (name) => {
+    const clean = String(name || "").trim();
+    if (!clean) return null;
+    if (packagingWorks.some((w) => w.name.toLowerCase() === clean.toLowerCase())) { setToast("Такой вид работы уже есть"); return null; }
+    const work = { id: uid(), name: clean };
+    await persistSettings({ packagingWorks: [...packagingWorks, work] });
+    return work;
+  };
+  const removePackagingWork = (work) => {
+    const used = catalog.filter((p) => { const raw = productPackagingLinks[String(p.sku)]; return raw && (raw.linkedIds || []).includes(WORK_PREFIX + work.id); }).length;
+    askConfirm(`Удалить вид работы «${work.name}»?${used ? ` Он указан у ${used} товаров — у них эта отметка пропадёт.` : ""}`, async () => {
+      await persistSettings({ packagingWorks: packagingWorks.filter((w) => w.id !== work.id) });
+      setToast("Вид работы удалён");
+    });
+  };
   const savePackagingLink = async (sku, linkedIds, mainId) => {
     const key = String(sku);
     const next = { ...productPackagingLinks };
@@ -1344,7 +1367,7 @@ export default function App() {
       const link = getPackagingLink(p.sku);
       if (!link) continue;
       for (const id of link.linkedIds) {
-        if (id === NO_PACKAGING) continue;
+        if (isNoMaterialId(id)) continue;
         (map[id] = map[id] || []).push({ product: p, isMain: link.mainId === id });
       }
     }
@@ -1363,6 +1386,8 @@ export default function App() {
         <div className="pack-row">
           <span className="pack-chip empty">📦 упаковка не привязана</span>
           <button className={"btn" + (opts.addLabel ? " btn-accent" : "")} style={{ padding: "3px 10px", fontSize: 11 }} onClick={open}>{opts.addLabel || "Привязать"}</button>
+          <button className="btn" style={{ padding: "3px 10px", fontSize: 11 }} title="Товар отгружается как есть, со своим штрихкодом — упаковка не нужна"
+            onClick={async () => { await linkPackagingToProduct(product.sku, NO_PACKAGING); setToast(`«${product.name}»: упаковка не нужна`); }}>Не нужна</button>
         </div>
       );
     }
@@ -1371,14 +1396,14 @@ export default function App() {
       <div className="pack-row">
         <span style={{ fontSize: 12 }}>📦</span>
         {link.linkedIds.map((id) => {
-          const m = id === NO_PACKAGING ? null : packagingMaterials.find((x) => x.id === id);
+          const m = isNoMaterialId(id) ? null : packagingMaterials.find((x) => x.id === id);
           const isMain = id === link.mainId;
           return (
             <span key={id} className={"pack-chip" + (isMain ? " main" : "")}>
               <button className={"pack-chip-label" + (!isMain ? " clickable" : "")}
                 title={isMain ? (several ? "Основная упаковка" : "") : "Нажмите, чтобы сделать основной"}
                 onClick={!isMain ? async () => { await setMainPackaging(product.sku, id); setToast(`Основная упаковка: ${packagingLabel(id)}`); } : undefined}>
-                {several && isMain ? "★ " : ""}{m ? m.name : "без упаковки"}
+                {several && isMain ? "★ " : ""}{m ? m.name : (isWorkId(id) ? "🏷 " : "") + packagingLabel(id)}
                 {m && <span className="mono" style={{ fontSize: 11, color: m.stock > 0 ? "var(--muted-2)" : "var(--danger)" }}> · {m.stock} шт</span>}
               </button>
               <button className="pack-chip-x" title="Убрать привязку" onClick={() => askUnlinkPackaging(product, id)}>✕</button>
@@ -1408,8 +1433,8 @@ export default function App() {
   };
   const confirmPackagingSelection = () => {
     const { product, opt, qty, selectedMaterialId } = packagingModal;
-    if (!selectedMaterialId) { setToast("Выберите упаковку, «Без упаковки» или создайте новую — без этого нельзя подтвердить количество"); return; }
-    const noPackaging = selectedMaterialId === NO_PACKAGING;
+    if (!selectedMaterialId) { setToast("Выберите упаковку или что делаем с товаром без упаковки — без этого нельзя подтвердить количество"); return; }
+    const noPackaging = isNoMaterialId(selectedMaterialId);
     const material = noPackaging ? null : packagingMaterials.find((m) => m.id === selectedMaterialId);
     if (!noPackaging) {
       if (!material) { setToast("Эта упаковка больше не существует, выберите другую"); return; }
@@ -1420,7 +1445,7 @@ export default function App() {
     }
     setPackagingModal(null);
     const label = opt.label ? ` (${opt.label})` : "";
-    const packagingText = noPackaging ? "без упаковки" : `с упаковкой «${material.name}»`;
+    const packagingText = isWorkId(selectedMaterialId) ? `— ${packagingLabel(selectedMaterialId)} (упаковка не списывается)` : noPackaging ? "без упаковки" : `с упаковкой «${material.name}»`;
     askConfirm(`Добавить ${qty} × ${product.name}${label} ${packagingText}? Дата: ${fmtDate(packDate)}`, async () => {
       await addPieceEntry(product, qty, opt, selectedMaterialId);
       await linkPackagingToProduct(product.sku, selectedMaterialId);
@@ -1713,8 +1738,9 @@ export default function App() {
   const persistTimerSessions = async (next) => { setTimerSessions(next); await safeSet("timerSessions", next, true, timerSessions); };
   const persistPriceHistory = async (next) => { setPriceHistory(next); await safeSet("priceHistory", next, true, priceHistory); };
   const persistSettings = async (updates) => {
-    const base = { currency, showEmployeeTotals, showTimerTab, showChartDaily, showChartEmployees, showChartTopProducts, showChartComparison, showChartHeatmap, enabledAdminTabs, adminQuickReplies, employeeQuickReplies, showChatReadReceipts, registrationOpen };
+    const base = { currency, showEmployeeTotals, showTimerTab, showChartDaily, showChartEmployees, showChartTopProducts, showChartComparison, showChartHeatmap, enabledAdminTabs, adminQuickReplies, employeeQuickReplies, showChatReadReceipts, registrationOpen, packagingWorks };
     const next = { ...base, ...updates };
+    setPackagingWorks(Array.isArray(next.packagingWorks) ? next.packagingWorks : DEFAULT_PACKAGING_WORKS);
     setCurrency(next.currency);
     setShowEmployeeTotals(next.showEmployeeTotals);
     setShowTimerTab(next.showTimerTab);
@@ -2072,7 +2098,7 @@ export default function App() {
   const addPieceEntryWithAutoPackaging = async (product, qty, option) => {
     const link = getPackagingLink(product.sku);
     await addPieceEntry(product, qty, option, link ? link.mainId : null);
-    if (link && link.mainId !== NO_PACKAGING) {
+    if (link && !isNoMaterialId(link.mainId)) {
       await deductPackagingStock(link.mainId, qty, product);
     } else if (!link) {
       setToast(`+${qty} × ${product.name} — упаковка для этого товара ещё не настроена, остаток не списан`);
@@ -3101,7 +3127,7 @@ export default function App() {
         </div>
       )}
 
-      {packagingModal && PackagingChoiceModal({ addPackagingStock, confirmPackagingSelection, createPackagingMaterial, getPackagingLink, packagingMaterials, packagingModal, setPackagingModal, setToast, unlinkPackagingFromProduct })}
+      {packagingModal && PackagingChoiceModal({ packagingWorks, addPackagingStock, confirmPackagingSelection, createPackagingMaterial, getPackagingLink, packagingMaterials, packagingModal, setPackagingModal, setToast, unlinkPackagingFromProduct })}
 
       {showMySecretWord && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }} onClick={() => setShowMySecretWord(false)}>
@@ -3122,7 +3148,7 @@ export default function App() {
       {materialLinkModal && MaterialLinkModal({ askUnlinkPackaging, getPackagingLink, linkMaterialToProductConfirm, materialLinkModal, materialLinkResults, packagingLabel, packagingMaterials, productsByMaterial, setMaterialLinkModal })}
 
       {stockMoves && StockMovesModal({ stockMoves, setStockMoves, loadStockMoves })}
-      {productLinkModal && ProductLinkModal({ createPackagingMaterial, getPackagingLink, linkProductToMaterialConfirm, packagingMaterials, productLinkModal, productLinkResults, setMainPackaging, setProductLinkModal, unlinkPackagingFromProduct })}
+      {productLinkModal && ProductLinkModal({ packagingWorks, packagingLabel, addPackagingWork, removePackagingWork, isAdminUser: !!(currentUser && currentUser.role === "admin"), createPackagingMaterial, getPackagingLink, linkProductToMaterialConfirm, packagingMaterials, productLinkModal, productLinkResults, setMainPackaging, setProductLinkModal, unlinkPackagingFromProduct })}
 
       {showQrForId && (() => {
         const qrUser = users.find((u) => u.id === showQrForId);
