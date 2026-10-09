@@ -8,7 +8,19 @@ export const NO_PACKAGING = "none";
 export const WORK_PREFIX = "work:";
 export const isWorkId = (id) => typeof id === "string" && id.startsWith(WORK_PREFIX);
 export const isNoMaterialId = (id) => id === NO_PACKAGING || isWorkId(id);
-export const DEFAULT_PACKAGING_WORKS = [{ id: "barcode", name: "Проклейка штрихкода" }, { id: "stapler", name: "Степлер" }];
+export const DEFAULT_PACKAGING_WORKS = [{ id: "barcode", name: "Проклейка штрихкода" }, { id: "stapler", name: "Степлер" }, { id: "tape", name: "Замотка скотчем" }];
+// Виды работ из настроек. Если список уже сохранён (админ его менял), стандартные виды, появившиеся
+// в приложении позже («Замотка скотчем»), дописываются сами — кроме тех, что админ удалил
+// (settings.packagingWorksHidden). То же правило — в server.js (выдача привязок для «Моего склада»).
+const LATER_DEFAULT_WORKS = ["tape"];
+export const resolvePackagingWorks = (settings) => {
+  const hidden = Array.isArray(settings && settings.packagingWorksHidden) ? settings.packagingWorksHidden : [];
+  const stored = Array.isArray(settings && settings.packagingWorks) ? settings.packagingWorks : null;
+  if (!stored) return DEFAULT_PACKAGING_WORKS.filter((w) => !hidden.includes(w.id));
+  const missing = DEFAULT_PACKAGING_WORKS.filter((w) => LATER_DEFAULT_WORKS.includes(w.id) && !hidden.includes(w.id)
+    && !stored.some((s) => s.id === w.id || String(s.name).toLowerCase() === w.name.toLowerCase()));
+  return [...stored, ...missing];
+};
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 

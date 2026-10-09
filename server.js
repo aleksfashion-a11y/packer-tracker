@@ -1107,7 +1107,13 @@ app.get(extRouter + "/packaging/links", requireApiKey, wrap(async (req, res) => 
   const materials = new Map(((await storeGetJSON("packagingMaterials", [])) || []).map((m) => [m.id, m]));
   // Виды работ без упаковки («Проклейка штрихкода», «Степлер»...) — из настроек; в привязке они записаны как "work:<id>"
   const settings = (await storeGetJSON("settings", {})) || {};
-  const workList = Array.isArray(settings.packagingWorks) ? settings.packagingWorks : [{ id: "barcode", name: "Проклейка штрихкода" }, { id: "stapler", name: "Степлер" }];
+  // Правило то же, что в src/lib/helpers.js (resolvePackagingWorks): «Замотка скотчем» дописывается
+  // к уже сохранённому списку сама, если админ её не удалял
+  const hiddenWorks = Array.isArray(settings.packagingWorksHidden) ? settings.packagingWorksHidden : [];
+  const tapeWork = { id: "tape", name: "Замотка скотчем" };
+  const workList = Array.isArray(settings.packagingWorks)
+    ? [...settings.packagingWorks, ...(hiddenWorks.includes("tape") || settings.packagingWorks.some((w) => w && (w.id === "tape" || String(w.name).toLowerCase() === tapeWork.name.toLowerCase())) ? [] : [tapeWork])]
+    : [{ id: "barcode", name: "Проклейка штрихкода" }, { id: "stapler", name: "Степлер" }, tapeWork].filter((w) => !hiddenWorks.includes(w.id));
   const works = new Map(workList.map((w) => ["work:" + w.id, w.name]));
   const rows = [];
   for (const [sku, link] of Object.entries(links)) {
@@ -1118,7 +1124,11 @@ app.get(extRouter + "/packaging/links", requireApiKey, wrap(async (req, res) => 
     // packagingState — три явных состояния: "packaging" — упаковывают в упаковку; "not_needed" — упаковка
     // не нужна, товар уходит как есть; "work" — упаковки нет, но с товаром делают работу (workName).
     // Товара без привязки в ответе нет вовсе — это четвёртое состояние: «не знаем».
-    rows.push({ productSku: sku, packagingState: mainId === "none" ? "not_needed" : works.has(mainId) ? "work" : "packaging", noPackaging: noMaterial, workName: works.get(mainId) || null, mainPackagingId: noMaterial ? null : mainId, mainPackagingSku: noMaterial ? null : materials.get(mainId).sku, packagingIds: ids.filter((id) => materials.has(id)) });
+    // workNames — все работы, которые делают с товаром: при "work" — основная и добавленные к ней;
+    // при "packaging" — работы вместе с упаковкой («пакет + проклейка штрихкода»); при "not_needed" — пусто.
+    const extra = mainId === "none" ? [] : [...new Set(Array.isArray(link.extraWorks) ? link.extraWorks : [])].filter((id) => works.has(id) && id !== mainId);
+    const workNames = [...(works.has(mainId) ? [mainId] : []), ...extra].map((id) => works.get(id));
+    rows.push({ productSku: sku, packagingState: mainId === "none" ? "not_needed" : works.has(mainId) ? "work" : "packaging", noPackaging: noMaterial, workName: works.get(mainId) || null, workNames, mainPackagingId: noMaterial ? null : mainId, mainPackagingSku: noMaterial ? null : materials.get(mainId).sku, packagingIds: ids.filter((id) => materials.has(id)) });
   }
   sendJSON(req, res, { rows, serverTime: Date.now() });
 }));

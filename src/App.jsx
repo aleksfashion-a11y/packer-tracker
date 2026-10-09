@@ -4,7 +4,7 @@
 import * as XLSX from "xlsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_PACKAGING_OPTIONS, SEED_CATALOG } from "./data/seed.js";
-import { DAY_MS, DEFAULT_PACKAGING_WORKS, NO_PACKAGING, WORK_PREFIX, isNoMaterialId, isWorkId, PACKAGING_TYPES, PAGE_ROWS, STR, buildPackagingSkuName, defaultChatFromTs, defaultEntriesFrom, defaultLast7Days, defaultPayPeriod, fmtDate, fmtDuration, getMultiplicity, localDateStr, packagingDefaultMultiplicity, packagingTypeLabel, pad2, roundUpToMultiple, shiftDays, shiftMonths, todayStr, uid } from "./lib/helpers.js";
+import { DAY_MS, DEFAULT_PACKAGING_WORKS, resolvePackagingWorks, NO_PACKAGING, WORK_PREFIX, isNoMaterialId, isWorkId, PACKAGING_TYPES, PAGE_ROWS, STR, buildPackagingSkuName, defaultChatFromTs, defaultEntriesFrom, defaultLast7Days, defaultPayPeriod, fmtDate, fmtDuration, getMultiplicity, localDateStr, packagingDefaultMultiplicity, packagingTypeLabel, pad2, roundUpToMultiple, shiftDays, shiftMonths, todayStr, uid } from "./lib/helpers.js";
 import { api, safeGet, safeSet, serverFetch, sharedKeyMissing } from "./lib/server.js";
 import { playBeep, playVibrate } from "./lib/sound.js";
 import { qrSvg } from "./qr.js";
@@ -56,6 +56,7 @@ export default function App() {
   const [stockSearch, setStockSearch] = useState("");
   // Виды работ без упаковки («Проклейка штрихкода», «Степлер»...) — хранятся в настройках
   const [packagingWorks, setPackagingWorks] = useState(DEFAULT_PACKAGING_WORKS);
+  const [packagingWorksHidden, setPackagingWorksHidden] = useState([]);
   // «Остатки» у сотрудника: переключатель «Упаковка / Товары» и поиск по списку товаров
   const [empStockView, setEmpStockView] = useState("materials");
   const [empProdQuery, setEmpProdQuery] = useState("");
@@ -376,7 +377,8 @@ export default function App() {
     setEmployeeQuickReplies(settings.employeeQuickReplies || DEFAULT_EMPLOYEE_QUICK_REPLIES);
     setShowChatReadReceipts(settings.showChatReadReceipts !== false);
     setRegistrationOpen(settings.registrationOpen !== false);
-    setPackagingWorks(Array.isArray(settings.packagingWorks) ? settings.packagingWorks : DEFAULT_PACKAGING_WORKS);
+    setPackagingWorks(resolvePackagingWorks(settings));
+    setPackagingWorksHidden(Array.isArray(settings.packagingWorksHidden) ? settings.packagingWorksHidden : []);
     setShowChartDaily(settings.showChartDaily !== false);
     setShowChartEmployees(settings.showChartEmployees !== false);
     setShowChartTopProducts(settings.showChartTopProducts !== false);
@@ -1015,7 +1017,7 @@ export default function App() {
         name: product ? product.name : "(не найден в каталоге)",
         qty,
         materialId: material ? material.id : null,
-        materialName: material ? material.name : (isWorkId(materialId) ? "без упаковки: " + packagingLabel(materialId) : materialId === "none" ? "без упаковки" : "упаковка не привязана"),
+        materialName: material ? packagingComboLabel(material.id, link.extraWorks) : (isWorkId(materialId) ? "без упаковки: " + packagingComboLabel(materialId, link.extraWorks) : materialId === "none" ? "без упаковки" : "упаковка не привязана"),
       });
     }
     const materialSummary = Object.entries(materialNeed).map(([materialId, needed]) => {
@@ -1287,6 +1289,7 @@ export default function App() {
         const linkedIds = (link.linkedIds || []).filter((lid) => lid !== id);
         if (linkedIds.length === 0) continue; // у товара не осталось привязок — запись о привязке убираем совсем
         nextLinks[sku] = { linkedIds, lastUsedId: linkedIds.includes(link.lastUsedId) ? link.lastUsedId : linkedIds[0] };
+        if (Array.isArray(link.extraWorks) && link.extraWorks.length) nextLinks[sku].extraWorks = link.extraWorks;
       }
       await persistProductPackagingLinks(nextLinks);
       setToast("Упаковка удалена");
@@ -1296,17 +1299,27 @@ export default function App() {
   // У товара может быть несколько привязанных упаковок, одна из них — ОСНОВНАЯ:
   // она предлагается по умолчанию при упаковке, списывается в быстрых сценариях
   // (сканер, «Недавно упаковано») и учитывается в сверке поставки.
-  // В данных: { [артикул]: { linkedIds: [...], lastUsedId: <основная> } }.
+  // В данных: { [артикул]: { linkedIds: [...], lastUsedId: <основная>, extraWorks: ["work:<id>", ...] } }.
+  // extraWorks — работы, которые делают с товаром ВМЕСТЕ с основной позицией: «упаковка + проклейка
+  // штрихкода» (упаковка списывается, работа просто указывается) или две работы без упаковки.
   //
   // getPackagingLink — единственное место, где привязка читается: возвращает
-  // { linkedIds, mainId } или null, если привязки нет (уже удалённые упаковки отбрасывает).
+  // { linkedIds, mainId, extraWorks } или null, если привязки нет (уже удалённые упаковки и работы отбрасывает).
+  const workExists = (id) => packagingWorks.some((w) => WORK_PREFIX + w.id === id);
   const getPackagingLink = (sku) => {
     const raw = productPackagingLinks[String(sku)];
     if (!raw || !Array.isArray(raw.linkedIds)) return null;
-    const linkedIds = raw.linkedIds.filter((id) => id === NO_PACKAGING || (isWorkId(id) ? packagingWorks.some((w) => WORK_PREFIX + w.id === id) : packagingMaterials.some((m) => m.id === id)));
+    const linkedIds = raw.linkedIds.filter((id) => id === NO_PACKAGING || (isWorkId(id) ? workExists(id) : packagingMaterials.some((m) => m.id === id)));
     if (linkedIds.length === 0) return null;
-    return { linkedIds, mainId: linkedIds.includes(raw.lastUsedId) ? raw.lastUsedId : linkedIds[0] };
+    const mainId = linkedIds.includes(raw.lastUsedId) ? raw.lastUsedId : linkedIds[0];
+    // «Упаковка не нужна — как есть» работ не предполагает
+    const extraWorks = mainId === NO_PACKAGING ? [] : [...new Set(Array.isArray(raw.extraWorks) ? raw.extraWorks : [])].filter((id) => isWorkId(id) && id !== mainId && workExists(id));
+    return { linkedIds, mainId, extraWorks };
   };
+  // Все работы, которые делают с товаром: основная (если товар без упаковки) + дополнительные
+  const linkWorkIds = (link) => (link ? [...(isWorkId(link.mainId) ? [link.mainId] : []), ...link.extraWorks] : []);
+  // Подпись «что делаем с товаром» целиком: «БП 20х30 + Проклейка штрихкода»
+  const packagingComboLabel = (mainId, extraWorks) => [mainId, ...(extraWorks || [])].filter(Boolean).map(packagingLabel).join(" + ");
   const packagingLabel = (id) => {
     if (id === NO_PACKAGING) return "упаковка не нужна";
     if (isWorkId(id)) return (packagingWorks.find((w) => WORK_PREFIX + w.id === id) || {}).name || "работа без упаковки";
@@ -1322,18 +1335,40 @@ export default function App() {
     return work;
   };
   const removePackagingWork = (work) => {
-    const used = catalog.filter((p) => { const raw = productPackagingLinks[String(p.sku)]; return raw && (raw.linkedIds || []).includes(WORK_PREFIX + work.id); }).length;
+    const used = catalog.filter((p) => { const raw = productPackagingLinks[String(p.sku)]; return raw && [...(raw.linkedIds || []), ...(raw.extraWorks || [])].includes(WORK_PREFIX + work.id); }).length;
     askConfirm(`Удалить вид работы «${work.name}»?${used ? ` Он указан у ${used} товаров — у них эта отметка пропадёт.` : ""}`, async () => {
-      await persistSettings({ packagingWorks: packagingWorks.filter((w) => w.id !== work.id) });
+      const isStandard = DEFAULT_PACKAGING_WORKS.some((w) => w.id === work.id); // чтобы стандартный вид не вернулся сам
+      await persistSettings({ packagingWorks: packagingWorks.filter((w) => w.id !== work.id), ...(isStandard ? { packagingWorksHidden: [...new Set([...packagingWorksHidden, work.id])] } : {}) });
       setToast("Вид работы удалён");
     });
   };
-  const savePackagingLink = async (sku, linkedIds, mainId) => {
+  // extraWorks не передан — дополнительные работы остаются как были
+  const savePackagingLink = async (sku, linkedIds, mainId, extraWorks) => {
     const key = String(sku);
     const next = { ...productPackagingLinks };
+    let works = extraWorks !== undefined ? extraWorks : ((next[key] && next[key].extraWorks) || []);
+    // Убрали последнюю позицию, а работы остались — товар становится «без упаковки, с работой»
+    if (linkedIds.length === 0 && works.length) { linkedIds = [works[0]]; mainId = works[0]; }
     if (linkedIds.length === 0) delete next[key];
-    else next[key] = { linkedIds, lastUsedId: linkedIds.includes(mainId) ? mainId : linkedIds[0] };
+    else {
+      const main = linkedIds.includes(mainId) ? mainId : linkedIds[0];
+      works = main === NO_PACKAGING ? [] : [...new Set(works)].filter((id) => isWorkId(id) && id !== main);
+      next[key] = { linkedIds, lastUsedId: main };
+      if (works.length) next[key].extraWorks = works;
+    }
     await persistProductPackagingLinks(next);
+  };
+  // Включить/выключить работу у товара. Есть упаковка (или уже другая работа) — работа добавляется
+  // к ней («упаковка + проклейка»); ничего нет или стояло «упаковка не нужна» — товар становится
+  // «без упаковки, с работой».
+  const toggleProductWork = async (sku, workId) => {
+    const cur = getPackagingLink(sku);
+    if (!cur) { await savePackagingLink(sku, [workId], workId, []); return; }
+    if (cur.extraWorks.includes(workId)) { await savePackagingLink(sku, cur.linkedIds, cur.mainId, cur.extraWorks.filter((id) => id !== workId)); return; }
+    if (cur.mainId === workId) { await savePackagingLink(sku, cur.linkedIds.filter((id) => id !== workId), null, cur.extraWorks); return; }
+    if (cur.mainId === NO_PACKAGING) { await savePackagingLink(sku, [...cur.linkedIds.filter((id) => id !== NO_PACKAGING && id !== workId), workId], workId, []); return; }
+    // работа раньше числилась «запасным вариантом» — теперь она идёт вместе с основной
+    await savePackagingLink(sku, cur.linkedIds.filter((id) => id !== workId), cur.mainId, [...cur.extraWorks, workId]);
   };
   // Привязать упаковку к товару. По умолчанию она становится основной; с makeMain: false —
   // добавляется как дополнительная (основной станет, только если других привязок ещё нет).
@@ -1343,6 +1378,16 @@ export default function App() {
     const linkedIds = ids.includes(materialId) ? ids : [...ids, materialId];
     const makeMain = opts.makeMain !== false || !cur;
     await savePackagingLink(sku, linkedIds, makeMain ? materialId : cur.mainId);
+  };
+  // Привязать упаковку из окна товара. Если до этого товар был «без упаковки» (работа или
+  // «не нужна»), упаковка становится основной: работа остаётся при ней («упаковка + проклейка»),
+  // а отметка «не нужна» снимается — иначе упаковка так и не начала бы списываться.
+  const addPackagingToProduct = async (sku, materialId) => {
+    const cur = getPackagingLink(sku);
+    if (!cur || !isNoMaterialId(cur.mainId) || isNoMaterialId(materialId)) { await linkPackagingToProduct(sku, materialId, { makeMain: false }); return; }
+    const works = linkWorkIds(cur);
+    const linkedIds = [...cur.linkedIds.filter((id) => !isNoMaterialId(id) && id !== materialId), materialId];
+    await savePackagingLink(sku, linkedIds, materialId, works);
   };
   const unlinkPackagingFromProduct = async (sku, materialId) => {
     const cur = getPackagingLink(sku);
@@ -1410,6 +1455,12 @@ export default function App() {
             </span>
           );
         })}
+        {link.extraWorks.map((id) => (
+          <span key={id} className="pack-chip main" title="Эту работу делают вместе с основной упаковкой">
+            <span className="pack-chip-label">＋ 🏷 {packagingLabel(id)}</span>
+            <button className="pack-chip-x" title="Убрать работу" onClick={() => askConfirm(`Убрать работу «${packagingLabel(id)}» у товара «${product.name}»?`, async () => { await toggleProductWork(product.sku, id); setToast("Работа убрана"); })}>✕</button>
+          </span>
+        ))}
         <button className="btn" style={{ padding: "3px 10px", fontSize: 11 }} onClick={open}>{opts.addLabel || "Изменить"}</button>
       </div>
     );
@@ -1423,7 +1474,9 @@ export default function App() {
     const link = getPackagingLink(product.sku);
     setPackagingModal({
       product, opt, qty,
-      selectedMaterialId: link ? link.mainId : null,
+      // Два независимых выбора: упаковка (или «без упаковки») и работы, которые делают с товаром
+      selectedMaterialId: link ? (isNoMaterialId(link.mainId) ? NO_PACKAGING : link.mainId) : null,
+      selectedWorks: linkWorkIds(link),
       showAllPicker: false,
       showCreateForm: false,
       newType: PACKAGING_TYPES[0].key,
@@ -1433,8 +1486,9 @@ export default function App() {
   };
   const confirmPackagingSelection = () => {
     const { product, opt, qty, selectedMaterialId } = packagingModal;
-    if (!selectedMaterialId) { setToast("Выберите упаковку или что делаем с товаром без упаковки — без этого нельзя подтвердить количество"); return; }
-    const noPackaging = isNoMaterialId(selectedMaterialId);
+    const works = (packagingModal.selectedWorks || []).filter(workExists);
+    if (!selectedMaterialId) { setToast("Выберите упаковку или «Без упаковки» — без этого нельзя подтвердить количество"); return; }
+    const noPackaging = selectedMaterialId === NO_PACKAGING;
     const material = noPackaging ? null : packagingMaterials.find((m) => m.id === selectedMaterialId);
     if (!noPackaging) {
       if (!material) { setToast("Эта упаковка больше не существует, выберите другую"); return; }
@@ -1443,12 +1497,21 @@ export default function App() {
         return;
       }
     }
+    // Как это ляжет в привязку: упаковка + работы; без упаковки — первая работа основная, остальные с ней;
+    // без упаковки и без работ — «упаковка не нужна»
+    const mainId = noPackaging ? (works[0] || NO_PACKAGING) : selectedMaterialId;
+    const extraWorks = noPackaging ? works.slice(1) : works;
     setPackagingModal(null);
     const label = opt.label ? ` (${opt.label})` : "";
-    const packagingText = isWorkId(selectedMaterialId) ? `— ${packagingLabel(selectedMaterialId)} (упаковка не списывается)` : noPackaging ? "без упаковки" : `с упаковкой «${material.name}»`;
+    const worksText = works.map(packagingLabel).join(", ");
+    const packagingText = noPackaging
+      ? (works.length ? `без упаковки — ${worksText} (упаковка не списывается)` : "без упаковки")
+      : `с упаковкой «${material.name}»${works.length ? " + " + worksText : ""}`;
     askConfirm(`Добавить ${qty} × ${product.name}${label} ${packagingText}? Дата: ${fmtDate(packDate)}`, async () => {
-      await addPieceEntry(product, qty, opt, selectedMaterialId);
-      await linkPackagingToProduct(product.sku, selectedMaterialId);
+      await addPieceEntry(product, qty, opt, mainId, extraWorks);
+      const cur = getPackagingLink(product.sku);
+      const ids = cur ? cur.linkedIds : [];
+      await savePackagingLink(product.sku, ids.includes(mainId) ? ids : [...ids, mainId], mainId, extraWorks);
       if (!noPackaging) await deductPackagingStock(selectedMaterialId, qty, product);
     });
   };
@@ -1738,9 +1801,10 @@ export default function App() {
   const persistTimerSessions = async (next) => { setTimerSessions(next); await safeSet("timerSessions", next, true, timerSessions); };
   const persistPriceHistory = async (next) => { setPriceHistory(next); await safeSet("priceHistory", next, true, priceHistory); };
   const persistSettings = async (updates) => {
-    const base = { currency, showEmployeeTotals, showTimerTab, showChartDaily, showChartEmployees, showChartTopProducts, showChartComparison, showChartHeatmap, enabledAdminTabs, adminQuickReplies, employeeQuickReplies, showChatReadReceipts, registrationOpen, packagingWorks };
+    const base = { currency, showEmployeeTotals, showTimerTab, showChartDaily, showChartEmployees, showChartTopProducts, showChartComparison, showChartHeatmap, enabledAdminTabs, adminQuickReplies, employeeQuickReplies, showChatReadReceipts, registrationOpen, packagingWorks, packagingWorksHidden };
     const next = { ...base, ...updates };
-    setPackagingWorks(Array.isArray(next.packagingWorks) ? next.packagingWorks : DEFAULT_PACKAGING_WORKS);
+    setPackagingWorks(resolvePackagingWorks(next));
+    setPackagingWorksHidden(Array.isArray(next.packagingWorksHidden) ? next.packagingWorksHidden : []);
     setCurrency(next.currency);
     setShowEmployeeTotals(next.showEmployeeTotals);
     setShowTimerTab(next.showTimerTab);
@@ -2074,7 +2138,8 @@ export default function App() {
 
   // packagingId — какой упаковкой упаковали (id упаковки или NO_PACKAGING); сохраняется в
   // записи вместе с названием, чтобы в истории и журнале было видно, даже если привязку потом поменяют
-  const addPieceEntry = async (product, qty, option, packagingId) => {
+  // extraWorks — работы, сделанные вместе с этим («упаковка + проклейка штрихкода»)
+  const addPieceEntry = async (product, qty, option, packagingId, extraWorks = []) => {
     if (!currentUser || !qty || qty <= 0) return;
     const opt = option || optionsForSku(product.sku)[0] || { price: 0, label: "", id: null };
     const entry = {
@@ -2082,7 +2147,12 @@ export default function App() {
       sku: product.sku, productName: product.name, unitPrice: opt.price, optionId: opt.id, optionLabel: opt.label || "", qty,
       date: packDate || todayStr(), timestamp: Date.now(),
     };
-    if (packagingId) { entry.packagingId = packagingId; entry.packagingName = packagingLabel(packagingId); }
+    if (packagingId) {
+      entry.packagingId = packagingId;
+      entry.packagingName = packagingComboLabel(packagingId, extraWorks);
+      const workIds = [...(isWorkId(packagingId) ? [packagingId] : []), ...extraWorks];
+      if (workIds.length) { entry.workIds = workIds.map((id) => id.slice(WORK_PREFIX.length)); entry.workNames = workIds.map(packagingLabel); }
+    }
     if (soundEnabled) playBeep();
     playVibrate(40);
     await persistEntries([...entries, entry], { newEntry: entry });
@@ -2097,7 +2167,7 @@ export default function App() {
   // обычный ввод количества или через «Остатки»
   const addPieceEntryWithAutoPackaging = async (product, qty, option) => {
     const link = getPackagingLink(product.sku);
-    await addPieceEntry(product, qty, option, link ? link.mainId : null);
+    await addPieceEntry(product, qty, option, link ? link.mainId : null, link ? link.extraWorks : []);
     if (link && !isNoMaterialId(link.mainId)) {
       await deductPackagingStock(link.mainId, qty, product);
     } else if (!link) {
@@ -2187,7 +2257,7 @@ export default function App() {
   // Окно остаётся открытым — в нём сразу видно результат и можно продолжить настройку
   const linkProductToMaterialConfirm = async (materialId, materialName) => {
     const product = productLinkModal.product;
-    await linkPackagingToProduct(product.sku, materialId, { makeMain: false });
+    await addPackagingToProduct(product.sku, materialId);
     setProductLinkModal((prev) => (prev ? { ...prev, query: "", showCreateForm: false } : prev));
     setToast(`К товару «${product.name}» привязано: ${materialName}`);
   };
@@ -3116,7 +3186,7 @@ export default function App() {
       )}
 
       {confirmDialog && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }} onClick={() => setConfirmDialog(null)}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 90, padding: 20 }} onClick={() => setConfirmDialog(null)}>
           <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 340 }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontSize: 14, marginBottom: 14, whiteSpace: "pre-line" }}>{confirmDialog.message}</div>
             <div style={{ display: "flex", gap: 8 }}>
@@ -3148,7 +3218,7 @@ export default function App() {
       {materialLinkModal && MaterialLinkModal({ askUnlinkPackaging, getPackagingLink, linkMaterialToProductConfirm, materialLinkModal, materialLinkResults, packagingLabel, packagingMaterials, productsByMaterial, setMaterialLinkModal })}
 
       {stockMoves && StockMovesModal({ stockMoves, setStockMoves, loadStockMoves })}
-      {productLinkModal && ProductLinkModal({ packagingWorks, packagingLabel, addPackagingWork, removePackagingWork, isAdminUser: !!(currentUser && currentUser.role === "admin"), createPackagingMaterial, getPackagingLink, linkProductToMaterialConfirm, packagingMaterials, productLinkModal, productLinkResults, setMainPackaging, setProductLinkModal, unlinkPackagingFromProduct })}
+      {productLinkModal && ProductLinkModal({ toggleProductWork, packagingWorks, packagingLabel, addPackagingWork, removePackagingWork, isAdminUser: !!(currentUser && currentUser.role === "admin"), createPackagingMaterial, getPackagingLink, linkProductToMaterialConfirm, packagingMaterials, productLinkModal, productLinkResults, setMainPackaging, setProductLinkModal, unlinkPackagingFromProduct })}
 
       {showQrForId && (() => {
         const qrUser = users.find((u) => u.id === showQrForId);
