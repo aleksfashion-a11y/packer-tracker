@@ -1117,29 +1117,46 @@ app.get(extRouter + "/packaging/links", requireApiKey, wrap(async (req, res) => 
   const works = new Map(workList.map((w) => ["work:" + w.id, w.name]));
   const rows = [];
   for (const [sku, link] of Object.entries(links)) {
-    const ids = (link.linkedIds || []).filter((id) => id === "none" || works.has(id) || materials.has(id));
-    if (!ids.length) continue;
-    const mainId = ids.includes(link.lastUsedId) ? link.lastUsedId : ids[0];
-    const noMaterial = mainId === "none" || works.has(mainId); // товар не упаковывают: упаковка не нужна или с ним делают работу без упаковки
+    // Варианты упаковки товара: { pack: id упаковки | null, works: [...] }. Форматы: variants + mainKey (3.18.1);
+    // раньше — linkedIds + lastUsedId (+ worksBy 3.18.0, + extraWorks 3.17)
+    let list = [], mainIdx = 0;
+    if (Array.isArray(link.variants)) {
+      list = link.variants.map((v) => ({ pack: v && v.pack ? v.pack : null, works: Array.isArray(v && v.works) ? v.works : [] }));
+      const keyOf = (v) => (v.pack || "-") + "|" + [...new Set(v.works)].sort().join(",");
+      mainIdx = Math.max(0, list.findIndex((v) => keyOf(v) === link.mainKey));
+    } else {
+      const wb = link.worksBy && typeof link.worksBy === "object" ? { ...link.worksBy } : {};
+      if (Array.isArray(link.extraWorks) && link.extraWorks.length && !wb[link.lastUsedId]) wb[link.lastUsedId] = link.extraWorks;
+      const ids = Array.isArray(link.linkedIds) ? link.linkedIds : [];
+      list = ids.map((id) => (id === "none" ? { pack: null, works: [] } : works.has(id) ? { pack: null, works: [id, ...(wb[id] || [])] } : { pack: id, works: wb[id] || [] }));
+      mainIdx = Math.max(0, ids.indexOf(link.lastUsedId));
+    }
+    // убираем удалённые упаковки и работы; вариант без упаковки, у которого удалили все работы, пропадает
+    const mainRaw = list[mainIdx];
+    const clean = [];
+    for (const v of list) {
+      if (v.pack && !materials.has(v.pack)) continue;
+      const w = [...new Set(v.works)].filter((x) => works.has(x));
+      if (!v.pack && v.works.length && !w.length) continue;
+      clean.push({ pack: v.pack, works: w, wasMain: v === mainRaw });
+    }
+    if (!clean.length) continue;
+    const main = clean.find((v) => v.wasMain) || clean[0];
+    const stateOf = (v) => (v.pack ? "packaging" : v.works.length ? "work" : "not_needed");
+    const noMaterial = !main.pack; // товар не упаковывают: упаковка не нужна или с ним делают работу без упаковки
     // packagingState — три явных состояния: "packaging" — упаковывают в упаковку; "not_needed" — упаковка
     // не нужна, товар уходит как есть; "work" — упаковки нет, но с товаром делают работу (workName).
     // Товара без привязки в ответе нет вовсе — это четвёртое состояние: «не знаем».
-    // workNames — все работы, которые делают с товаром: при "work" — основная и добавленные к ней;
-    // при "packaging" — работы вместе с упаковкой («пакет + проклейка штрихкода»); при "not_needed" — пусто.
-    // Работы по вариантам: worksBy (3.18.0); старое extraWorks (3.17.x) — работы основного варианта
-    const worksBy = link.worksBy && typeof link.worksBy === "object" ? { ...link.worksBy } : {};
-    if (Array.isArray(link.extraWorks) && link.extraWorks.length && !worksBy[link.lastUsedId]) worksBy[link.lastUsedId] = link.extraWorks;
-    const variantWorks = (id) => (id === "none" ? [] : [...new Set(Array.isArray(worksBy[id]) ? worksBy[id] : [])].filter((w) => works.has(w) && w !== id));
-    const namesOf = (id) => [...(works.has(id) ? [id] : []), ...variantWorks(id)].map((w) => works.get(w));
-    const workNames = namesOf(mainId);
-    // variants — все варианты упаковки товара (у одного артикула может быть «Бопп-пакет + штрихкод»
-    // и «скотч + штрихкод»); основной — тот же, что в полях выше
-    const variants = ids.map((id) => ({
-      packagingState: id === "none" ? "not_needed" : works.has(id) ? "work" : "packaging",
-      packagingId: materials.has(id) ? id : null, packagingSku: materials.has(id) ? materials.get(id).sku : null,
-      workNames: namesOf(id), isMain: id === mainId,
-    }));
-    rows.push({ productSku: sku, packagingState: mainId === "none" ? "not_needed" : works.has(mainId) ? "work" : "packaging", noPackaging: noMaterial, workName: works.get(mainId) || null, workNames, mainPackagingId: noMaterial ? null : mainId, mainPackagingSku: noMaterial ? null : materials.get(mainId).sku, packagingIds: ids.filter((id) => materials.has(id)), variants });
+    // Верхние поля — по основному варианту; variants — все варианты (у одного артикула может быть
+    // «Бопп-пакет + штрихкод», «скотч + штрихкод», «скотч + этикетки», «скотч»...).
+    rows.push({
+      productSku: sku, packagingState: stateOf(main), noPackaging: noMaterial,
+      workName: noMaterial && main.works.length ? works.get(main.works[0]) : null,
+      workNames: main.works.map((w) => works.get(w)),
+      mainPackagingId: main.pack, mainPackagingSku: main.pack ? materials.get(main.pack).sku : null,
+      packagingIds: [...new Set(clean.filter((v) => v.pack).map((v) => v.pack))],
+      variants: clean.map((v) => ({ packagingState: stateOf(v), packagingId: v.pack, packagingSku: v.pack ? materials.get(v.pack).sku : null, workNames: v.works.map((w) => works.get(w)), isMain: v === main })),
+    });
   }
   sendJSON(req, res, { rows, serverTime: Date.now() });
 }));
