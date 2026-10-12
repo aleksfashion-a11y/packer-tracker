@@ -1126,9 +1126,20 @@ app.get(extRouter + "/packaging/links", requireApiKey, wrap(async (req, res) => 
     // Товара без привязки в ответе нет вовсе — это четвёртое состояние: «не знаем».
     // workNames — все работы, которые делают с товаром: при "work" — основная и добавленные к ней;
     // при "packaging" — работы вместе с упаковкой («пакет + проклейка штрихкода»); при "not_needed" — пусто.
-    const extra = mainId === "none" ? [] : [...new Set(Array.isArray(link.extraWorks) ? link.extraWorks : [])].filter((id) => works.has(id) && id !== mainId);
-    const workNames = [...(works.has(mainId) ? [mainId] : []), ...extra].map((id) => works.get(id));
-    rows.push({ productSku: sku, packagingState: mainId === "none" ? "not_needed" : works.has(mainId) ? "work" : "packaging", noPackaging: noMaterial, workName: works.get(mainId) || null, workNames, mainPackagingId: noMaterial ? null : mainId, mainPackagingSku: noMaterial ? null : materials.get(mainId).sku, packagingIds: ids.filter((id) => materials.has(id)) });
+    // Работы по вариантам: worksBy (3.18.0); старое extraWorks (3.17.x) — работы основного варианта
+    const worksBy = link.worksBy && typeof link.worksBy === "object" ? { ...link.worksBy } : {};
+    if (Array.isArray(link.extraWorks) && link.extraWorks.length && !worksBy[link.lastUsedId]) worksBy[link.lastUsedId] = link.extraWorks;
+    const variantWorks = (id) => (id === "none" ? [] : [...new Set(Array.isArray(worksBy[id]) ? worksBy[id] : [])].filter((w) => works.has(w) && w !== id));
+    const namesOf = (id) => [...(works.has(id) ? [id] : []), ...variantWorks(id)].map((w) => works.get(w));
+    const workNames = namesOf(mainId);
+    // variants — все варианты упаковки товара (у одного артикула может быть «Бопп-пакет + штрихкод»
+    // и «скотч + штрихкод»); основной — тот же, что в полях выше
+    const variants = ids.map((id) => ({
+      packagingState: id === "none" ? "not_needed" : works.has(id) ? "work" : "packaging",
+      packagingId: materials.has(id) ? id : null, packagingSku: materials.has(id) ? materials.get(id).sku : null,
+      workNames: namesOf(id), isMain: id === mainId,
+    }));
+    rows.push({ productSku: sku, packagingState: mainId === "none" ? "not_needed" : works.has(mainId) ? "work" : "packaging", noPackaging: noMaterial, workName: works.get(mainId) || null, workNames, mainPackagingId: noMaterial ? null : mainId, mainPackagingSku: noMaterial ? null : materials.get(mainId).sku, packagingIds: ids.filter((id) => materials.has(id)), variants });
   }
   sendJSON(req, res, { rows, serverTime: Date.now() });
 }));

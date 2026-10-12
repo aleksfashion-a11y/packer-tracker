@@ -7,6 +7,7 @@ export function PackagingChoiceModal(ctx) {
   const {
     addPackagingStock, confirmPackagingSelection, createPackagingMaterial, getPackagingLink, packagingMaterials,
     packagingModal, packagingWorks, setPackagingModal, setToast, unlinkPackagingFromProduct,
+    packagingComboLabel, variantWorkIds, packagingRememberInfo,
   } = ctx;
   return (() => {
       const link = getPackagingLink(packagingModal.product.sku);
@@ -18,12 +19,13 @@ export function PackagingChoiceModal(ctx) {
         : otherMaterials;
       const selectedMaterial = packagingMaterials.find((m) => m.id === packagingModal.selectedMaterialId);
       const notEnoughStock = selectedMaterial && selectedMaterial.stock < packagingModal.qty;
-      const patch = (fields) => setPackagingModal((prev) => ({ ...prev, ...fields }));
+      // выбор поменялся — отметка «запомнить» снова по умолчанию для нового выбора
+      const patch = (fields) => setPackagingModal((prev) => ({ ...prev, ...(("selectedMaterialId" in fields || "selectedWorks" in fields) && !("remember" in fields) ? { remember: undefined } : {}), ...fields }));
       const capTitle = { fontSize: 11, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 };
       const selectedWorks = packagingModal.selectedWorks || [];
       const noPack = packagingModal.selectedMaterialId === NO_PACKAGING;
       const toggleWork = (id) => patch({ selectedWorks: selectedWorks.includes(id) ? selectedWorks.filter((x) => x !== id) : [...selectedWorks, id] });
-      const selectedWorkNames = packagingWorks.filter((w) => selectedWorks.includes(WORK_PREFIX + w.id)).map((w) => w.name);
+      const selectedWorkNames = selectedWorks.map((id) => packagingWorks.find((w) => WORK_PREFIX + w.id === id)).filter(Boolean).map((w) => w.name); // в порядке выбора — как в названии варианта
       return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }} onClick={() => setPackagingModal(null)}>
           <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 420, maxHeight: "calc(80vh / var(--ui-zoom, 1))", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
@@ -34,6 +36,28 @@ export function PackagingChoiceModal(ctx) {
               <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 12 }}>Обычно делают так — можно подтвердить или изменить, если в этот раз было иначе.</div>
             )}
 
+            {link && link.variants.length > 1 && (
+              <>
+                <div style={capTitle}>Варианты этого товара — выберите, как упаковали</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 14 }}>
+                  {link.variants.map((v, i) => {
+                    const packId = isNoMaterialId(v.id) ? NO_PACKAGING : v.id;
+                    const vw = variantWorkIds(v.id, v.works);
+                    const on = packagingModal.selectedMaterialId === packId && selectedWorks.length === vw.length && vw.every((w) => selectedWorks.includes(w));
+                    const m = packagingMaterials.find((x) => x.id === v.id);
+                    return (
+                      <button key={v.id} className="btn" data-testid={"pack-variant-" + i} style={{ padding: "10px 12px", textAlign: "left", background: on ? "var(--accent)" : "var(--surface)", color: on ? "#1a1a1a" : "var(--text)" }}
+                        onClick={() => patch({ selectedMaterialId: packId, selectedWorks: vw, topUpDismissed: false, remember: undefined })}>
+                        {i + 1}. {v.id === NO_PACKAGING ? "Упаковка не нужна — как есть" : (isWorkId(v.id) ? "Без упаковки: " : "") + packagingComboLabel(v.id, v.works)}
+                        {m && <span className="mono" style={{ fontSize: 11, opacity: 0.8 }}> · остаток: {m.stock}</span>}
+                        {v.isMain && <span style={{ marginLeft: 6, fontSize: 11 }}>(основной)</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 8 }}>Или укажите вручную, если в этот раз упаковали иначе:</div>
+              </>
+            )}
             <div style={capTitle}>1. Упаковка (спишется с остатка)</div>
 
             {linkedMaterials.length > 0 && (
@@ -137,6 +161,19 @@ export function PackagingChoiceModal(ctx) {
                     ? (selectedWorkNames.length ? "без упаковки — " + selectedWorkNames.join(" + ") : "упаковка не нужна, товар уходит как есть")
                     : [selectedMaterial ? selectedMaterial.name : "?", ...selectedWorkNames].join(" + ")}</b></>}
             </div>
+            {(() => {
+              // Выбор не совпал ни с одним вариантом товара — спрашиваем, запомнить ли его
+              const r = packagingRememberInfo(packagingModal);
+              if (!r || r.match || r.first) return null;
+              return (
+                <label style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12, marginBottom: 14, cursor: "pointer" }}>
+                  <input type="checkbox" data-testid="pack-remember" checked={r.remember} onChange={(e) => patch({ remember: e.target.checked })} style={{ marginTop: 2 }} />
+                  <span>{r.existing
+                    ? <>Запомнить для товара: вариант «{r.oldLabel}» заменить на «{r.newLabel}». Не отмечено — только в этот раз.</>
+                    : <>Добавить «{r.newLabel}» как ещё один вариант упаковки этого товара. Не отмечено — только в этот раз.</>}</span>
+                </label>
+              );
+            })()}
 
             <div style={{ display: "flex", gap: 8 }}>
               <button className="btn btn-accent" onClick={confirmPackagingSelection} disabled={!packagingModal.selectedMaterialId}>Продолжить</button>
@@ -191,7 +228,7 @@ export function MaterialLinkModal(ctx) {
                 return (
                   <button key={p.sku} className="btn" style={{ padding: "8px 10px", fontSize: 13, textAlign: "left" }} onClick={() => linkMaterialToProductConfirm(p.sku, p.name)}>
                     ＋ {p.name} <span className="mono" style={{ fontSize: 11, opacity: 0.8 }}>· арт. {p.sku}</span>
-                    {other && <span style={{ fontSize: 11, color: "var(--muted-2)" }}> · сейчас: {[...other.linkedIds, ...other.extraWorks].map(packagingLabel).join(", ")}</span>}
+                    {other && <span style={{ fontSize: 11, color: "var(--muted-2)" }}> · сейчас: {other.variants.map((v) => packagingLabel(v.id) + v.works.map((w) => " + " + packagingLabel(w)).join("")).join("; ")}</span>}
                   </button>
                 );
               })}
@@ -209,108 +246,122 @@ export function ProductLinkModal(ctx) {
     productLinkResults, setMainPackaging, setProductLinkModal, unlinkPackagingFromProduct,
   } = ctx;
   return (() => {
-      const { packagingWorks, packagingLabel, addPackagingWork, removePackagingWork, isAdminUser, toggleProductWork } = ctx;
-      // Со стороны товара: что привязано (сменить основную / убрать) + добавить упаковку
+      const { packagingWorks, packagingLabel, packagingComboLabel, addPackagingWork, removePackagingWork, isAdminUser, toggleVariantWork } = ctx;
+      // Со стороны товара: варианты упаковки (у каждого свои работы) + добавить вариант
       const product = productLinkModal.product;
       const link = getPackagingLink(product.sku);
       const linkedIds = link ? link.linkedIds : [];
-      const results = productLinkResults.filter((m) => !linkedIds.includes(m.id));
+      const results = productLinkResults;
+      const newWorks = productLinkModal.newWorks || [];
+      const setPLM = (fields) => setProductLinkModal((prev) => (prev ? { ...prev, ...fields } : prev));
       const sectionTitle = { fontSize: 11, fontWeight: 700, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 };
+      const workChip = (on) => ({ padding: "5px 9px", fontSize: 12, background: on ? "var(--accent)" : undefined, color: on ? "#1a1a1a" : undefined });
+      const several = linkedIds.length > 1;
       return (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 70, padding: 20 }} onClick={() => setProductLinkModal(null)}>
-          <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 460, maxHeight: "calc(85vh / var(--ui-zoom, 1))", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 12, padding: 18, width: "100%", maxWidth: 480, maxHeight: "calc(85vh / var(--ui-zoom, 1))", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ fontSize: 14, fontWeight: 600 }}>Упаковка товара</div>
             <div style={{ fontSize: 13, marginBottom: 12, overflowWrap: "anywhere" }}>{product.name} <span className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>· арт. {product.sku}</span></div>
 
-            <div style={sectionTitle}>Привязано</div>
+            <div style={sectionTitle}>Варианты упаковки{linkedIds.length ? ` (${linkedIds.length})` : ""}</div>
             {linkedIds.length === 0 ? (
-              <div style={{ fontSize: 12, color: "var(--danger)", marginBottom: 12 }}>Упаковка не привязана — выберите ниже.</div>
+              <div style={{ fontSize: 12, color: "var(--danger)", marginBottom: 12 }}>Упаковка не указана — добавьте вариант ниже.</div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 6 }}>
-                {linkedIds.map((id) => {
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 6 }}>
+                {link.variants.map(({ id, works, isMain }, i) => {
                   const m = isNoMaterialId(id) ? null : packagingMaterials.find((x) => x.id === id);
-                  const isMain = id === link.mainId;
                   return (
-                    <div key={id} style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", background: "var(--surface)", border: "1px solid " + (isMain ? "var(--accent)" : "var(--border)"), borderRadius: 8, padding: "6px 10px" }}>
-                      <div style={{ flex: 1, minWidth: 140, fontSize: 13, overflowWrap: "anywhere" }}>
-                        {m ? m.name : isWorkId(id) ? <>Без упаковки — 🏷 {packagingLabel(id)} <span style={{ fontSize: 11, color: "var(--muted-2)" }}>· с остатка ничего не списывается</span></> : <>Упаковка не нужна <span style={{ fontSize: 11, color: "var(--muted-2)" }}>· товар отгружается как есть, со своим штрихкодом</span></>}
-                        {m && <span className="mono" style={{ fontSize: 11, color: m.stock > 0 ? "var(--muted-2)" : "var(--danger)" }}> · арт. {m.sku} · остаток: {m.stock}</span>}
+                    <div key={id} data-testid={"variant-" + i} style={{ background: "var(--surface)", border: "1px solid " + (isMain ? "var(--accent)" : "var(--border)"), borderRadius: 8, padding: "8px 10px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <div style={{ flex: 1, minWidth: 160, fontSize: 13, overflowWrap: "anywhere" }}>
+                          {several && <span className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>{i + 1}. </span>}
+                          <b data-testid={"variant-label-" + i}>{id === NO_PACKAGING ? "Упаковка не нужна — как есть" : (isWorkId(id) ? "Без упаковки: " : "") + packagingComboLabel(id, works)}</b>
+                          {m && <span className="mono" style={{ fontSize: 11, color: m.stock > 0 ? "var(--muted-2)" : "var(--danger)" }}> · арт. {m.sku} · остаток: {m.stock}</span>}
+                          {!m && <span style={{ fontSize: 11, color: "var(--muted-2)" }}> · с остатка ничего не списывается</span>}
+                        </div>
+                        {isMain
+                          ? <span className="mono" style={{ fontSize: 11, color: "var(--accent)" }}>★ основной</span>
+                          : <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setMainPackaging(product.sku, id)}>Сделать основным</button>}
+                        <button className="btn btn-danger" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => unlinkPackagingFromProduct(product.sku, id)}>Убрать</button>
                       </div>
-                      {isMain
-                        ? <span className="mono" style={{ fontSize: 11, color: "var(--accent)" }}>★ основная</span>
-                        : <button className="btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => setMainPackaging(product.sku, id)}>Сделать основной</button>}
-                      <button className="btn btn-danger" style={{ padding: "4px 10px", fontSize: 11 }} onClick={() => unlinkPackagingFromProduct(product.sku, id)}>Убрать</button>
+                      {id !== NO_PACKAGING && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+                          {packagingWorks.filter((w) => WORK_PREFIX + w.id !== id).map((w) => {
+                            const on = works.includes(WORK_PREFIX + w.id);
+                            return <button key={w.id} className="btn" data-testid={`variant-${i}-work-${w.id}`} style={workChip(on)} onClick={() => toggleVariantWork(product.sku, id, WORK_PREFIX + w.id)}>{on ? "✓ " : "＋ "}🏷 {w.name}</button>;
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
               </div>
             )}
             {linkedIds.length > 0 && (
-              <div style={{ fontSize: 11, color: "var(--muted-2)", marginBottom: 12 }}>
-                Основная предлагается при упаковке, списывается при сканировании и в «Недавно упаковано», учитывается в сверке поставки.
+              <div style={{ fontSize: 11, color: "var(--muted-2)", marginBottom: 14 }}>
+                {several ? "При упаковке сотрудник выбирает вариант; основной предлагается первым, " : "Вариант "}списывается при сканировании и в «Недавно упаковано», учитывается в сверке поставки. Работы у варианта включаются и выключаются кнопками под ним.
               </div>
             )}
 
-            <div style={sectionTitle}>Работы с товаром</div>
-            <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 6 }}>Отметьте, что делают с товаром — можно вместе с упаковкой (например, «пакет + проклейка штрихкода») и можно несколько:</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-              {packagingWorks.map((w) => {
-                const wid = WORK_PREFIX + w.id;
-                const on = !!link && (link.mainId === wid || link.extraWorks.includes(wid));
-                return (
-                  <span key={w.id} style={{ display: "inline-flex" }}>
-                    <button className="btn" data-testid={"link-work-" + w.id} style={{ padding: "8px 10px", fontSize: 13, background: on ? "var(--accent)" : undefined, color: on ? "#1a1a1a" : undefined }} onClick={() => toggleProductWork(product.sku, wid)}>{on ? "✓ " : "＋ "}🏷 {w.name}</button>
-                    {isAdminUser && <button className="btn" title="Удалить этот вид работы совсем" style={{ padding: "8px 8px", fontSize: 11, marginLeft: 2, color: "var(--muted-2)" }} onClick={() => removePackagingWork(w)}>✕</button>}
-                  </span>
-                );
-              })}
-            </div>
-            {isAdminUser && (
-              <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                <input placeholder="Новый вид работы, например: Термоусадка" value={productLinkModal.newWork || ""} onChange={(e) => setProductLinkModal((prev) => ({ ...prev, newWork: e.target.value }))} style={{ flex: 1 }} />
-                <button className="btn" style={{ padding: "6px 12px", fontSize: 12 }} onClick={async () => { const w = await addPackagingWork(productLinkModal.newWork); if (w) setProductLinkModal((prev) => (prev ? { ...prev, newWork: "" } : prev)); }}>Добавить вид работы</button>
+            <div style={{ background: "var(--surface-2, var(--surface))", border: "1px dashed var(--border)", borderRadius: 10, padding: 10, marginBottom: 10 }}>
+              <div style={sectionTitle}>{linkedIds.length ? "Добавить ещё вариант" : "Добавить вариант"}</div>
+              <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 6 }}>1. Отметьте работы этого варианта (можно несколько или ни одной):</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                {packagingWorks.map((w) => {
+                  const on = newWorks.includes(WORK_PREFIX + w.id);
+                  return (
+                    <span key={w.id} style={{ display: "inline-flex" }}>
+                      <button className="btn" data-testid={"new-work-" + w.id} style={{ padding: "7px 10px", fontSize: 13, background: on ? "var(--accent)" : undefined, color: on ? "#1a1a1a" : undefined }}
+                        onClick={() => setPLM({ newWorks: on ? newWorks.filter((x) => x !== WORK_PREFIX + w.id) : [...newWorks, WORK_PREFIX + w.id] })}>{on ? "✓ " : ""}🏷 {w.name}</button>
+                      {isAdminUser && <button className="btn" title="Удалить этот вид работы совсем" style={{ padding: "7px 8px", fontSize: 11, marginLeft: 2, color: "var(--muted-2)" }} onClick={() => removePackagingWork(w)}>✕</button>}
+                    </span>
+                  );
+                })}
               </div>
-            )}
-            {link && (
-              <div style={{ fontSize: 12, marginBottom: 12 }}>Сейчас: <b>{link.mainId === NO_PACKAGING ? "упаковка не нужна, товар уходит как есть" : (isWorkId(link.mainId) ? "без упаковки — " : "") + [link.mainId, ...link.extraWorks].map(packagingLabel).join(" + ")}</b></div>
-            )}
-
-            <div style={sectionTitle}>Добавить упаковку</div>
-            {!linkedIds.includes(NO_PACKAGING) && (
-              <button className="btn" style={{ padding: "8px 10px", fontSize: 13, marginBottom: 10 }} onClick={() => linkProductToMaterialConfirm(NO_PACKAGING, "упаковка не нужна")}>＋ Упаковка не нужна — отгружается как есть</button>
-            )}
-            <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 6 }}>Упаковка (будет списываться с остатка):</div>
-            <input placeholder="Поиск упаковки по названию или артикулу..." value={productLinkModal.query} onChange={(e) => setProductLinkModal((prev) => ({ ...prev, query: e.target.value }))} style={{ width: "100%", marginBottom: 8 }} />
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto", marginBottom: 12 }}>
-              {results.length === 0 && <div style={{ fontSize: 12, color: "var(--muted-2)" }}>Подходящих упаковок нет — можно создать новую ниже.</div>}
-              {results.map((m) => (
-                <button key={m.id} className="btn" style={{ padding: "8px 10px", fontSize: 13, textAlign: "left" }} onClick={() => linkProductToMaterialConfirm(m.id, m.name)}>
-                  ＋ {m.name} <span className="mono" style={{ fontSize: 11, opacity: 0.8 }}>· арт. {m.sku}</span> · остаток: {m.stock}
-                </button>
-              ))}
-            </div>
-
-            {!productLinkModal.showCreateForm ? (
-              <button className="btn" style={{ padding: "6px 12px", fontSize: 12, marginBottom: 10 }} onClick={() => setProductLinkModal((prev) => ({ ...prev, showCreateForm: true, newType: PACKAGING_TYPES[0].key, newSize: "", newStock: "" }))}>+ Создать новую упаковку</button>
-            ) : (
-              <div style={{ background: "var(--surface)", borderRadius: 8, padding: 10, marginBottom: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-                <select value={productLinkModal.newType} onChange={(e) => setProductLinkModal((prev) => ({ ...prev, newType: e.target.value }))}>
-                  {PACKAGING_TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
-                </select>
-                <input placeholder="Размер, например 35х40" value={productLinkModal.newSize} onChange={(e) => setProductLinkModal((prev) => ({ ...prev, newSize: e.target.value }))} />
-                <input type="text" inputMode="numeric" placeholder="Начальный остаток (необязательно)" value={productLinkModal.newStock} onChange={(e) => setProductLinkModal((prev) => ({ ...prev, newStock: e.target.value }))} />
-                <div style={{ fontSize: 11, color: "var(--muted-2)" }}>
-                  Будет создано: {buildPackagingSkuName(productLinkModal.newType, productLinkModal.newSize || "…").name} (арт. {buildPackagingSkuName(productLinkModal.newType, productLinkModal.newSize || "…").sku})
+              {isAdminUser && (
+                <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+                  <input placeholder="Новый вид работы, например: Термоусадка" value={productLinkModal.newWork || ""} onChange={(e) => setPLM({ newWork: e.target.value })} style={{ flex: 1 }} />
+                  <button className="btn" style={{ padding: "6px 12px", fontSize: 12 }} onClick={async () => { const w = await addPackagingWork(productLinkModal.newWork); if (w) setPLM({ newWork: "" }); }}>Добавить вид работы</button>
                 </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button className="btn btn-accent" style={{ padding: "6px 12px", fontSize: 12 }} onClick={async () => {
-                    const created = await createPackagingMaterial(productLinkModal.newType, productLinkModal.newSize, productLinkModal.newStock);
-                    if (created) setProductLinkModal((prev) => (prev ? { ...prev, showCreateForm: false, pendingLinkId: created.id, pendingLinkName: created.name } : prev));
-                  }}>Создать и привязать</button>
-                  <button className="btn" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => setProductLinkModal((prev) => ({ ...prev, showCreateForm: false }))}>Отмена</button>
-                </div>
+              )}
+              <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 6 }}>2. Выберите упаковку — вариант сразу добавится:</div>
+              <button className="btn" data-testid="add-variant-nopack" style={{ padding: "8px 10px", fontSize: 13, marginBottom: 8, display: "block", width: "100%", textAlign: "left" }}
+                onClick={() => linkProductToMaterialConfirm(NO_PACKAGING, "")}>
+                ＋ Без упаковки{newWorks.length ? " — " + newWorks.map(packagingLabel).join(" + ") : " — упаковка не нужна, отгружается как есть"}
+              </button>
+              <input placeholder="Поиск упаковки по названию или артикулу..." value={productLinkModal.query} onChange={(e) => setPLM({ query: e.target.value })} style={{ width: "100%", marginBottom: 8 }} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 220, overflowY: "auto", marginBottom: 10 }}>
+                {results.length === 0 && <div style={{ fontSize: 12, color: "var(--muted-2)" }}>Подходящих упаковок нет — можно создать новую ниже.</div>}
+                {results.map((m) => (
+                  <button key={m.id} className="btn" style={{ padding: "8px 10px", fontSize: 13, textAlign: "left" }} onClick={() => linkProductToMaterialConfirm(m.id, m.name)}>
+                    ＋ {m.name}{newWorks.length ? " + " + newWorks.map(packagingLabel).join(" + ") : ""} <span className="mono" style={{ fontSize: 11, opacity: 0.8 }}>· арт. {m.sku}</span> · остаток: {m.stock}
+                    {linkedIds.includes(m.id) && <span style={{ fontSize: 11, color: "var(--muted-2)" }}> · уже есть — работы заменятся</span>}
+                  </button>
+                ))}
               </div>
-            )}
+
+              {!productLinkModal.showCreateForm ? (
+                <button className="btn" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => setPLM({ showCreateForm: true, newType: PACKAGING_TYPES[0].key, newSize: "", newStock: "" })}>+ Создать новую упаковку</button>
+              ) : (
+                <div style={{ background: "var(--surface)", borderRadius: 8, padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <select value={productLinkModal.newType} onChange={(e) => setPLM({ newType: e.target.value })}>
+                    {PACKAGING_TYPES.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+                  </select>
+                  <input placeholder="Размер, например 35х40" value={productLinkModal.newSize} onChange={(e) => setPLM({ newSize: e.target.value })} />
+                  <input type="text" inputMode="numeric" placeholder="Начальный остаток (необязательно)" value={productLinkModal.newStock} onChange={(e) => setPLM({ newStock: e.target.value })} />
+                  <div style={{ fontSize: 11, color: "var(--muted-2)" }}>
+                    Будет создано: {buildPackagingSkuName(productLinkModal.newType, productLinkModal.newSize || "…").name} (арт. {buildPackagingSkuName(productLinkModal.newType, productLinkModal.newSize || "…").sku})
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button className="btn btn-accent" style={{ padding: "6px 12px", fontSize: 12 }} onClick={async () => {
+                      const created = await createPackagingMaterial(productLinkModal.newType, productLinkModal.newSize, productLinkModal.newStock);
+                      if (created) setPLM({ showCreateForm: false, pendingLinkId: created.id, pendingLinkName: created.name });
+                    }}>Создать и добавить вариант</button>
+                    <button className="btn" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => setPLM({ showCreateForm: false })}>Отмена</button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div><button className="btn btn-accent" style={{ padding: "6px 14px", marginTop: 4 }} onClick={() => setProductLinkModal(null)}>Готово</button></div>
           </div>
