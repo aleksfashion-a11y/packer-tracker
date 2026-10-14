@@ -2,6 +2,47 @@
 // Функции получают от App всё нужное одним объектом (ctx) и возвращают разметку.
 
 import { PACKAGING_TYPES, buildPackagingSkuName, getMultiplicity } from "../lib/helpers.js";
+import { useState } from "react";
+
+// Типы упаковки: стандартные и свои. Свои админ добавляет и удаляет (если ни одна упаковка их не использует)
+function PackagingTypesPanel({ addPackagingType, removePackagingType, suggestTypePrefix, packagingTypesUsage }) {
+  const [label, setLabel] = useState("");
+  const [prefix, setPrefix] = useState("");
+  const [mult, setMult] = useState("");
+  const autoPrefix = label.trim() ? suggestTypePrefix(label) : "";
+  const shownPrefix = (prefix.trim().toUpperCase() || autoPrefix || "…");
+  return (
+    <div data-testid="types-panel" style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, marginBottom: 16, maxWidth: 560 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Типы упаковки</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
+        {PACKAGING_TYPES.map((t) => {
+          const used = packagingTypesUsage(t.key);
+          return (
+            <div key={t.key} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, flexWrap: "wrap" }}>
+              <span style={{ flex: 1, minWidth: 160 }}>{t.label} <span className="mono" style={{ fontSize: 11, color: "var(--muted-2)" }}>· арт. {t.prefix}… · кратность {t.defaultMultiplicity} · упаковок: {used}</span></span>
+              {t.custom
+                ? <button className="btn btn-danger" style={{ padding: "2px 8px", fontSize: 11 }} onClick={() => removePackagingType(t)}>Удалить</button>
+                : <span style={{ fontSize: 11, color: "var(--muted-2)" }}>стандартный</span>}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 6 }}>Добавить свой тип — например «Зип-лок», «Термопакет», «Конверт»:</div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+        <input placeholder="Название типа" value={label} onChange={(e) => setLabel(e.target.value)} style={{ flex: 2, minWidth: 150 }} />
+        <input placeholder={"Буквы артикула" + (autoPrefix ? " (" + autoPrefix + ")" : "")} value={prefix} onChange={(e) => setPrefix(e.target.value)} style={{ flex: 1, minWidth: 110 }} />
+        <input type="text" inputMode="numeric" placeholder="Кратность закупки" value={mult} onChange={(e) => setMult(e.target.value)} style={{ flex: 1, minWidth: 110 }} />
+      </div>
+      <div style={{ fontSize: 11, color: "var(--muted-2)", marginBottom: 8 }}>
+        Упаковка этого типа будет называться «{label.trim() || "…"} 20х30 см», артикул — {shownPrefix}20х30. Кратность — по сколько штук закупается (не указана — 1).
+      </div>
+      <button className="btn btn-accent" style={{ padding: "6px 14px", fontSize: 12 }} onClick={async () => {
+        const t = await addPackagingType(label, prefix, mult);
+        if (t) { setLabel(""); setPrefix(""); setMult(""); }
+      }}>Добавить тип</button>
+    </div>
+  );
+}
 
 export function AdminStock(ctx) {
   const {
@@ -17,6 +58,7 @@ export function AdminStock(ctx) {
     stockNewSize, stockNewStock, stockNewType, stockSearch, stockSizeFilter, stockSortDir, stockSortMode,
     toggleStockSort, updatePurchaseRequestQty,
   } = ctx;
+  const { stockTypesOpen, setStockTypesOpen } = ctx;
   return (
       <div>
         <div style={{ fontSize: 13, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>Остатки упаковки ({packagingMaterials.length})</div>
@@ -36,8 +78,13 @@ export function AdminStock(ctx) {
             </label>
             <button className="btn" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => loadStockMoves(false)}>📋 Журнал движений</button>
           </div>
-          <button className="btn btn-accent" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => setStockAddingNew(!stockAddingNew)}>{stockAddingNew ? "Отмена" : "+ Добавить упаковку"}</button>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button className="btn" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => setStockTypesOpen(!stockTypesOpen)}>{stockTypesOpen ? "Скрыть типы" : "⚙ Типы упаковки"}</button>
+            <button className="btn btn-accent" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => setStockAddingNew(!stockAddingNew)}>{stockAddingNew ? "Отмена" : "+ Добавить упаковку"}</button>
+          </div>
         </div>
+
+        {stockTypesOpen && <PackagingTypesPanel addPackagingType={ctx.addPackagingType} removePackagingType={ctx.removePackagingType} suggestTypePrefix={ctx.suggestTypePrefix} packagingTypesUsage={ctx.packagingTypesUsage} />}
 
         {stockAddingNew && (
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 14, marginBottom: 16, maxWidth: 420, display: "flex", flexDirection: "column", gap: 8 }}>

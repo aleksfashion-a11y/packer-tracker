@@ -24,10 +24,10 @@ export const resolvePackagingWorks = (settings) => {
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
-// Типы упаковочных материалов — фиксированный список (склад использует только эти виды).
-// Артикул и название упаковки собираются автоматически из типа + размера, чтобы
-// упаковщику/админу не приходилось вручную придумывать и вбивать их самим.
-export const PACKAGING_TYPES = [
+// Типы упаковочных материалов: стандартные + свои, которые добавляет администратор
+// (settings.packagingTypesCustom). Артикул и название упаковки собираются автоматически из
+// типа + размера, чтобы упаковщику/админу не приходилось придумывать и вбивать их самим.
+export const DEFAULT_PACKAGING_TYPES = [
   { key: "bopp", label: "Бопп-пакет", prefix: "БП", defaultMultiplicity: 1000 },
   { key: "courier", label: "Курьерский пакет", prefix: "КП", defaultMultiplicity: 1000 },
   { key: "courier_clear", label: "Курьерский пакет прозрачный", prefix: "КПП", defaultMultiplicity: 1000 },
@@ -35,6 +35,24 @@ export const PACKAGING_TYPES = [
   { key: "zip", label: "Зип-пакет", prefix: "ЗП", defaultMultiplicity: 1000 },
   { key: "box", label: "Коробка", prefix: "КОР", defaultMultiplicity: 100 },
 ];
+// Действующий список. Один и тот же массив на всё приложение — applyPackagingTypes меняет его
+// содержимое на месте, поэтому все экраны, которые его импортировали, сразу видят новые типы.
+export const PACKAGING_TYPES = [...DEFAULT_PACKAGING_TYPES];
+export const cleanCustomPackagingTypes = (list) => (Array.isArray(list) ? list : []).filter((t) => t && t.key && t.label && t.prefix
+  && !DEFAULT_PACKAGING_TYPES.some((d) => d.key === t.key))
+  .map((t) => ({ key: String(t.key), label: String(t.label), prefix: String(t.prefix), defaultMultiplicity: Math.max(1, parseInt(t.defaultMultiplicity) || 1), custom: true }));
+export const applyPackagingTypes = (custom) => {
+  PACKAGING_TYPES.splice(0, PACKAGING_TYPES.length, ...DEFAULT_PACKAGING_TYPES, ...cleanCustomPackagingTypes(custom));
+};
+// Буквы для артикула нового типа: «Зип-лок» → «ЗЛ», «Термопакет» → «ТЕР»; занято — добавляем цифру
+export const suggestTypePrefix = (label) => {
+  const words = String(label || "").trim().split(/[\s\-]+/).filter(Boolean);
+  let p = words.length > 1 ? words.map((w) => w[0]).join("") : (words[0] || "").slice(0, 3);
+  p = p.toUpperCase().replace(/[^A-ZА-ЯЁ0-9]/g, "") || "УП";
+  let res = p, n = 2;
+  while (PACKAGING_TYPES.some((t) => t.prefix.toUpperCase() === res)) res = p + n++;
+  return res;
+};
 
 export const packagingTypeLabel = (key) => (PACKAGING_TYPES.find((t) => t.key === key) || {}).label || key;
 

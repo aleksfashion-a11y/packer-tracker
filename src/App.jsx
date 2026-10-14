@@ -4,7 +4,7 @@
 import * as XLSX from "xlsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_PACKAGING_OPTIONS, SEED_CATALOG } from "./data/seed.js";
-import { DAY_MS, DEFAULT_PACKAGING_WORKS, resolvePackagingWorks, NO_PACKAGING, WORK_PREFIX, isNoMaterialId, isWorkId, PACKAGING_TYPES, PAGE_ROWS, STR, buildPackagingSkuName, defaultChatFromTs, defaultEntriesFrom, defaultLast7Days, defaultPayPeriod, fmtDate, fmtDuration, getMultiplicity, localDateStr, packagingDefaultMultiplicity, packagingTypeLabel, pad2, roundUpToMultiple, shiftDays, shiftMonths, todayStr, uid } from "./lib/helpers.js";
+import { DAY_MS, DEFAULT_PACKAGING_WORKS, resolvePackagingWorks, applyPackagingTypes, cleanCustomPackagingTypes, suggestTypePrefix, NO_PACKAGING, WORK_PREFIX, isNoMaterialId, isWorkId, PACKAGING_TYPES, PAGE_ROWS, STR, buildPackagingSkuName, defaultChatFromTs, defaultEntriesFrom, defaultLast7Days, defaultPayPeriod, fmtDate, fmtDuration, getMultiplicity, localDateStr, packagingDefaultMultiplicity, packagingTypeLabel, pad2, roundUpToMultiple, shiftDays, shiftMonths, todayStr, uid } from "./lib/helpers.js";
 import { api, safeGet, safeSet, serverFetch, sharedKeyMissing } from "./lib/server.js";
 import { playBeep, playVibrate } from "./lib/sound.js";
 import { qrSvg } from "./qr.js";
@@ -57,6 +57,8 @@ export default function App() {
   // Виды работ без упаковки («Проклейка штрихкода», «Степлер»...) — хранятся в настройках
   const [packagingWorks, setPackagingWorks] = useState(DEFAULT_PACKAGING_WORKS);
   const [packagingWorksHidden, setPackagingWorksHidden] = useState([]);
+  const [packagingTypesCustom, setPackagingTypesCustom] = useState([]);
+  const [stockTypesOpen, setStockTypesOpen] = useState(false); // свои типы упаковки (админ)
   // «Остатки» у сотрудника: переключатель «Упаковка / Товары» и поиск по списку товаров
   const [empStockView, setEmpStockView] = useState("materials");
   const [empProdQuery, setEmpProdQuery] = useState("");
@@ -379,6 +381,8 @@ export default function App() {
     setRegistrationOpen(settings.registrationOpen !== false);
     setPackagingWorks(resolvePackagingWorks(settings));
     setPackagingWorksHidden(Array.isArray(settings.packagingWorksHidden) ? settings.packagingWorksHidden : []);
+    applyPackagingTypes(settings.packagingTypesCustom);
+    setPackagingTypesCustom(cleanCustomPackagingTypes(settings.packagingTypesCustom));
     setShowChartDaily(settings.showChartDaily !== false);
     setShowChartEmployees(settings.showChartEmployees !== false);
     setShowChartTopProducts(settings.showChartTopProducts !== false);
@@ -1137,6 +1141,26 @@ export default function App() {
     reader.readAsArrayBuffer(file);
   };
 
+  // Свои типы упаковки (на уровне «Коробка», «Зип-пакет»): добавить / удалить — администратор
+  const addPackagingType = async (labelRaw, prefixRaw, multRaw) => {
+    const label = String(labelRaw || "").trim();
+    if (!label) { setToast("Укажите название типа, например: Зип-лок"); return null; }
+    if (PACKAGING_TYPES.some((t) => t.label.toLowerCase() === label.toLowerCase())) { setToast("Такой тип уже есть"); return null; }
+    const prefix = (String(prefixRaw || "").trim().toUpperCase().replace(/\s+/g, "")) || suggestTypePrefix(label);
+    if (PACKAGING_TYPES.some((t) => t.prefix.toUpperCase() === prefix)) { setToast(`Буквы артикула «${prefix}» уже заняты другим типом — укажите другие`); return null; }
+    const type = { key: "t_" + uid(), label, prefix, defaultMultiplicity: Math.max(1, parseInt(multRaw) || 1) };
+    await persistSettings({ packagingTypesCustom: [...packagingTypesCustom, type] });
+    setToast(`Тип «${label}» добавлен — артикулы будут ${prefix}<размер>`);
+    return type;
+  };
+  const removePackagingType = (type) => {
+    const used = packagingMaterials.filter((m) => m.type === type.key).length;
+    if (used) { setToast(`Тип «${type.label}» используется у ${used} упаковок — сначала удалите их или поменяйте им тип`); return; }
+    askConfirm(`Удалить тип упаковки «${type.label}»?`, async () => {
+      await persistSettings({ packagingTypesCustom: packagingTypesCustom.filter((t) => t.key !== type.key) });
+      setToast("Тип удалён");
+    });
+  };
   const createPackagingMaterial = async (typeKey, sizeRaw, initialStock) => {
     const size = sizeRaw.trim();
     if (!size) { setToast("Укажите размер упаковки"); return null; }
@@ -1857,8 +1881,10 @@ export default function App() {
   const persistTimerSessions = async (next) => { setTimerSessions(next); await safeSet("timerSessions", next, true, timerSessions); };
   const persistPriceHistory = async (next) => { setPriceHistory(next); await safeSet("priceHistory", next, true, priceHistory); };
   const persistSettings = async (updates) => {
-    const base = { currency, showEmployeeTotals, showTimerTab, showChartDaily, showChartEmployees, showChartTopProducts, showChartComparison, showChartHeatmap, enabledAdminTabs, adminQuickReplies, employeeQuickReplies, showChatReadReceipts, registrationOpen, packagingWorks, packagingWorksHidden };
+    const base = { currency, showEmployeeTotals, showTimerTab, showChartDaily, showChartEmployees, showChartTopProducts, showChartComparison, showChartHeatmap, enabledAdminTabs, adminQuickReplies, employeeQuickReplies, showChatReadReceipts, registrationOpen, packagingWorks, packagingWorksHidden, packagingTypesCustom };
     const next = { ...base, ...updates };
+    applyPackagingTypes(next.packagingTypesCustom);
+    setPackagingTypesCustom(cleanCustomPackagingTypes(next.packagingTypesCustom));
     setPackagingWorks(resolvePackagingWorks(next));
     setPackagingWorksHidden(Array.isArray(next.packagingWorksHidden) ? next.packagingWorksHidden : []);
     setCurrency(next.currency);
@@ -3155,7 +3181,7 @@ export default function App() {
 
             {adminTab === "products" && AdminProducts({ addPackagingOption, addProduct, addingOptionSku, addingProduct, catalog, catalogEditBarcodes, catalogEditName, catalogEditSku, catalogEditSkuValue, catalogSortMode, exportCatalogToExcel, fuzzyResults, getProductImage, imageEditGalleryVal, imageEditSku, imageEditVal, importCatalogFromExcel, importImagesFromExcel, importReport, mergeDuplicateOptions, money, newOptionLabel, newOptionPrice, newProductBarcodes, newProductError, newProductName, newProductSku, optionsForSku, persistPriceHistory, priceEditLabelVal, priceEditOptionId, priceEditVal, priceHistory, printCatalog, removePackagingOption, removeProduct, renderProductPackaging, saveOptionEdit, saveProductEdit, search, searchMode, searchResults, setAddingOptionSku, setAddingProduct, setCatalogEditBarcodes, setCatalogEditName, setCatalogEditSku, setCatalogEditSkuValue, setCatalogSortMode, setImageEditGalleryVal, setImageEditSku, setImageEditVal, setImportReport, setLightbox, setNewOptionLabel, setNewOptionPrice, setNewProductBarcodes, setNewProductError, setNewProductName, setNewProductSku, setPriceEditLabelVal, setPriceEditOptionId, setPriceEditVal, setProductImage, setSearch, setSearchMode, setShowFuzzy, showFuzzy, sortedCatalog })}
 
-            {adminTab === "stock" && AdminStock({ loadStockMoves, renderStockLastOp, renderStockOps, addPackagingStock, addToPurchaseRequest, createPackagingMaterial, downloadStockImportTemplate, editPackagingMaterial, exportPurchaseRequestToExcel, exportStockToExcel, filteredStock, fulfillPurchaseRequest, importStockFromExcel, isAdmin, packagingMaterials, packagingPurchaseRequest, printPurchaseRequest, productsByMaterial, purchaseAddFor, purchaseAddVal, removeFromPurchaseRequest, removePackagingMaterial, setMaterialLinkModal, setPurchaseAddFor, setPurchaseAddVal, setStockAddAmountFor, setStockAddAmountVal, setStockAddingNew, setStockEditId, setStockEditMultiplicity, setStockEditSize, setStockEditType, setStockNewSize, setStockNewStock, setStockNewType, setStockSearch, setStockSizeFilter, startSupplyReconcile, stockAddAmountFor, stockAddAmountVal, stockAddingNew, stockEditId, stockEditMultiplicity, stockEditSize, stockEditType, stockNewSize, stockNewStock, stockNewType, stockSearch, stockSizeFilter, stockSortDir, stockSortMode, toggleStockSort, updatePurchaseRequestQty })}
+            {adminTab === "stock" && AdminStock({ stockTypesOpen, setStockTypesOpen, addPackagingType, removePackagingType, suggestTypePrefix, packagingTypesUsage: (key) => packagingMaterials.filter((m) => m.type === key).length, loadStockMoves, renderStockLastOp, renderStockOps, addPackagingStock, addToPurchaseRequest, createPackagingMaterial, downloadStockImportTemplate, editPackagingMaterial, exportPurchaseRequestToExcel, exportStockToExcel, filteredStock, fulfillPurchaseRequest, importStockFromExcel, isAdmin, packagingMaterials, packagingPurchaseRequest, printPurchaseRequest, productsByMaterial, purchaseAddFor, purchaseAddVal, removeFromPurchaseRequest, removePackagingMaterial, setMaterialLinkModal, setPurchaseAddFor, setPurchaseAddVal, setStockAddAmountFor, setStockAddAmountVal, setStockAddingNew, setStockEditId, setStockEditMultiplicity, setStockEditSize, setStockEditType, setStockNewSize, setStockNewStock, setStockNewType, setStockSearch, setStockSizeFilter, startSupplyReconcile, stockAddAmountFor, stockAddAmountVal, stockAddingNew, stockEditId, stockEditMultiplicity, stockEditSize, stockEditType, stockNewSize, stockNewStock, stockNewType, stockSearch, stockSizeFilter, stockSortDir, stockSortMode, toggleStockSort, updatePurchaseRequestQty })}
 
             {adminTab === "messages" && AdminMessages({ deleteMessage, employees, messages, msgTarget, msgText, sendMessage, setMsgTarget, setMsgText })}
 

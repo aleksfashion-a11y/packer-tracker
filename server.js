@@ -1089,7 +1089,11 @@ const extRouter = "/api/ext/v1";
 // Остатки упаковки: все упаковочные материалы с текущим остатком
 app.get(extRouter + "/packaging/materials", requireApiKey, wrap(async (req, res) => {
   const list = (await storeGetJSON("packagingMaterials", [])) || [];
-  sendJSON(req, res, { rows: list.map((m) => ({ id: m.id, sku: m.sku, name: m.name, type: m.type, size: m.size, multiplicity: Number(m.multiplicity) || null, stock: Number(m.stock) || 0 })), serverTime: Date.now() });
+  // typeName — название типа: стандартные + свои типы владельца (settings.packagingTypesCustom, 3.19.0)
+  const settings = (await storeGetJSON("settings", {})) || {};
+  const typeNames = new Map([["bopp", "Бопп-пакет"], ["courier", "Курьерский пакет"], ["courier_clear", "Курьерский пакет прозрачный"], ["bubble", "Пупырчатый пакет"], ["zip", "Зип-пакет"], ["box", "Коробка"],
+    ...(Array.isArray(settings.packagingTypesCustom) ? settings.packagingTypesCustom : []).filter((t) => t && t.key && t.label).map((t) => [String(t.key), String(t.label)])]);
+  sendJSON(req, res, { rows: list.map((m) => ({ id: m.id, sku: m.sku, name: m.name, type: m.type, typeName: typeNames.get(m.type) || null, size: m.size, multiplicity: Number(m.multiplicity) || null, stock: Number(m.stock) || 0 })), serverTime: Date.now() });
 }));
 // Движения упаковки по порядку, начиная с отметки since (не включая её). Чтобы получать
 // только новое, в следующий запрос передаётся nextSince из предыдущего ответа.
