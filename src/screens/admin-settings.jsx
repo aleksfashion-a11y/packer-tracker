@@ -208,20 +208,20 @@ export function AdminSettings(ctx) {
             Разрешить самостоятельную регистрацию новых сотрудников
           </label>
           <div style={{ fontSize: 12, color: "var(--muted-2)", marginTop: 4, marginLeft: 28 }}>
-            Пока включено, любой, у кого есть ссылка на приложение, может зарегистрироваться как упаковщик. Когда все сотрудники зарегистрировались — выключите: вкладка «Я новый» на экране входа исчезнет, а уже зарегистрированные продолжат работать как обычно.
+            По умолчанию выключено: любой, у кого есть ссылка на приложение, смог бы зарегистрироваться и увидеть каталог. Включайте на время, когда приходит новый сотрудник, и выключайте после его регистрации. Уже зарегистрированные работают как обычно.
           </div>
         </div>
         <div>
           <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 8 }}>Резервная копия</div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            <button className="btn btn-accent" onClick={exportFullBackup}>Скачать бэкап (JSON)</button>
+            <button className="btn btn-accent" onClick={exportFullBackup}>Скачать копию (зашифрованную)</button>
             <label className="btn" style={{ cursor: "pointer" }}>
               Восстановить из файла
               <input type="file" accept="application/json" style={{ display: "none" }} onChange={(e) => { if (e.target.files[0]) importFullBackup(e.target.files[0]); e.target.value = ""; }} />
             </label>
           </div>
           <div style={{ fontSize: 12, color: "var(--muted-2)", marginTop: 6 }}>
-            Бэкап включает всех сотрудников, записи, цены упаковки, историю цен, штрихкоды и настройки. Восстановление полностью заменяет текущие данные.
+            Копия включает сотрудников, записи, цены, товары, упаковку и её журнал, чат (без звука голосовых), журналы и настройки; зашифрована паролем резервных копий (раздел ниже). Восстановление принимает и зашифрованные копии (спросит пароль), и старые файлы. Восстановление полностью заменяет текущие данные.
           </div>
         </div>
 
@@ -231,7 +231,7 @@ export function AdminSettings(ctx) {
             <button className="btn" style={{ padding: "6px 10px", fontSize: 12 }} onClick={loadSnapshotsList}>Показать список</button>
           </div>
           <div style={{ fontSize: 12, color: "var(--muted-2)", marginBottom: 8 }}>
-            Приложение автоматически сохраняет копию данных раз в день (хранятся последние 14 дней) — на случай сбоя.
+            Сервер сохраняет копию раз в день внутри своей базы (последние 14 дней) — на случай ошибки в данных. От потери самой базы защищают копии вне Timeweb (раздел ниже). Скачиваются зашифрованными.
           </div>
           {snapshotsLoaded && (
             <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 10, padding: 12, maxHeight: 240, overflowY: "auto" }}>

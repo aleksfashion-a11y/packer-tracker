@@ -12,6 +12,7 @@ const { ensureBundle, appVersion } = require("./lib/build");
 const coll = require("./lib/collections");
 const { pgDriver } = require("./lib/rows-pg");
 const moySkladModule = require("./lib/moysklad");
+const backupModule = require("./lib/backup");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -377,8 +378,21 @@ function sendJSON(req, res, obj) {
   });
 }
 
+// Защитные заголовки: страницу нельзя встроить в чужой сайт (подмена кнопок), браузер грузит
+// скрипты только с нашего адреса, по https — только https (HSTS), адрес страницы не уходит
+// на чужие сайты. Картинки товаров — с любых адресов (фото Ozon, «Моего склада»).
+const CSP = [
+  "default-src 'self'", "script-src 'self'", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com data:", "img-src * data: blob:", "media-src 'self' data: blob:",
+  "connect-src 'self'", "worker-src 'self'", "manifest-src 'self'", "frame-ancestors 'none'", "base-uri 'self'", "form-action 'self'", "object-src 'none'",
+].join("; ");
 app.use((req, res, next) => {
   res.set("X-Content-Type-Options", "nosniff");
+  res.set("X-Frame-Options", "DENY");
+  res.set("Referrer-Policy", "same-origin");
+  res.set("Content-Security-Policy", CSP);
+  res.set("Permissions-Policy", "geolocation=(), payment=(), usb=()");
+  if (isHttps(req)) res.set("Strict-Transport-Security", "max-age=31536000");
   if (req.path.startsWith("/api/")) res.set("Cache-Control", "no-store");
   next();
 });
@@ -499,7 +513,7 @@ async function startSession(req, res, user) {
   await sessionsReady;
   const token = auth.newToken();
   const now = Date.now();
-  sessions.set(auth.sha256hex(token), { userId: user.id, createdAt: now, lastSeenAt: now });
+  sessions.set(auth.sha256hex(token), { userId: user.id, createdAt: now, lastSeenAt: now, device: auth.parseDevice(req.headers["user-agent"]) });
   await saveSessions();
   setSessionCookie(req, res, token);
 }
@@ -590,15 +604,19 @@ async function logLogin(req, user, method) {
 
 const normUsername = (s) => String(s || "").trim().toLowerCase();
 const normSecretWord = (s) => String(s || "").trim().toLowerCase();
-function checkNewPassword(password) {
-  if (typeof password !== "string" || password.length < auth.MIN_PASSWORD_LENGTH) {
-    throw new HttpError(400, `Пароль должен быть не короче ${auth.MIN_PASSWORD_LENGTH} символов`);
+// Длина нового пароля: администратор — от 8 символов, сотрудник — от 6. Уже заданные
+// пароли продолжают работать, правило действует при создании и смене пароля.
+const MIN_ADMIN_PASSWORD = 8, MIN_EMPLOYEE_PASSWORD = 6;
+function checkNewPassword(password, role) {
+  const min = role === "admin" ? MIN_ADMIN_PASSWORD : MIN_EMPLOYEE_PASSWORD;
+  if (typeof password !== "string" || password.length < min) {
+    throw new HttpError(400, `Пароль ${role === "admin" ? "администратора " : ""}должен быть не короче ${min} символов`);
   }
   if (password.length > 200) throw new HttpError(400, "Слишком длинный пароль");
 }
 async function isRegistrationOpen() {
   const settings = (await storeGetJSON("settings", {})) || {};
-  return settings.registrationOpen !== false;
+  return settings.registrationOpen === true; // по умолчанию закрыта: сотрудников заводит администратор
 }
 
 // ---------- Вход / регистрация / восстановление ----------
@@ -618,7 +636,7 @@ app.post("/api/auth/setup", wrap(async (req, res) => {
   const { name, username, password } = req.body || {};
   const uname = normUsername(username);
   if (!uname || !String(name || "").trim()) throw new HttpError(400, "Заполните все поля");
-  checkNewPassword(password);
+  checkNewPassword(password, "admin");
   const result = await mutateUsers(async (users) => {
     if (users.some((u) => u && u.role === "admin")) throw new HttpError(403, "Администратор уже создан — войдите под его логином");
     if (users.some((u) => u && u.username === uname)) throw new HttpError(400, "Такой логин уже занят");
@@ -665,7 +683,7 @@ app.post("/api/auth/register", wrap(async (req, res) => {
   const word = normSecretWord(secretWord);
   if (!(await isRegistrationOpen())) throw new HttpError(403, "Регистрация закрыта — обратитесь к администратору");
   if (!uname || !String(name || "").trim() || !word) throw new HttpError(400, "Заполните все поля, включая секретное слово");
-  checkNewPassword(password);
+  checkNewPassword(password, "employee");
   checkLimit(req, null);
   const result = await mutateUsers(async (users) => {
     if (!users.some((u) => u && u.role === "admin")) throw new HttpError(403, "Сначала нужно создать администратора");
@@ -711,8 +729,9 @@ app.post("/api/auth/recover/check", wrap(async (req, res) => {
 
 app.post("/api/auth/recover", wrap(async (req, res) => {
   const password = (req.body || {}).newPassword;
-  checkNewPassword(password);
+  checkNewPassword(password, "employee");
   const { user, method } = await findUserForRecovery(req);
+  checkNewPassword(password, user.role);
   const newHash = await auth.hashSecret(password);
   await mutateUsers(async (users) => ({ users: users.map((u) => (u.id === user.id ? { ...u, passwordHash: newHash } : u)) }));
   await dropSessionsOf([user.id]); // пароль сменён — на остальных устройствах нужно войти заново
@@ -721,6 +740,18 @@ app.post("/api/auth/recover", wrap(async (req, res) => {
   res.json({ user: access.userForSelf(user) });
 }));
 
+// Выйти на всех остальных устройствах (например, потерян телефон) — текущий вход остаётся
+app.post("/api/auth/logout-others", requireUser, wrap(async (req, res) => {
+  const before = [...sessions.values()].filter((s) => String(s.userId) === String(req.user.id)).length;
+  await dropSessionsOf([req.user.id], req.sessionHash);
+  res.json({ ok: true, closed: Math.max(0, before - 1) });
+}));
+app.get("/api/auth/sessions", requireUser, wrap(async (req, res) => {
+  const mine = [...sessions.entries()].filter(([, s]) => String(s.userId) === String(req.user.id))
+    .map(([h, s]) => ({ current: h === req.sessionHash, device: s.device || "", createdAt: s.createdAt || null, lastSeenAt: s.lastSeenAt || null }))
+    .sort((a, b) => (b.lastSeenAt || 0) - (a.lastSeenAt || 0));
+  res.json({ sessions: mine });
+}));
 app.post("/api/auth/logout", wrap(async (req, res) => {
   if (req.sessionHash) {
     sessions.delete(req.sessionHash);
@@ -743,7 +774,8 @@ app.post("/api/auth/secret", requireUser, wrap(async (req, res) => {
 
 app.post("/api/admin/users/:id/password", requireAdmin, wrap(async (req, res) => {
   const password = (req.body || {}).password;
-  checkNewPassword(password);
+  const target = (await getUsers()).find((u) => u && u.id === req.params.id);
+  checkNewPassword(password, target ? target.role : "employee");
   const hash = await auth.hashSecret(password);
   await mutateUsers(async (users) => {
     if (!users.some((u) => u.id === req.params.id)) throw new HttpError(404, "Сотрудник не найден");
@@ -768,7 +800,7 @@ app.post("/api/admin/admins", requireAdmin, wrap(async (req, res) => {
   const { name, username, password } = req.body || {};
   const uname = normUsername(username);
   if (!uname || !String(name || "").trim()) throw new HttpError(400, "Заполните все поля");
-  checkNewPassword(password);
+  checkNewPassword(password, "admin");
   await mutateUsers(async (users) => {
     if (users.some((u) => u && u.username === uname)) throw new HttpError(400, "Логин занят");
     const admin = secrets.withQrToken({ id: auth.newId(), username: uname, passwordHash: await auth.hashSecret(password), role: "admin", name: String(name).trim() }, auth.newToken());
@@ -846,8 +878,79 @@ async function readTableView(key, user) {
   return access.needsView(key, user) ? access.viewFor(key, value, user) : value;
 }
 
+// ===================== Журнал действий администратора =====================
+// Что менял администратор: раздел, сколько добавлено / изменено / удалено и чего именно
+// (названия первых позиций). Пишет только сервер, изменить журнал нельзя, хранится 3000 последних.
+const ADMIN_LOG_SECTIONS = {
+  users: "Сотрудники", entries: "Записи упаковки и смены", timerSessions: "Таймер", packagingOptions: "Цены за упаковку",
+  catalog: "Товары", customBarcodes: "Штрихкоды", productImages: "Фото товаров", packagingMaterials: "Упаковка (остатки)",
+  productPackagingLinks: "Привязка упаковки к товарам", packagingPurchaseRequest: "Заявка на закупку", settings: "Настройки",
+  messages: "Объявления", priceHistory: "История цен",
+};
+const ADMIN_LOG_MAX = 3000;
+function describeOps(key, ops) {
+  if (!ops || typeof ops !== "object") return null;
+  const label = (it, id) => {
+    if (it && typeof it === "object") {
+      const n = it.name || it.productName || it.label || it.username || it.title;
+      if (n) return String(n).slice(0, 60) + (it.sku !== undefined && it.name ? ` (арт. ${it.sku})` : "");
+      if (it.sku !== undefined) return "арт. " + it.sku;
+    }
+    return id !== undefined ? String(id).slice(0, 40) : "";
+  };
+  if (ops.kind === "replace") {
+    const v = ops.value;
+    const n = Array.isArray(v) ? v.length : v && typeof v === "object" ? Object.keys(v).length : 0;
+    return { summary: key === "settings" ? "настройки изменены" : `раздел записан целиком (${n} поз.)`, items: [] };
+  }
+  const up = ops.upsert || [], pa = ops.patch || [], rm = ops.remove || [], set = ops.set || {}, unset = ops.unset || [];
+  const parts = [];
+  if (up.length) parts.push(`добавлено/заменено ${up.length}`);
+  if (pa.length) parts.push(`изменено ${pa.length}`);
+  if (Object.keys(set).length) parts.push(`изменено ${Object.keys(set).length}`);
+  if (rm.length + unset.length) parts.push(`удалено ${rm.length + unset.length}`);
+  if (!parts.length) return null;
+  const items = [
+    ...up.map((u) => label(u.item)), ...pa.map((p) => label(p.set, p.id)),
+    ...Object.keys(set).map((k) => (key === "productPackagingLinks" || key === "productImages" ? "арт. " + k : k)),
+    ...rm.map((id) => "удалено: " + label(null, id)), ...unset.map((k) => "удалено: " + k),
+  ].filter(Boolean);
+  return { summary: parts.join(", "), items: items.slice(0, 6), more: Math.max(0, items.length - 6) };
+}
+async function logAdminAction(req, key, ops) {
+  try {
+    if (!req.user || !access.isAdmin(req.user) || !ADMIN_LOG_SECTIONS[key]) return;
+    const d = describeOps(key, ops);
+    if (!d) return;
+    const item = { id: auth.newId(), userId: req.user.id, userName: req.user.name, section: key, sectionName: ADMIN_LOG_SECTIONS[key], ...d, device: auth.parseDevice(req.headers["user-agent"]), timestamp: Date.now() };
+    if (usesTables("adminLog")) {
+      await withKeyLock("adminLog", () => tables.tx(async (t) => {
+        await coll.applyOps(t, "adminLog", { kind: "array", keyField: "id", upsert: [{ item }] });
+        await t.bump("adminLog");
+      }));
+    } else {
+      await withKeyLock("adminLog", async () => {
+        const log = (await storeGetJSON("adminLog", [])) || [];
+        log.push(item);
+        await storeSetJSON("adminLog", log.slice(-ADMIN_LOG_MAX));
+      });
+    }
+  } catch (e) { /* журнал не должен мешать работе */ }
+}
+app.get("/api/admin/action-log", requireAdmin, wrap(async (req, res) => {
+  const limit = Math.min(500, Math.max(1, parseInt(req.query.limit) || 200));
+  let rows;
+  if (usesTables("adminLog")) rows = (await tables.query("adminLog", { orderBy: "ts", desc: true, limit })).map((r) => r.data);
+  else rows = ((await storeGetJSON("adminLog", [])) || []).slice(-limit).reverse();
+  res.json({ rows });
+}));
+
 // Применение изменений к ключу — общий путь и для точечных изменений, и для замены целиком
 async function writeKey(req, key, ops) {
+  await writeKeyInner(req, key, ops);
+  await logAdminAction(req, key, ops);
+}
+async function writeKeyInner(req, key, ops) {
   if (isPrivateKey(key)) throw new HttpError(403, "Недостаточно прав");
   validateOps(ops);
   if (usesTables(key)) return writeTableKey(req, key, ops);
@@ -961,7 +1064,7 @@ app.put("/api/kv/:key", requireUser, wrap(async (req, res) => {
 
 app.delete("/api/kv/:key", requireAdmin, wrap(async (req, res) => {
   const key = req.params.key;
-  if (isPrivateKey(key) || key === "users" || key === "packagingMoves") throw new HttpError(403, "Недостаточно прав");
+  if (isPrivateKey(key) || key === "users" || key === "packagingMoves" || key === "adminLog") throw new HttpError(403, "Недостаточно прав");
   if (usesTables(key)) {
     await withKeyLock(key, () => tables.tx(async (t) => { await t.clear(key); await t.bump(key); }));
     return res.json({ key, deleted: true, shared: true });
@@ -1314,6 +1417,29 @@ async function encryptStoredSecrets() {
   }
 }
 setTimeout(encryptStoredSecrets, 3 * 1000);
+
+// Полная копия для отправки вне Timeweb и для скачивания: всё, что есть в ежедневном снимке, плюс
+// чат (без звука голосовых), журнал движений упаковки, журналы входов и действий администратора.
+// Из сотрудников убираются QR-коды (они зашифрованы ключом этого сервера и в копии бесполезны).
+function sanitizeBackupData(d) {
+  if (Array.isArray(d.users)) d.users = d.users.map((u) => { if (!u || typeof u !== "object") return u; const { qrToken, qrTokenEnc, qrTokenHash, ...rest } = u; return rest; });
+  if (Array.isArray(d.chatMessages)) d.chatMessages = d.chatMessages.map((m) => {
+    if (!m || !m.audio) return m;
+    const { audio, ...rest } = m;
+    return { ...rest, text: rest.text || "🎤 голосовое сообщение (звук в резервную копию не входит)" };
+  });
+  return d;
+}
+async function buildBackupData() {
+  await dataReady;
+  const data = { exportedAt: new Date().toISOString(), app: "Складской учёт", appVersion: appVersion() };
+  for (const k of [...SNAPSHOT_KEYS, "chatMessages", "packagingMoves", "loginLog", "adminLog"]) {
+    const v = await storeGetJSON(k, undefined);
+    if (v !== undefined) data[k] = v;
+  }
+  return sanitizeBackupData(data);
+}
+backupModule.register(app, { requireAdmin, wrap, HttpError, storeGetJSON: async (k, f) => { const v = await storeGetJSON(k, f); return /^snapshot:/.test(k) && v ? sanitizeBackupData(v) : v; }, storeSetJSON, secrets, buildBackupData, moscowDateStr, dataReady });
 
 const snapshotTimer = setInterval(ensureDailySnapshot, 30 * 60 * 1000);
 if (snapshotTimer.unref) snapshotTimer.unref();

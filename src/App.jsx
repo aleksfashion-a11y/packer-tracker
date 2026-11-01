@@ -14,6 +14,7 @@ import { AdminChat, AdminMessages } from "./screens/admin-messages.jsx";
 import { AdminOverview } from "./screens/admin-overview.jsx";
 import { AdminProducts } from "./screens/admin-products.jsx";
 import { AdminSettings, ApiKeysSection, MoySkladSection } from "./screens/admin-settings.jsx";
+import { BackupSecuritySection } from "./screens/backup-security.jsx";
 import { AdminStock } from "./screens/admin-stock.jsx";
 import { LoginScreen, SetupScreen } from "./screens/auth.jsx";
 import { EmployeeChat, EmployeeStock } from "./screens/employee-stock.jsx";
@@ -117,7 +118,7 @@ export default function App() {
 
   const [currentUser, setCurrentUser] = useState(null);
   const [serverHasAdmin, setServerHasAdmin] = useState(true); // есть ли уже администратор (сообщает сервер)
-  const [registrationOpen, setRegistrationOpen] = useState(true); // разрешена ли самостоятельная регистрация
+  const [registrationOpen, setRegistrationOpen] = useState(false); // разрешена ли самостоятельная регистрация
   const [authBusy, setAuthBusy] = useState(false);
   const [recoverName, setRecoverName] = useState("");
   const [authMode, setAuthMode] = useState("login");
@@ -378,7 +379,7 @@ export default function App() {
     setAdminQuickReplies(settings.adminQuickReplies || DEFAULT_ADMIN_QUICK_REPLIES);
     setEmployeeQuickReplies(settings.employeeQuickReplies || DEFAULT_EMPLOYEE_QUICK_REPLIES);
     setShowChatReadReceipts(settings.showChatReadReceipts !== false);
-    setRegistrationOpen(settings.registrationOpen !== false);
+    setRegistrationOpen(settings.registrationOpen === true);
     setPackagingWorks(resolvePackagingWorks(settings));
     setPackagingWorksHidden(Array.isArray(settings.packagingWorksHidden) ? settings.packagingWorksHidden : []);
     applyPackagingTypes(settings.packagingTypesCustom);
@@ -502,7 +503,7 @@ export default function App() {
       try { authState = await api("/api/auth/state"); } catch (e) { authState = null; }
       if (authState) {
         setServerHasAdmin(authState.hasAdmin !== false);
-        setRegistrationOpen(authState.registrationOpen !== false);
+        setRegistrationOpen(authState.registrationOpen === true);
         if (authState.user) {
           setCurrentUser(authState.user);
           await safeSet("session", authState.user.id, false);
@@ -645,42 +646,32 @@ export default function App() {
     URL.revokeObjectURL(url);
   };
 
-  const exportFullBackup = async () => {
-    // Хеши паролей в обычных данных приложения больше не передаются — для резервной
-    // копии запрашиваем их отдельно, чтобы после восстановления сотрудники могли войти
-    let usersForBackup = users;
+  // Скачать копию (сейчас или ежедневный снимок) — сервер отдаёт её зашифрованной паролем
+  // резервных копий («Настройки → Резервные копии вне Timeweb»)
+  const downloadEncryptedBackup = async (snapshot) => {
     try {
-      const { secrets } = await api("/api/admin/user-secrets");
-      usersForBackup = users.map((u) => {
-        const sec = secrets[u.id] || {};
-        const out = { ...u };
-        if (sec.passwordHash) out.passwordHash = sec.passwordHash;
-        if (sec.secretWordHash) out.secretWordHash = sec.secretWordHash; else delete out.secretWordHash;
-        return out;
-      });
-    } catch (e) {
-      setToast("Не удалось получить данные для бэкапа: " + e.message);
-      return;
-    }
-    // В приложении загружена только часть записей и чата (за последнее время, чат — без
-    // звука голосовых) — для бэкапа запрашиваем всё целиком
-    let allEntries, fullChat;
-    try {
-      allEntries = (await api("/api/entries")).rows;
-      try { fullChat = JSON.parse((await window.storage.get("chatMessages", true)).value); }
-      catch (e) { if (e && e.status === 404) fullChat = []; else throw e; }
-    } catch (e) {
-      setToast("Не удалось получить данные для бэкапа: " + (e.message || "нет связи"));
-      return;
-    }
-    const backup = {
-      exportedAt: new Date().toISOString(),
-      users: usersForBackup, packagingOptions, entries: allEntries, timerSessions, priceHistory, customBarcodes,
-      catalog, productImages, packagingMaterials, productPackagingLinks, packagingPurchaseRequest, messages, chatMessages: fullChat,
-      settings: { currency, showEmployeeTotals, showTimerTab, showChartDaily, showChartEmployees, showChartTopProducts, showChartComparison, showChartHeatmap, enabledAdminTabs, adminQuickReplies, employeeQuickReplies, showChatReadReceipts, registrationOpen },
-    };
-    downloadJson(backup, `backup_${todayStr()}.json`);
-    setToast("Резервная копия скачана");
+      const r = await serverFetch("/api/admin/backup/download", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(snapshot ? { snapshot } : {}) });
+      if (!r.ok) { let m = "ошибка " + r.status; try { m = (await r.json()).error || m; } catch (e) {} throw new Error(m); }
+      const blob = await r.blob();
+      const name = ((r.headers.get("Content-Disposition") || "").match(/filename="([^"]+)"/) || [])[1] || "sklad-uchet-backup.json";
+      const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      setToast("Зашифрованная копия скачана");
+    } catch (e) { setToast("Не удалось скачать копию: " + e.message); }
+  };
+  const exportFullBackup = () => downloadEncryptedBackup(null);
+
+  // Расшифровка копии в браузере: PBKDF2-SHA256 → AES-256-GCM → gzip (тот же способ, что на сервере, lib/backup.js)
+  const decryptBackupFile = async (file, password) => {
+    const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+    if (!window.crypto || !window.crypto.subtle) throw new Error("Браузер не умеет расшифровывать (нужно открыть приложение по https)");
+    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
+    const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: b64(file.salt), iterations: file.iterations, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+    let plain;
+    try { plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64(file.iv) }, key, b64(file.data)); }
+    catch (e) { throw new Error("Неверный пароль резервных копий"); }
+    const text = await new Response(new Blob([plain]).stream().pipeThrough(new DecompressionStream("gzip"))).text();
+    return JSON.parse(text);
   };
 
   const replaceShared = async (key, value) => {
@@ -691,7 +682,13 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const data = JSON.parse(e.target.result);
+        let data = JSON.parse(e.target.result);
+        if (data && data.format === "sklad-uchet-backup") {
+          const password = window.prompt("Копия зашифрована. Введите пароль резервных копий:");
+          if (!password) return;
+          try { data = await decryptBackupFile(data, password); }
+          catch (err) { setToast(err.message || "Не удалось расшифровать копию"); return; }
+        }
         if (!data.users || !Array.isArray(data.users)) throw new Error("bad shape");
         askConfirm("Восстановить данные из этого файла? Текущие данные (сотрудники, записи, цены) будут заменены.", async () => {
           await persistUsers(data.users || []);
@@ -729,14 +726,7 @@ export default function App() {
     setSnapshotsLoaded(true);
   };
 
-  const downloadSnapshot = async (key) => {
-    try {
-      const res = await window.storage.get(key, true);
-      if (!res) return;
-      const data = JSON.parse(res.value);
-      downloadJson(data, `${key.replace(":", "_")}.json`);
-    } catch (e) { setToast("Не удалось скачать снэпшот"); }
-  };
+  const downloadSnapshot = (key) => downloadEncryptedBackup(key);
 
   const persistUsers = async (next) => { setUsers(next); await safeSet("users", next, true, users); };
   const toggleMyIncognito = async (checked) => {
@@ -2030,7 +2020,7 @@ export default function App() {
   };
   const doRecoverSubmit = async () => {
     setAuthError("");
-    if (!recoverPassword || recoverPassword.length < 4) { setAuthError("Пароль должен быть не короче 4 символов"); return; }
+    if (!recoverPassword || recoverPassword.length < 6) { setAuthError("Пароль должен быть не короче 6 символов"); return; }
     if (recoverPassword !== recoverPassword2) { setAuthError("Пароли не совпадают"); return; }
     const res = await authCall("/api/auth/recover", { ...recoverProof(), newPassword: recoverPassword });
     if (!res) return;
@@ -2046,7 +2036,7 @@ export default function App() {
       setAuthError("Заполните все поля, включая секретное слово");
       return;
     }
-    if (regPassword.length < 4) { setAuthError("Пароль должен быть не короче 4 символов"); return; }
+    if (regPassword.length < 6) { setAuthError("Пароль должен быть не короче 6 символов"); return; }
     if (regPassword !== regPassword2) {
       setAuthError("Пароли не совпадают");
       return;
@@ -3189,6 +3179,7 @@ export default function App() {
 
             {adminTab === "settings" && MoySkladSection({ msStatus, msHistory, msBaseUrl, setMsBaseUrl, msApiKey, setMsApiKey, msEditing, setMsEditing, msBusy, saveMsCredentials, removeMsCredentials, syncMs, undoMsSync })}
             {adminTab === "settings" && AdminSettings({ addAdminQuickReply, addEmployeeQuickReply, adminQuickReplies, currency, currentUser, downloadSnapshot, employeeQuickReplies, enabledAdminTabs, exportFullBackup, exportOzonSyncToExcel, importFullBackup, loadSnapshotsList, loginLog, newEmployeeQuickReply, newQuickReply, ozonApiKey, ozonClientId, ozonEditingCreds, ozonHistory, ozonStatus, ozonSyncing, ozonUndoing, persistSettings, registrationOpen, removeAdminQuickReply, removeEmployeeQuickReply, removeOzonCredentials, saveOzonCredentials, setNewEmployeeQuickReply, setNewQuickReply, setOzonApiKey, setOzonClientId, setOzonEditingCreds, setShowLoginLog, showChartComparison, showChartDaily, showChartEmployees, showChartHeatmap, showChartTopProducts, showChatReadReceipts, showEmployeeTotals, showLoginLog, showTimerTab, snapshotKeys, snapshotsLoaded, syncOzonCatalog, t, toggleAdminTabEnabled, toggleMyIncognito, undoOzonSync })}
+            {adminTab === "settings" && <BackupSecuritySection setToast={setToast} askConfirm={askConfirm} />}
             {adminTab === "settings" && ApiKeysSection({ apiKeys, apiKeyName, setApiKeyName, apiKeyCreated, setApiKeyCreated, createApiKey, deleteApiKey, setToast })}
           </>
         ) : (
