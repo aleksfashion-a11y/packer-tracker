@@ -811,6 +811,29 @@ app.post("/api/admin/admins", requireAdmin, wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+// Администратор заводит упаковщика сам (без самостоятельной регистрации): имя, логин, пароль,
+// по желанию секретное слово и ставка за час. Дальше сотрудник входит этим логином/паролем или по QR.
+app.post("/api/admin/employees", requireAdmin, wrap(async (req, res) => {
+  const { name, username, password, secretWord, hourlyRate } = req.body || {};
+  const uname = normUsername(username);
+  if (!uname || !String(name || "").trim()) throw new HttpError(400, "Укажите имя и логин");
+  if (!/^[a-zа-яё0-9._-]{2,40}$/i.test(uname)) throw new HttpError(400, "Логин — от 2 символов: буквы, цифры, точка, дефис, подчёркивание, без пробелов");
+  checkNewPassword(password, "employee");
+  const word = normSecretWord(secretWord);
+  const rate = Math.max(0, Number(String(hourlyRate || "0").replace(",", ".")) || 0);
+  const result = await mutateUsers(async (users) => {
+    if (users.some((u) => u && u.username === uname)) throw new HttpError(400, "Такой логин уже занят");
+    const user = secrets.withQrToken({
+      id: auth.newId(), username: uname, passwordHash: await auth.hashSecret(password),
+      ...(word ? { secretWordHash: await auth.hashSecret(word) } : {}),
+      role: "employee", name: String(name).trim().slice(0, 100), hourlyRate: rate, timerEnabled: false, barcodeAddEnabled: false,
+    }, auth.newToken());
+    return { users: [...users, user], user };
+  });
+  await logAdminAction(req, "users", { kind: "array", upsert: [{ item: { name: result.user.name + " (новый упаковщик, логин " + uname + ")" } }] });
+  res.json({ ok: true, id: result.user.id });
+}));
+
 // Хеши паролей и секретных слов — только для файла резервной копии (чтобы после
 // восстановления из бэкапа на чистой базе сотрудники могли войти со своими паролями)
 app.get("/api/admin/user-secrets", requireAdmin, wrap(async (req, res) => {
