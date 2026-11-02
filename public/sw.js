@@ -78,6 +78,11 @@ self.addEventListener("fetch", (event) => {
   // разберётся с этим сама.
   if (url.pathname.startsWith("/api/")) return;
   if (req.method !== "GET") return;
+  // Чужие адреса (фото товаров с Ozon, «Моего склада», шрифты Google) — не трогаем: браузер грузит
+  // их сам, как обычно. Раньше сервис-воркер пропускал их через себя, и после защитных
+  // заголовков 3.20.0 (сервис-воркеру разрешено обращаться только к своему серверу) фото
+  // перестали загружаться. К тому же каждое фото оседало в кэше оболочки.
+  if (url.origin !== self.location.origin) return;
 
   event.respondWith(
     fetchWithTimeout(req, NETWORK_TIMEOUT_MS)

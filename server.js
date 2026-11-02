@@ -390,7 +390,9 @@ app.use((req, res, next) => {
   res.set("X-Content-Type-Options", "nosniff");
   res.set("X-Frame-Options", "DENY");
   res.set("Referrer-Policy", "same-origin");
-  res.set("Content-Security-Policy", CSP);
+  // Для самого сервис-воркера (/sw.js) правила не ставим: они распространились бы на все его
+  // сетевые запросы. Он и так обслуживает только наш адрес.
+  if (req.path !== "/sw.js") res.set("Content-Security-Policy", CSP);
   res.set("Permissions-Policy", "geolocation=(), payment=(), usb=()");
   if (isHttps(req)) res.set("Strict-Transport-Security", "max-age=31536000");
   if (req.path.startsWith("/api/")) res.set("Cache-Control", "no-store");
